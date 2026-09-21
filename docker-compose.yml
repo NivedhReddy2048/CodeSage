@@ -1,0 +1,36 @@
+# LOCAL DEVELOPMENT ONLY.
+# Production uses Neon (Postgres + pgvector) and Upstash (Redis) — see spec section 10.
+
+services:
+  postgres:
+    # pgvector ships the extension preinstalled, so no build step is needed.
+    image: pgvector/pgvector:pg17
+    container_name: codesage-postgres
+    environment:
+      POSTGRES_USER: codesage
+      POSTGRES_PASSWORD: codesage
+      POSTGRES_DB: codesage
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-pgvector.sql:/docker-entrypoint-initdb.d/init-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codesage -d codesage"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: codesage-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:

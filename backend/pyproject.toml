@@ -1,0 +1,13 @@
+[tool.ruff]
+line-length = 100
+target-version = "py313"
+extend-exclude = [".venv", "migrations", "staticfiles"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "DJ"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "core.settings"
+python_files = ["test_*.py", "tests.py"]
+testpaths = ["tests", "apps"]
+addopts = "-q"
