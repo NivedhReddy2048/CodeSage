@@ -10,4 +10,23 @@ select = ["E", "F", "I", "UP", "B", "DJ"]
 DJANGO_SETTINGS_MODULE = "core.settings"
 python_files = ["test_*.py", "tests.py"]
 testpaths = ["tests", "apps"]
-addopts = "-q"
+addopts = "-q --cov --cov-report=term-missing:skip-covered"
+
+[tool.coverage.run]
+source = ["apps", "core"]
+omit = [
+    "*/migrations/*",
+    "*/tests.py",
+    "*/test_*.py",
+    # Server entrypoints: executed by daphne/gunicorn, not by the test suite.
+    "core/asgi.py",
+    "core/wsgi.py",
+    "manage.py",
+]
+
+[tool.coverage.report]
+# Set below the current figure so ordinary fluctuation does not fail CI, but high
+# enough that a phase landing untested code does.
+fail_under = 90
+show_missing = true
+skip_covered = true
