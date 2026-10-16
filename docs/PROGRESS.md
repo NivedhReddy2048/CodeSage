@@ -46,6 +46,9 @@ Three standing rules, spelled out in full in [BUILD_PROMPTS.md](BUILD_PROMPTS.md
 - **2-3 PRs per phase**, each with its own issue and real tested changes — never an
   empty PR raised to inflate a count.
 - **Fast merges.** Verify before opening, then open and merge within a couple of minutes.
+- **LF line endings**, enforced by `.gitattributes` (`* text=auto eol=lf`). Windows
+  tooling here writes CRLF, which made git report whole-file rewrites for one-line
+  changes; normalising removes that noise and matches the Linux deploy target.
 
 ---
 
@@ -56,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | 2 merged PRs (bronze), **16** (silver) | **1 / 16 merged** |
+| **Pull Shark** | 2 merged PRs (bronze), **16** (silver) | **2 / 16 merged** (bronze earned) |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Not pursued** — see note below |
