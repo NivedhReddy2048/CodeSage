@@ -10,7 +10,7 @@ pull requests, each closing its own issue. Architecture lives in
 | # | Phase | Branches | Status |
 |---|---|---|---|
 | 0 | Scaffold | `phase-0-scaffold` (squashed) | **Done** |
-| 1 | Auth | `phase-1a` backend, `1b` frontend, `1c` tests | **In progress** (1a, 1b done) |
+| 1 | Auth | `phase-1a` backend, `1b` frontend, `1c` tests | **Done** |
 | 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | Not started |
 | 3 | Ingestion | `phase-3a` chunk+embed, `3b` status UI | Not started |
 | 4 | Agent pipeline v1 | `phase-4a` models, `4b` pipeline, `4c` PR comment | Not started |
@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **3 / 16 toward bronze** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **5 / 16 toward bronze** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -76,7 +76,11 @@ once, listed "claude" as a repository contributor.
 
 ## Phase 1 — Auth
 
-**Status:** In progress — 1a and 1b merged, 1c to come.
+**Status:** Done — 1a, 1b and 1c merged.
+
+GitHub OAuth login works end to end: sign in at `/login`, land on an authenticated
+shell listing your organisations. 51 backend tests, 100% statement coverage of the
+measured backend code.
 
 ### 1a — backend auth models + OAuth endpoints
 
@@ -98,6 +102,27 @@ stores the JWT pair), and `/` (an authenticated shell listing the signed-in user
 their organisations, with sign-out). Sidebar, org switcher, command palette and dark
 mode are all phase 6.
 
+### 1c — test hardening and coverage
+
+Unit tests for `apps/accounts/github.py`, which every other test had stubbed out
+wholesale and so had no coverage of its own. `requests` is mocked at the transport
+level instead, so the real parsing and error handling runs. Plus Membership/RBAC
+model tests and a query-count regression test on the org listing.
+
+Coverage reporting is wired into `pytest` via `addopts`, with `fail_under = 90`
+(currently 100%) so a later phase cannot land untested code silently. Entrypoints
+(`asgi.py`, `wsgi.py`, `manage.py`) and migrations are excluded — they are executed by
+the server, not the suite.
+
+### Known gap
+
+**The frontend has no test runner.** It is covered by `npm run lint` (including the
+React Compiler rules) and a type-checked `npm run build`, but there are no component
+tests. Choosing and wiring one (vitest or jest, plus React Testing Library) is a
+decision worth making deliberately rather than slipping into a phase-1 PR. The UI
+that matters — the PR review view — arrives in phase 6, which is the natural place
+for it.
+
 ### Decisions worth recording
 
 - **The OAuth redirect lands on the frontend, not the backend.** GitHub sends the
@@ -117,6 +142,18 @@ mode are all phase 6.
 - **CI gained its Postgres service here, not in 1c.** The suggested split put it with
   the tests, but the first real models land in 1a and its tests need a database, so
   the service container had to come with them to keep CI green.
+- **The GitHub token exchange checks the payload, not just the status code.** A bad
+  or reused OAuth code comes back as HTTP 200 with an `error` field, so a status-only
+  check would hand a missing token to the caller. There is a test for exactly this.
+- **A tampered `state` must prevent the exchange, not just fail after it.** The test
+  asserts the exchange function is never called, since that is the actual CSRF
+  guarantee.
+- **The org listing has a query-count test.** The `Subquery` annotation exists to
+  avoid N+1; the test proves one organisation and seven organisations cost the same
+  two queries, so a later refactor cannot quietly regress it.
+- **The dev `DJANGO_SECRET_KEY` placeholder was lengthened to 32+ characters.** PyJWT
+  warns below that for HS256, and the phase-0 placeholder was 26. Fixed in
+  `.env.example` and the settings fallback.
 - **Concurrent 401s share one refresh.** The backend has
   `ROTATE_REFRESH_TOKENS` on, so two racing refreshes would invalidate each other.
   The API client keeps a single in-flight refresh promise that all callers await.
