@@ -1,0 +1,43 @@
+# Normalise all text files to LF in the repository.
+#
+# Why: Windows tooling here writes CRLF (ruff format, and Python's default text-mode
+# write translation), while other tools write LF. Mixing the two makes git report
+# whole-file rewrites for one-line changes, which hides real diffs. The backend also
+# deploys to Linux, so LF is the correct storage form.
+#
+# "text=auto" lets git detect text vs binary; "eol=lf" forces LF in the index AND in
+# the working tree on every platform, so a Windows checkout does not reintroduce CRLF.
+* text=auto eol=lf
+
+# Binary files: never normalise, never attempt a textual diff.
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.bmp binary
+*.pdf binary
+
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.otf binary
+*.eot binary
+
+*.zip binary
+*.gz binary
+*.tgz binary
+*.bz2 binary
+*.7z binary
+
+*.pyc binary
+*.pdb binary
+*.so binary
+*.dylib binary
+*.dll binary
+*.exe binary
+
+# SVG is text (XML) and benefits from real diffs, so it is intentionally left to the
+# text=auto rule above rather than marked binary.
