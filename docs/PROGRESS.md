@@ -10,7 +10,7 @@ pull requests, each closing its own issue. Architecture lives in
 | # | Phase | Branches | Status |
 |---|---|---|---|
 | 0 | Scaffold | `phase-0-scaffold` (squashed) | **Done** |
-| 1 | Auth | `phase-1a` backend, `1b` frontend, `1c` tests | **In progress** (1a done) |
+| 1 | Auth | `phase-1a` backend, `1b` frontend, `1c` tests | **In progress** (1a, 1b done) |
 | 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | Not started |
 | 3 | Ingestion | `phase-3a` chunk+embed, `3b` status UI | Not started |
 | 4 | Agent pipeline v1 | `phase-4a` models, `4b` pipeline, `4c` PR comment | Not started |
@@ -76,7 +76,7 @@ once, listed "claude" as a repository contributor.
 
 ## Phase 1 — Auth
 
-**Status:** In progress — 1a merged, 1b and 1c to come.
+**Status:** In progress — 1a and 1b merged, 1c to come.
 
 ### 1a — backend auth models + OAuth endpoints
 
@@ -88,6 +88,15 @@ caller's organisations with their role. 17 tests, GitHub fully mocked.
 
 Endpoints: `GET /api/auth/github/start/`, `POST /api/auth/github/callback/`,
 `POST /api/auth/token/refresh/`, `GET /api/auth/me/`, `GET /api/orgs/`.
+
+### 1b — frontend login, callback and authenticated shell
+
+A typed API client over `fetch` with one-shot token refresh, token storage that
+tolerates blocked storage, an auth context, and three routes: `/login`
+("Continue with GitHub"), `/auth/callback` (verifies state, exchanges the code,
+stores the JWT pair), and `/` (an authenticated shell listing the signed-in user and
+their organisations, with sign-out). Sidebar, org switcher, command palette and dark
+mode are all phase 6.
 
 ### Decisions worth recording
 
@@ -108,6 +117,23 @@ Endpoints: `GET /api/auth/github/start/`, `POST /api/auth/github/callback/`,
 - **CI gained its Postgres service here, not in 1c.** The suggested split put it with
   the tests, but the first real models land in 1a and its tests need a database, so
   the service container had to come with them to keep CI green.
+- **Concurrent 401s share one refresh.** The backend has
+  `ROTATE_REFRESH_TOKENS` on, so two racing refreshes would invalidate each other.
+  The API client keeps a single in-flight refresh promise that all callers await.
+- **JWTs live in `localStorage`, not cookies.** The backend is on a different origin
+  from the frontend (Render vs Vercel) and issues bearer tokens, so there is no
+  same-site cookie to lean on. The tradeoff is real — any injected script can read
+  them — and is mitigated by a 30 minute access token lifetime.
+- **The OAuth code exchange is guarded against React Strict Mode.** Effects run twice
+  in development and an OAuth code is single-use, so the second exchange would fail
+  with a confusing error. A ref makes it run once.
+- **State updates in effects happen in promise callbacks, never synchronously.** The
+  React Compiler lint rules reject synchronous `setState` in an effect body; the
+  validation and exchange logic moved into async functions so the callback page and
+  auth provider comply rather than suppressing the rule.
+- **`frontend/.gitignore` needed a negation for `.env.local.example`.** Its blanket
+  `.env*` rule would have silently excluded the file that documents the required
+  variables.
 - **`AUTH_USER_MODEL` was changed after phase 0 had already migrated.** The local dev
   database was dropped and recreated; nothing was deployed and no real data existed.
   A fresh clone is unaffected.
