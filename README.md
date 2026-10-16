@@ -49,10 +49,14 @@ Serves on http://localhost:8000 — health check at `/api/health/`, Swagger at `
 ```bash
 cd frontend
 npm install
+cp .env.local.example .env.local
 npm run dev
 ```
 
-Serves on http://localhost:3000.
+Serves on http://localhost:3000. `NEXT_PUBLIC_API_URL` in `.env.local` points at the
+backend (`http://localhost:8000` locally, the Render URL in production).
+
+Sign in at http://localhost:3000/login once the OAuth App below is configured.
 
 ## GitHub OAuth App (needed to sign in)
 
