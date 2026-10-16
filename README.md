@@ -54,6 +54,33 @@ npm run dev
 
 Serves on http://localhost:3000.
 
+## GitHub OAuth App (needed to sign in)
+
+Login goes through a GitHub OAuth App. This is **not** the GitHub App that posts PR
+reviews — that one is separate and arrives in phase 2 (spec §13).
+
+1. GitHub → Settings → Developer settings → **OAuth Apps** → *New OAuth App*.
+2. Fill in:
+   - **Application name**: `CodeSage (local)`
+   - **Homepage URL**: `http://localhost:3000`
+   - **Authorization callback URL**: `http://localhost:3000/auth/callback`
+3. Generate a client secret, then put both values in `backend/.env`:
+
+   ```
+   GITHUB_CLIENT_ID=Iv1....
+   GITHUB_CLIENT_SECRET=....
+   GITHUB_OAUTH_REDIRECT_URI=http://localhost:3000/auth/callback
+   ```
+
+The callback URL points at the **frontend**, not the backend. GitHub redirects the
+browser there, the SPA reads the `code` from the query string and POSTs it to
+`/api/auth/github/callback/`, and the backend returns the JWT pair in the response
+body. Routing the redirect through the backend instead would mean handing the tokens
+back through a URL, where they end up in browser history and server logs.
+
+`GITHUB_OAUTH_REDIRECT_URI` must match the registered callback URL character for
+character, or GitHub rejects the exchange with `redirect_uri_mismatch`.
+
 ## Checks
 
 ```bash

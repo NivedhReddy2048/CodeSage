@@ -1,9 +1,11 @@
 # Runtime dependencies. Pinned so CI, local dev and Render resolve identically.
 django==6.1.1
 djangorestframework==3.18.1
+djangorestframework-simplejwt==5.5.1
 channels[daphne]==4.3.2
 channels-redis==4.3.0
 django-cors-headers==4.9.0
 django-environ==0.14.0
 drf-spectacular==0.30.0
 psycopg[binary]==3.3.6
+requests==2.34.2
