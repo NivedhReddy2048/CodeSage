@@ -1,22 +1,25 @@
 # CodeSage — Build Progress
 
-Single source of truth for where the build stands. Each phase is built on its own
-branch and merged to `main` with `--no-ff`. Architecture lives in
+Single source of truth for where the build stands. Each phase ships as 2-3 focused
+pull requests, each closing its own issue. Architecture lives in
 [PROJECT_SPEC.md](PROJECT_SPEC.md); the per-phase prompts live in
 [BUILD_PROMPTS.md](BUILD_PROMPTS.md).
 
 ## Phase checklist
 
-| # | Phase | Branch | Status |
+| # | Phase | Branches | Status |
 |---|---|---|---|
-| 0 | Scaffold | `phase-0-scaffold` | **Done** |
-| 1 | Auth | `phase-1-auth` | Next |
-| 2 | Repo connection | `phase-2-repos` | Not started |
-| 3 | Ingestion | `phase-3-ingestion` | Not started |
-| 4 | Agent pipeline v1 | `phase-4-agent-v1` | Not started |
-| 5 | Full 6-agent pipeline | `phase-5-full-pipeline` | Not started |
-| 6 | Realtime + polish | `phase-6-realtime-ui` | Not started |
-| 7 | Deploy + CI | `phase-7-deploy` | Not started |
+| 0 | Scaffold | `phase-0-scaffold` (squashed) | **Done** |
+| 1 | Auth | `phase-1a` backend, `1b` frontend, `1c` tests | Next |
+| 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | Not started |
+| 3 | Ingestion | `phase-3a` chunk+embed, `3b` status UI | Not started |
+| 4 | Agent pipeline v1 | `phase-4a` models, `4b` pipeline, `4c` PR comment | Not started |
+| 5 | Full 6-agent pipeline | `phase-5a` agents, `5b` RAG, `5c` synthesis | Not started |
+| 6 | Realtime + polish | `phase-6a` realtime, `6b` analytics, `6c` UI shell | Not started |
+| 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Not started |
+| 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
+
+Phase 8 depends only on Phase 5, so it can be built before or after Phase 7.
 
 ---
 
@@ -26,10 +29,45 @@ Phase 0 (the project spec, the build prompts and the whole scaffold) was squashe
 into a single commit on `main` to keep the repository's contributor history clean.
 The phase-branch history from the original build was discarded along with it.
 
-From Phase 1 onward the repository follows the standard workflow in
-[BUILD_PROMPTS.md](BUILD_PROMPTS.md): branch off `main` as `phase-N-<slug>`, commit
-the phase's work, then merge back with `git merge --no-ff` so each phase stays
-visible as its own merge commit in `git log --graph`.
+From Phase 1 onward every change lands through a **pull request**, not a local merge:
+
+1. `gh issue create` describing the work.
+2. Branch off latest `main` as `phase-N<letter>-<slug>` (e.g. `phase-1a-auth-backend`).
+3. Build and **fully verify** the work on the branch — tests, lint, manual check.
+4. `gh pr create` with `Closes #<issue number>` in the body.
+5. `gh pr merge --merge --delete-branch` — a real merge commit, never a squash, so each
+   PR stays visible in `git log --graph`.
+6. `git checkout main && git pull`.
+
+Three standing rules, spelled out in full in [BUILD_PROMPTS.md](BUILD_PROMPTS.md):
+
+- **No AI attribution.** No `Co-Authored-By` trailers in commits, no "generated with"
+  lines in issues or PRs. This repository reads as solo work.
+- **2-3 PRs per phase**, each with its own issue and real tested changes — never an
+  empty PR raised to inflate a count.
+- **Fast merges.** Verify before opening, then open and merge within a couple of minutes.
+
+---
+
+## GitHub achievements
+
+Tracked as a side effect of the PR workflow above, not as a reason to create busywork —
+every PR must still be real, tested work.
+
+| Achievement | Requirement | Status |
+|---|---|---|
+| **Pull Shark** | 2 merged PRs (bronze), **16** (silver) | **1 / 16 merged** |
+| **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
+| **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
+| **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Not pursued** — see note below |
+| **Starstruck** | 16 stars on a repository | After launch |
+
+**Pair Extraordinaire note.** This one needs `Co-Authored-By` trailers naming a *real*
+collaborator. Adding an AI co-author trailer to earn it would contradict the no-AI-attribution
+rule and, when it was tried once, listed "claude" as a repository contributor. So it stays
+unearned unless an actual person collaborates on a commit.
+
+**Update the merged-PR count in this table in each phase's last PR.**
 
 ---
 
