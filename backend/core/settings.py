@@ -5,6 +5,7 @@ differs between environments comes from an environment variable, so the Phase 7
 production deploy only needs to supply env vars, not a different settings file.
 """
 
+from datetime import timedelta
 from pathlib import Path
 
 import environ
@@ -37,6 +38,7 @@ DJANGO_APPS = [
 
 THIRD_PARTY_APPS = [
     "rest_framework",
+    "rest_framework_simplejwt",
     "corsheaders",
     "drf_spectacular",
     "channels",
@@ -123,13 +125,43 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+# Login is GitHub-only, so the user model carries a github_id instead of relying on
+# username as identity. Set before the first migration of this project's own apps.
+AUTH_USER_MODEL = "accounts.User"
+
 # DRF + OpenAPI
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    "DEFAULT_AUTHENTICATION_CLASSES": [],
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
     "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAuthenticated"],
 }
+
+# Signed with JWT_SIGNING_KEY rather than DJANGO_SECRET_KEY, so rotating one does not
+# invalidate the other. Falls back to SECRET_KEY to keep local setup to one variable.
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "SIGNING_KEY": env("JWT_SIGNING_KEY", default=SECRET_KEY),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
+}
+
+# GitHub OAuth App — user login only. The GitHub App that owns webhooks and PR
+# comments is separate and arrives in phase 2 (spec section 13).
+GITHUB_CLIENT_ID = env("GITHUB_CLIENT_ID", default="")
+GITHUB_CLIENT_SECRET = env("GITHUB_CLIENT_SECRET", default="")
+
+# Where GitHub sends the browser after the user authorises. This is a FRONTEND route,
+# not a backend one: the SPA reads the code and POSTs it to the callback endpoint, so
+# issued JWTs never travel in a URL. Must match the OAuth App's callback URL exactly.
+GITHUB_OAUTH_REDIRECT_URI = env(
+    "GITHUB_OAUTH_REDIRECT_URI", default="http://localhost:3000/auth/callback"
+)
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "CodeSage API",

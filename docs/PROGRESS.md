@@ -10,7 +10,7 @@ pull requests, each closing its own issue. Architecture lives in
 | # | Phase | Branches | Status |
 |---|---|---|---|
 | 0 | Scaffold | `phase-0-scaffold` (squashed) | **Done** |
-| 1 | Auth | `phase-1a` backend, `1b` frontend, `1c` tests | Next |
+| 1 | Auth | `phase-1a` backend, `1b` frontend, `1c` tests | **In progress** (1a done) |
 | 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | Not started |
 | 3 | Ingestion | `phase-3a` chunk+embed, `3b` status UI | Not started |
 | 4 | Agent pipeline v1 | `phase-4a` models, `4b` pipeline, `4c` PR comment | Not started |
@@ -59,18 +59,58 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | 2 merged PRs (bronze), **16** (silver) | **2 / 16 merged** (bronze earned) |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **3 / 16 toward bronze** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
-| **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Not pursued** — see note below |
+| **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
 | **Starstruck** | 16 stars on a repository | After launch |
 
 **Pair Extraordinaire note.** This one needs `Co-Authored-By` trailers naming a *real*
-collaborator. Adding an AI co-author trailer to earn it would contradict the no-AI-attribution
-rule and, when it was tried once, listed "claude" as a repository contributor. So it stays
-unearned unless an actual person collaborates on a commit.
+collaborator, so it is optional rather than part of the plan. An AI co-author trailer must
+not be used to earn it: that contradicts the no-AI-attribution rule and, when it was tried
+once, listed "claude" as a repository contributor.
 
 **Update the merged-PR count in this table in each phase's last PR.**
+
+---
+
+## Phase 1 — Auth
+
+**Status:** In progress — 1a merged, 1b and 1c to come.
+
+### 1a — backend auth models + OAuth endpoints
+
+`accounts` app with a custom `User` (GitHub-backed), `Organization` and `Membership`
+(owner/admin/member). GitHub OAuth App login exchanges a code for a user token, reads
+the profile, matches or creates the user, creates a personal organisation on first
+login, and returns a Simple JWT access/refresh pair. `GET /api/orgs/` lists the
+caller's organisations with their role. 17 tests, GitHub fully mocked.
+
+Endpoints: `GET /api/auth/github/start/`, `POST /api/auth/github/callback/`,
+`POST /api/auth/token/refresh/`, `GET /api/auth/me/`, `GET /api/orgs/`.
+
+### Decisions worth recording
+
+- **The OAuth redirect lands on the frontend, not the backend.** GitHub sends the
+  browser to `http://localhost:3000/auth/callback`; the SPA posts the code to the
+  backend and gets the JWTs in the response body. Redirecting to the backend would
+  mean returning tokens through a URL, where they persist in browser history and
+  server logs. `GITHUB_OAUTH_REDIRECT_URI` makes this configurable per environment.
+- **The user's GitHub OAuth token is not stored.** It is used once in the callback to
+  read the profile, then discarded. Phase 2 reaches repositories through the GitHub
+  App installation token (spec §13), so there is no reason to keep a long-lived user
+  credential in the database.
+- **Users are matched on `github_id`, never on login or email.** GitHub logins can be
+  renamed and then claimed by someone else; the numeric id is stable. A test covers
+  the rename case.
+- **OAuth `state` is signed rather than stored.** `django.core.signing` with a 10
+  minute expiry gives replay protection without making login depend on Redis.
+- **CI gained its Postgres service here, not in 1c.** The suggested split put it with
+  the tests, but the first real models land in 1a and its tests need a database, so
+  the service container had to come with them to keep CI green.
+- **`AUTH_USER_MODEL` was changed after phase 0 had already migrated.** The local dev
+  database was dropped and recreated; nothing was deployed and no real data existed.
+  A fresh clone is unaffected.
 
 ---
 

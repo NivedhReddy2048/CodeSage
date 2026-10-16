@@ -16,6 +16,30 @@ jobs:
     defaults:
       run:
         working-directory: backend
+
+    # The first real models land in phase 1, so the suite is no longer database-free.
+    # pgvector's image is used rather than plain postgres so the same extension is
+    # available here as in local dev and on Neon.
+    services:
+      postgres:
+        image: pgvector/pgvector:pg17
+        env:
+          POSTGRES_USER: codesage
+          POSTGRES_PASSWORD: codesage
+          POSTGRES_DB: codesage
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U codesage -d codesage"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://codesage:codesage@localhost:5432/codesage
+      DJANGO_SECRET_KEY: ci-secret-key-not-used-outside-ci-32chars
+      REDIS_URL: redis://localhost:6379/0
+
     steps:
       - uses: actions/checkout@v4
 
@@ -34,8 +58,6 @@ jobs:
       - name: Django system checks
         run: python manage.py check
 
-      # No database service yet — the phase 0 suite is deliberately DB-free.
-      # Phase 1 adds a postgres service container alongside this step.
       - name: Tests
         run: pytest
 
