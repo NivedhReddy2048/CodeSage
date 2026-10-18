@@ -35,6 +35,19 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      # Required, not optional: CACHES points at Redis, and the GitHub App
+      # installation-token cache semantics are under test. Substituting an
+      # in-memory cache here would stop testing the backend that actually ships.
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
     env:
       DATABASE_URL: postgres://codesage:codesage@localhost:5432/codesage
       DJANGO_SECRET_KEY: ci-secret-key-not-used-outside-ci-32chars

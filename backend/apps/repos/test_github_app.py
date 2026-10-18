@@ -48,9 +48,14 @@ def app_settings(settings, rsa_keypair):
     return settings
 
 
-@pytest.fixture(autouse=True)
-def clear_cache():
-    """Installation tokens are cached; leaking one between tests would hide bugs."""
+@pytest.fixture
+def clean_cache():
+    """Isolate the token cache for tests that actually use it.
+
+    Deliberately not autouse: the JWT and key-loading tests below never touch the
+    cache, and making them depend on Redis would be both slower and misleading about
+    what they cover.
+    """
     cache.clear()
     yield
     cache.clear()
@@ -165,7 +170,7 @@ def test_a_malformed_key_is_an_error(app_settings):
 # ------------------------------------------------------------ installation tokens
 
 
-def test_installation_token_is_fetched_and_returned(app_settings):
+def test_installation_token_is_fetched_and_returned(app_settings, clean_cache):
     payload = {"token": "ghs_installation", "expires_at": "2099-01-01T00:00:00Z"}
 
     with mock.patch.object(
@@ -178,7 +183,7 @@ def test_installation_token_is_fetched_and_returned(app_settings):
     assert "/app/installations/172631969/access_tokens" in args[1]
 
 
-def test_installation_token_is_cached_and_not_refetched(app_settings):
+def test_installation_token_is_cached_and_not_refetched(app_settings, clean_cache):
     payload = {"token": "ghs_cached", "expires_at": "2099-01-01T00:00:00Z"}
 
     with mock.patch.object(
@@ -192,7 +197,7 @@ def test_installation_token_is_cached_and_not_refetched(app_settings):
     assert request.call_count == 1
 
 
-def test_tokens_are_cached_per_installation(app_settings):
+def test_tokens_are_cached_per_installation(app_settings, clean_cache):
     """Two installations must never share a token: they have different scopes."""
     responses = [
         api_response(201, {"token": "ghs_one", "expires_at": "2099-01-01T00:00:00Z"}),
@@ -204,7 +209,7 @@ def test_tokens_are_cached_per_installation(app_settings):
         assert github_app.get_installation_token(222) == "ghs_two"
 
 
-def test_invalidating_a_token_forces_a_refetch(app_settings):
+def test_invalidating_a_token_forces_a_refetch(app_settings, clean_cache):
     responses = [
         api_response(201, {"token": "ghs_first", "expires_at": "2099-01-01T00:00:00Z"}),
         api_response(201, {"token": "ghs_second", "expires_at": "2099-01-01T00:00:00Z"}),
@@ -216,7 +221,7 @@ def test_invalidating_a_token_forces_a_refetch(app_settings):
         assert github_app.get_installation_token(1) == "ghs_second"
 
 
-def test_a_token_expiring_imminently_is_not_cached(app_settings):
+def test_a_token_expiring_imminently_is_not_cached(app_settings, clean_cache):
     """Caching a token that dies in 10 seconds would hand out a dead credential."""
     from django.utils import timezone
 
@@ -232,7 +237,7 @@ def test_a_token_expiring_imminently_is_not_cached(app_settings):
         assert github_app.get_installation_token(1) == "ghs_b"
 
 
-def test_a_missing_expires_at_still_caches_conservatively(app_settings):
+def test_a_missing_expires_at_still_caches_conservatively(app_settings, clean_cache):
     with mock.patch.object(
         github_app.requests,
         "request",
@@ -244,7 +249,7 @@ def test_a_missing_expires_at_still_caches_conservatively(app_settings):
     assert request.call_count == 1
 
 
-def test_a_malformed_expires_at_still_caches_conservatively(app_settings):
+def test_a_malformed_expires_at_still_caches_conservatively(app_settings, clean_cache):
     with mock.patch.object(
         github_app.requests,
         "request",
@@ -256,7 +261,7 @@ def test_a_malformed_expires_at_still_caches_conservatively(app_settings):
     assert request.call_count == 1
 
 
-def test_a_response_without_a_token_is_an_error(app_settings):
+def test_a_response_without_a_token_is_an_error(app_settings, clean_cache):
     with mock.patch.object(github_app.requests, "request", return_value=api_response(201, {})):
         with pytest.raises(GitHubAppError, match="no installation token"):
             github_app.get_installation_token(1)
@@ -287,7 +292,7 @@ def test_network_errors_are_wrapped(app_settings):
 # -------------------------------------------------------------------- repo listing
 
 
-def test_repository_listing_follows_pagination(app_settings):
+def test_repository_listing_follows_pagination(app_settings, clean_cache):
     first = {"repositories": [{"full_name": f"o/r{i}"} for i in range(100)]}
     second = {"repositories": [{"full_name": "o/last"}]}
 
@@ -304,7 +309,7 @@ def test_repository_listing_follows_pagination(app_settings):
     assert repositories[-1]["full_name"] == "o/last"
 
 
-def test_repository_listing_stops_on_a_short_page(app_settings):
+def test_repository_listing_stops_on_a_short_page(app_settings, clean_cache):
     responses = [
         api_response(201, {"token": "ghs_t", "expires_at": "2099-01-01T00:00:00Z"}),
         api_response(200, {"repositories": [{"full_name": "o/only"}]}),
@@ -365,7 +370,7 @@ def test_the_authorization_header_is_a_bearer_token(app_settings):
 # ---------------------------------------------------------------- PR comment calls
 
 
-def test_create_issue_comment_posts_to_the_issues_endpoint(app_settings):
+def test_create_issue_comment_posts_to_the_issues_endpoint(app_settings, clean_cache):
     """PRs are issues for the comments API, hence the /issues/ path."""
     responses = [
         api_response(201, {"token": "ghs_t", "expires_at": "2099-01-01T00:00:00Z"}),
@@ -382,7 +387,7 @@ def test_create_issue_comment_posts_to_the_issues_endpoint(app_settings):
     assert request.call_args.kwargs["json"] == {"body": "hi"}
 
 
-def test_update_issue_comment_patches_the_comment(app_settings):
+def test_update_issue_comment_patches_the_comment(app_settings, clean_cache):
     responses = [
         api_response(201, {"token": "ghs_t", "expires_at": "2099-01-01T00:00:00Z"}),
         api_response(200, {"id": 4242, "body": "updated"}),
