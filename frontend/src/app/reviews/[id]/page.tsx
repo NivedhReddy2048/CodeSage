@@ -24,6 +24,14 @@ import type { Review, ReviewFinding } from "@/lib/types";
  * the phase 4 prompt asks for.
  */
 
+const AGENT_LABELS: Record<string, string> = {
+  diff_intent: "Diff/Intent",
+  static_analysis: "Static analysis",
+  security: "Security",
+  grounding: "Codebase grounding",
+  test_coverage: "Test coverage",
+};
+
 function severityClass(severity: string) {
   return severity === "blocking"
     ? "border-destructive/40 bg-destructive/10 text-destructive"
@@ -135,7 +143,25 @@ export default function ReviewPage() {
         </Link>
       </header>
 
-      {review.status === "failed" ? (
+      {review.degraded ? (
+        <Card className="mb-6 border-destructive/40">
+          <CardHeader>
+            <CardTitle>Degraded mode</CardTitle>
+            <CardDescription>
+              No language model could be reached, so this change was not reviewed.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-destructive">{review.error}</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Any local analysis shown below is a partial signal only, not a
+              substitute for the review.
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {review.status === "failed" && !review.degraded ? (
         <Card className="mb-6 border-destructive/40">
           <CardHeader>
             <CardTitle>Review failed</CardTitle>
@@ -197,6 +223,43 @@ export default function ReviewPage() {
             <ul className="divide-y">
               {[...blocking, ...nits].map((finding) => (
                 <FindingRow key={finding.id} finding={finding} />
+              ))}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Agents</CardTitle>
+          <CardDescription>
+            Six agents run per review; lower-priority ones are skipped when the
+            token budget runs out.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {review.agent_runs.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No agent runs recorded.</p>
+          ) : (
+            <ul className="divide-y text-sm">
+              {review.agent_runs.map((run) => (
+                <li key={run.id} className="flex flex-wrap items-baseline gap-x-2 py-2">
+                  <span className="font-medium">{AGENT_LABELS[run.name] ?? run.name}</span>
+                  {run.skipped_reason ? (
+                    <span className="text-muted-foreground">
+                      skipped &middot; {run.skipped_reason}
+                    </span>
+                  ) : run.error ? (
+                    <span className="text-destructive">failed &middot; {run.error}</span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      {run.findings_count} finding{run.findings_count === 1 ? "" : "s"}
+                      {run.model ? ` · ${run.model}` : ""}
+                      {run.latency_ms ? ` · ${run.latency_ms} ms` : ""}
+                      {run.used_fallback ? " · fallback" : ""}
+                    </span>
+                  )}
+                </li>
               ))}
             </ul>
           )}

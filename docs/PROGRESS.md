@@ -14,8 +14,8 @@ pull requests, each closing its own issue. Architecture lives in
 | 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | **Done** |
 | 3 | Ingestion | `phase-3a` engine, `3b` Celery+API, `3c` UI | **Done** |
 | 4 | Agent pipeline v1 | `phase-4a` agents pkg, `4b` reviews app, `4c` push+page | **Done** |
-| 5 | Full 6-agent pipeline | `phase-5a` agents, `5b` RAG, `5c` synthesis | Next |
-| 6 | Realtime + polish | `phase-6a` realtime, `6b` analytics, `6c` UI shell | Not started |
+| 5 | Full 6-agent pipeline | `phase-5a` retrieval, `5b` graph, `5c` wiring | **Done** |
+| 6 | Realtime + polish | `phase-6a` realtime, `6b` analytics, `6c` UI shell | Next |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Not started |
 | 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
 
@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **19 merged — bronze (16) reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **22 merged — bronze (16) reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -73,6 +73,94 @@ once, listed "claude" as a repository contributor.
 **Update the merged-PR count in this table in each phase's last PR.** The figure
 counts merged PRs *including* the one making the edit, so it is correct the moment that
 PR lands rather than one behind forever.
+
+---
+
+## Phase 5 — Full pipeline and hybrid retrieval
+
+**Status:** Done.
+
+```
+START -> diff_intent -> [ static_analysis | security | grounding | test_coverage ] -> synthesis -> END
+```
+
+### Retrieval, measured before and after
+
+The phase 3 query *"function that looks up a user by id"*, against the real indexed
+testbed:
+
+| | Rank 1 | Rank 2 | Rank 3 |
+|---|---|---|---|
+| **Vector only** | `app/users.py` module docstring | `web/users.js findUserById` | `web/users.js fetchUser` |
+| **Hybrid RRF** | `web/users.js findUserById` | **`app/users.py UserRepository.find_by_id`** | `tests/test_users.py` |
+
+`find_by_id` moved from **rank 4 to rank 2**, and the docstring left the top 3.
+
+### Decisions worth recording
+
+- **`simple` text-search config, not `english`.** English stems identifier fragments
+  into noise and drops short code words like `id` and `by` as stopwords — which is
+  most of the meaning in `find_by_id`.
+- **Identifiers indexed split as well as whole**, so a natural-language query can
+  reach an opaque token at all.
+- **The tsvector is maintained by a database trigger.** The indexer uses
+  `bulk_create`, which skips `save()`; a Python hook would quietly produce rows with
+  a NULL vector that match nothing.
+- **RRF rather than a weighted blend.** Cosine and `ts_rank` are not on the same
+  scale and are not comparable between queries, so normalising would need per-query
+  calibration. RRF fuses on rank instead.
+- **Model tiering is forced by the limits.** Groq reports 8000 TPM and the bucket
+  looks shared across models, so the 120b model is reserved for Security, the 20b
+  handles classification, grounding and test coverage, and static analysis uses no
+  model. A token budget skips lower-priority agents rather than 429-ing part way.
+- **Synthesis is deterministic.** Dedupe, ranking and blocking-versus-nit all have
+  correct answers; a model call would add latency, cost and hallucination risk.
+  Severity resolves upward on disagreement.
+- **Degraded mode is deliberately unlike a review.** When no model answers, the
+  comment states the change has *not* been reviewed. A degraded result that reads
+  like a clean review is worse than no comment, because it tells a reviewer the code
+  was checked when it was not. Static analysis succeeding alone counts as degraded.
+- **Retrieval is injected into the agents package**, not imported, so the Django-free
+  boundary holds: the grounding agent receives a callable and plain dataclasses.
+
+### Static analysis: real tools, zero repo execution
+
+ESLint configs are executable JavaScript, `pyproject.toml` can point tools at repo
+plugins, and `npm install` runs preinstall scripts — each is remote code execution on
+a pull request. So: `ruff --isolated`, `bandit` with our own flags and never `--ini`,
+no package manager, no repo scripts, config-shaped files excluded entirely, content
+written to a temp directory with paths flattened, and subprocesses with a timeout and
+no shell. Tests assert that a hostile `pyproject.toml` and an `eslint.config.js`
+containing `execSync` are neither read nor run.
+
+**Why no ESLint.** Render's docs list `node`, `npm`, `yarn`, `pnpm` and `bun` in every
+native runtime at build and runtime, so ESLint *would* work in production. It is still
+not used: it needs `npm install` into the backend image (~50 MB on a 512 MB dyno) for a
+linter that — forbidden from loading the repo's config, plugins and `extends` — runs a
+bare ruleset catching little the security agent does not, and every ESLint integration
+point worth having is the one that executes repo-controlled JavaScript. JS/TS gets a
+pattern pass that executes nothing.
+
+### Found by the tests, before shipping
+
+- **`synthesised` was never declared in the graph state schema**, so LangGraph
+  discarded it and every review came back with zero findings.
+- **Grounding validated citations against the finding's location in the diff** rather
+  than the `cited_file`/`cited_line` the model supplied, silently dropping every
+  grounded finding — a diff location is never inside a retrieved chunk.
+
+### Tradeoff accepted
+
+LangGraph pulls about **30 transitive dependencies** (langchain-core, pydantic, httpx,
+langsmith). That is real weight on a 512 MB dyno, accepted because the graph is the
+project's centrepiece and parallel fan-out is verified working (three 0.4s nodes in
+0.42s).
+
+### Local development
+
+`honcho start -f Procfile.dev` runs all four processes — backend, Celery worker
+(`--pool=solo`, required on Windows), smee relay and frontend. Forgetting the worker
+is the usual cause of "the webhook arrived but no comment appeared".
 
 ---
 

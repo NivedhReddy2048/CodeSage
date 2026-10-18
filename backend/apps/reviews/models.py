@@ -65,6 +65,11 @@ class Review(models.Model):
     estimated_cost_usd = models.DecimalField(max_digits=12, decimal_places=6, default=0)
     estimated_cost_inr = models.DecimalField(max_digits=12, decimal_places=4, default=0)
 
+    # True when no model answered and only local analysis ran. Kept distinct from
+    # `failed`: the pipeline completed, but what it produced is not a review, and
+    # the comment says so rather than letting a thin lint pass pose as one.
+    degraded = models.BooleanField(default=False)
+
     # Reported in the comment, so a short review is never mistaken for a thorough one.
     truncated = models.BooleanField(default=False)
     skipped_files = models.JSONField(default=list, blank=True)
@@ -138,3 +143,33 @@ class LLMCall(models.Model):
 
     def __str__(self):
         return f"{self.provider}/{self.model} ({self.latency_ms}ms)"
+
+
+class AgentRunRecord(models.Model):
+    """Per-agent telemetry for one review (spec section 14).
+
+    Separate from LLMCall because an agent is not the same thing as a call: static
+    analysis makes none, a skipped agent makes none, and a retried agent makes two.
+    Storing both lets the review page answer "what did each agent do" and "what did
+    we spend" without conflating them.
+    """
+
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name="agent_runs")
+    name = models.CharField(max_length=64)
+    model = models.CharField(max_length=128, blank=True)
+    provider = models.CharField(max_length=40, blank=True)
+    input_tokens = models.IntegerField(default=0)
+    output_tokens = models.IntegerField(default=0)
+    latency_ms = models.IntegerField(default=0)
+    succeeded = models.BooleanField(default=False)
+    used_fallback = models.BooleanField(default=False)
+    findings_count = models.IntegerField(default=0)
+    # Set when the agent never ran, e.g. the token budget was exhausted.
+    skipped_reason = models.CharField(max_length=255, blank=True)
+    error = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.name} ({self.model or 'no model'})"

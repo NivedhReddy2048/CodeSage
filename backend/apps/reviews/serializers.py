@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from apps.reviews.models import LLMCall, Review, ReviewFinding
+from apps.reviews.models import AgentRunRecord, LLMCall, Review, ReviewFinding
 
 
 class ReviewFindingSerializer(serializers.ModelSerializer):
@@ -37,9 +37,30 @@ class LLMCallSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class AgentRunSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AgentRunRecord
+        fields = [
+            "id",
+            "name",
+            "model",
+            "provider",
+            "input_tokens",
+            "output_tokens",
+            "latency_ms",
+            "succeeded",
+            "used_fallback",
+            "findings_count",
+            "skipped_reason",
+            "error",
+        ]
+        read_only_fields = fields
+
+
 class ReviewSerializer(serializers.ModelSerializer):
     findings = ReviewFindingSerializer(many=True, read_only=True)
     calls = LLMCallSerializer(many=True, read_only=True)
+    agent_runs = AgentRunSerializer(many=True, read_only=True)
     repository = serializers.CharField(source="pull_request.repository.full_name", read_only=True)
     pr_number = serializers.IntegerField(source="pull_request.number", read_only=True)
     pr_title = serializers.CharField(source="pull_request.title", read_only=True)
@@ -60,6 +81,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             "duration_ms",
             "estimated_cost_usd",
             "estimated_cost_inr",
+            "degraded",
             "truncated",
             "skipped_files",
             "error",
@@ -67,6 +89,7 @@ class ReviewSerializer(serializers.ModelSerializer):
             "finished_at",
             "findings",
             "calls",
+            "agent_runs",
         ]
         read_only_fields = fields
 

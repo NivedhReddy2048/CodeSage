@@ -38,7 +38,7 @@ class ReviewDetailView(APIView):
     def get(self, request, pk):
         review = (
             _visible_reviews(request.user)
-            .prefetch_related("findings", "calls")
+            .prefetch_related("findings", "calls", "agent_runs")
             .filter(pk=pk)
             .first()
         )
