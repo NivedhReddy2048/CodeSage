@@ -1,4 +1,6 @@
 from django.conf import settings
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVectorField
 from django.db import models
 from pgvector.django import HnswIndex, VectorField
 
@@ -81,6 +83,18 @@ class CodeChunk(models.Model):
     # code on every re-index.
     content_hash = models.CharField(max_length=64, db_index=True)
 
+    # The lexical half of hybrid retrieval (spec section 6). `search_text` holds the
+    # content plus identifiers split into words - findUserById becomes
+    # "find user by id" - because a natural-language query cannot otherwise match an
+    # opaque identifier token.
+    search_text = models.TextField(blank=True, default="")
+
+    # Maintained by a database trigger rather than in Python, so no code path can
+    # insert a row with a stale or missing vector. Uses the `simple` config: `english`
+    # stems identifier fragments into noise and drops short code words like "id" and
+    # "by" as stopwords, which is most of the meaning in find_by_id.
+    search_vector = SearchVectorField(null=True, editable=False)
+
     # Dimension is fixed at migration time, so it is read from settings rather than
     # hardcoded here - see EMBEDDING_DIMENSIONS and spec section 6 for why it is 1536
     # and not the model's 3072 default.
@@ -100,6 +114,7 @@ class CodeChunk(models.Model):
                 opclasses=["vector_cosine_ops"],
             ),
             models.Index(fields=["repository", "file_path"]),
+            GinIndex(fields=["search_vector"], name="codechunk_search_gin"),
         ]
         constraints = [
             models.UniqueConstraint(

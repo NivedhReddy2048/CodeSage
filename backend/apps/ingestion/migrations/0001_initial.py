@@ -8,11 +8,10 @@ from pgvector.django import VectorExtension
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
     dependencies = [
-        ('repos', '0001_initial'),
+        ("repos", "0001_initial"),
     ]
 
     operations = [
@@ -22,47 +21,115 @@ class Migration(migrations.Migration):
         # of the migration rather than an assumption about the environment.
         VectorExtension(),
         migrations.CreateModel(
-            name='IngestionJob',
+            name="IngestionJob",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('status', models.CharField(choices=[('pending', 'Pending'), ('running', 'Running'), ('done', 'Done'), ('failed', 'Failed')], default='pending', max_length=20)),
-                ('commit_sha', models.CharField(blank=True, max_length=64)),
-                ('files_discovered', models.IntegerField(default=0)),
-                ('files_indexed', models.IntegerField(default=0)),
-                ('files_skipped', models.IntegerField(default=0)),
-                ('chunks_created', models.IntegerField(default=0)),
-                ('chunks_reused', models.IntegerField(default=0)),
-                ('embedding_api_calls', models.IntegerField(default=0)),
-                ('error', models.TextField(blank=True)),
-                ('started_at', models.DateTimeField(blank=True, null=True)),
-                ('finished_at', models.DateTimeField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('repository', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='ingestion_jobs', to='repos.repository')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("pending", "Pending"),
+                            ("running", "Running"),
+                            ("done", "Done"),
+                            ("failed", "Failed"),
+                        ],
+                        default="pending",
+                        max_length=20,
+                    ),
+                ),
+                ("commit_sha", models.CharField(blank=True, max_length=64)),
+                ("files_discovered", models.IntegerField(default=0)),
+                ("files_indexed", models.IntegerField(default=0)),
+                ("files_skipped", models.IntegerField(default=0)),
+                ("chunks_created", models.IntegerField(default=0)),
+                ("chunks_reused", models.IntegerField(default=0)),
+                ("embedding_api_calls", models.IntegerField(default=0)),
+                ("error", models.TextField(blank=True)),
+                ("started_at", models.DateTimeField(blank=True, null=True)),
+                ("finished_at", models.DateTimeField(blank=True, null=True)),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "repository",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="ingestion_jobs",
+                        to="repos.repository",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['-created_at'],
+                "ordering": ["-created_at"],
             },
         ),
         migrations.CreateModel(
-            name='CodeChunk',
+            name="CodeChunk",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('file_path', models.CharField(max_length=1024)),
-                ('symbol', models.CharField(blank=True, max_length=512)),
-                ('kind', models.CharField(choices=[('function', 'Function'), ('class', 'Class'), ('method', 'Method'), ('module', 'Module-level code'), ('block', 'Text block')], default='block', max_length=20)),
-                ('language', models.CharField(blank=True, max_length=32)),
-                ('line_start', models.IntegerField()),
-                ('line_end', models.IntegerField()),
-                ('content', models.TextField()),
-                ('content_hash', models.CharField(db_index=True, max_length=64)),
-                ('embedding', pgvector.django.vector.VectorField(blank=True, dimensions=1536, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('repository', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='code_chunks', to='repos.repository')),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True, primary_key=True, serialize=False, verbose_name="ID"
+                    ),
+                ),
+                ("file_path", models.CharField(max_length=1024)),
+                ("symbol", models.CharField(blank=True, max_length=512)),
+                (
+                    "kind",
+                    models.CharField(
+                        choices=[
+                            ("function", "Function"),
+                            ("class", "Class"),
+                            ("method", "Method"),
+                            ("module", "Module-level code"),
+                            ("block", "Text block"),
+                        ],
+                        default="block",
+                        max_length=20,
+                    ),
+                ),
+                ("language", models.CharField(blank=True, max_length=32)),
+                ("line_start", models.IntegerField()),
+                ("line_end", models.IntegerField()),
+                ("content", models.TextField()),
+                ("content_hash", models.CharField(db_index=True, max_length=64)),
+                (
+                    "embedding",
+                    pgvector.django.vector.VectorField(blank=True, dimensions=1536, null=True),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "repository",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="code_chunks",
+                        to="repos.repository",
+                    ),
+                ),
             ],
             options={
-                'ordering': ['file_path', 'line_start'],
-                'indexes': [pgvector.django.indexes.HnswIndex(ef_construction=64, fields=['embedding'], m=16, name='codechunk_embedding_hnsw', opclasses=['vector_cosine_ops']), models.Index(fields=['repository', 'file_path'], name='ingestion_c_reposit_521f9e_idx')],
-                'constraints': [models.UniqueConstraint(fields=('repository', 'file_path', 'line_start', 'line_end'), name='unique_chunk_span_per_file')],
+                "ordering": ["file_path", "line_start"],
+                "indexes": [
+                    pgvector.django.indexes.HnswIndex(
+                        ef_construction=64,
+                        fields=["embedding"],
+                        m=16,
+                        name="codechunk_embedding_hnsw",
+                        opclasses=["vector_cosine_ops"],
+                    ),
+                    models.Index(
+                        fields=["repository", "file_path"], name="ingestion_c_reposit_521f9e_idx"
+                    ),
+                ],
+                "constraints": [
+                    models.UniqueConstraint(
+                        fields=("repository", "file_path", "line_start", "line_end"),
+                        name="unique_chunk_span_per_file",
+                    )
+                ],
             },
         ),
     ]
