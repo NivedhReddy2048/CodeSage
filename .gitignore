@@ -15,6 +15,16 @@ staticfiles/
 .env.local
 .env.*.local
 !.env.example
+!.env.local.example
+
+# Local secrets: the GitHub App private key lives here during development.
+# Production supplies the key through the GITHUB_APP_PRIVATE_KEY env var instead,
+# so nothing in this directory is ever needed in a deploy.
+backend/secrets/
+# Belt and braces: no private key, anywhere in the tree, ever.
+*.pem
+*.key
+*.p12
 
 # Node / Next.js
 node_modules/

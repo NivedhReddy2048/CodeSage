@@ -8,4 +8,6 @@ django-cors-headers==4.9.0
 django-environ==0.14.0
 drf-spectacular==0.30.0
 psycopg[binary]==3.3.6
+# [crypto] pulls in `cryptography`, required to sign the GitHub App's RS256 JWT.
+pyjwt[crypto]==2.15.1
 requests==2.34.2

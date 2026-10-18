@@ -85,6 +85,58 @@ back through a URL, where they end up in browser history and server logs.
 `GITHUB_OAUTH_REDIRECT_URI` must match the registered callback URL character for
 character, or GitHub rejects the exchange with `redirect_uri_mismatch`.
 
+## GitHub App (needed for repo connection and PR reviews)
+
+A **second, separate** GitHub identity from the OAuth App above. The OAuth App
+identifies the human signing in; the GitHub App reads repositories, receives webhooks
+and posts review comments as `<app-slug>[bot]`. Mixing the two is the most common way
+to get stuck here — spec §13 has the full rationale.
+
+1. GitHub → Settings → Developer settings → **GitHub Apps** → *New GitHub App*.
+2. Name it something globally unique (the bot login is derived from it). Homepage URL
+   can be this repository.
+3. Leave **Callback URL** blank and leave *Request user authorization (OAuth) during
+   installation* **unchecked** — user login is the OAuth App's job.
+4. **Webhook**: Active, URL = your smee channel (see below), Secret =
+   `GITHUB_WEBHOOK_SECRET` from `backend/.env`.
+5. **Repository permissions** — exactly these three, everything else "No access":
+
+   | Permission | Access |
+   |---|---|
+   | Contents | Read-only |
+   | Metadata | Read-only (mandatory) |
+   | Pull requests | Read and write |
+
+6. **Subscribe to events**: *Pull request* only.
+7. **Where can this GitHub App be installed**: Only on this account.
+
+After creating it:
+
+- Copy the **App ID** and the **Client ID** into `GITHUB_APP_ID` and
+  `GITHUB_APP_CLIENT_ID`.
+- **Generate a private key**, then move the downloaded `.pem` to
+  `backend/secrets/codesage.private-key.pem`. That directory is gitignored, and
+  `*.pem` is ignored tree-wide, so the key cannot be committed by accident.
+- **Install App** → your account → *Only select repositories* → pick a throwaway test
+  repository. Do not install it on this repository: testing means opening junk PRs.
+
+Verify the whole chain without a browser:
+
+```bash
+cd backend
+.venv/Scripts/python.exe manage.py shell -c "from apps.repos import github_app; a=github_app.get_app_metadata(); print(a['slug'], a['permissions'])"
+```
+
+## Receiving webhooks locally
+
+GitHub cannot reach `localhost`, so deliveries are relayed through
+[smee.io](https://smee.io). Create a channel at https://smee.io/new, use it as the
+App's webhook URL, and run the relay in its own terminal:
+
+```bash
+npx --yes smee-client --url https://smee.io/YOUR_CHANNEL --target http://localhost:8000/api/webhooks/github/
+```
+
 ## Checks
 
 ```bash
