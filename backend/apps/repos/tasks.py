@@ -40,6 +40,8 @@ def handle_webhook_event(event_id):
     try:
         if event.event == "pull_request":
             handle_pull_request_event(event)
+        elif event.event == "push":
+            handle_push_event(event)
         elif event.event in {"installation", "installation_repositories"}:
             handle_installation_event(event)
         else:
@@ -161,6 +163,66 @@ def ensure_repository(payload, installation):
         },
     )
     return row
+
+
+# --------------------------------------------------------------------------- pushes
+
+
+def handle_push_event(event):
+    """Re-index a connected repository when its default branch moves.
+
+    Narrow on purpose. A push webhook fires for every branch and every tag, and
+    indexing is the one part of the system that spends Gemini quota, so anything
+    that is not "new code on the branch we index" is ignored:
+
+      - other branches: their code is not what retrieval answers from
+      - deletions: there is nothing to index
+      - repositories nobody connected: not ours to spend quota on
+
+    The content-hash cache from phase 3 makes the remaining case cheap - an
+    unchanged file costs nothing - which is what makes re-indexing on every push
+    affordable at all.
+    """
+    payload = event.payload
+
+    if payload.get("deleted"):
+        logger.info("Ignoring branch/tag deletion for %s", event.repository_full_name)
+        return
+
+    ref = payload.get("ref") or ""
+    if not ref.startswith("refs/heads/"):
+        logger.info("Ignoring non-branch push %s", ref)
+        return
+    branch = ref[len("refs/heads/") :]
+
+    repo_payload = payload.get("repository") or {}
+    github_id = repo_payload.get("id")
+    default_branch = repo_payload.get("default_branch") or ""
+
+    if not github_id or branch != default_branch:
+        logger.info("Ignoring push to %s (default is %s)", branch or "?", default_branch or "?")
+        return
+
+    # Only repositories someone deliberately connected. An installation can see
+    # repositories that were never connected in the UI.
+    repository = Repository.objects.filter(github_id=github_id).first()
+    if repository is None:
+        logger.info(
+            "Ignoring push to unconnected repository %s",
+            repo_payload.get("full_name"),
+        )
+        return
+
+    from apps.ingestion.services import start_ingestion
+
+    job, started = start_ingestion(repository)
+    logger.info(
+        "Push to %s@%s: ingestion job %s %s",
+        repository.full_name,
+        branch,
+        job.pk,
+        "queued" if started else "already running",
+    )
 
 
 # -------------------------------------------------------------------- pull requests

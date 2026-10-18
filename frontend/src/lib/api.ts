@@ -21,6 +21,8 @@ import type {
   InstallableResponse,
   LoginResponse,
   Organization,
+  Review,
+  ReviewSummary,
   User,
 } from "@/lib/types";
 
@@ -179,4 +181,9 @@ export const api = {
 
   reindexRepository: (id: number) =>
     request<IngestionJob>(`/api/repos/${id}/reindex/`, { method: "POST" }),
+
+  review: (id: number) => request<Review>(`/api/reviews/${id}/`),
+
+  repositoryReviews: (id: number) =>
+    request<ReviewSummary[]>(`/api/repos/${id}/reviews/`),
 };
