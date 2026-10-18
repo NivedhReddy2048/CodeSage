@@ -36,9 +36,10 @@ expect.
 5. **Commit** with a conventional commit message (`feat(phase1a): ...`).
 6. **Push and open the PR**, with the issue reference in the body:
    `gh pr create --title "..." --body "...\n\nCloses #<issue number>"`
-7. **Merge immediately** with a real merge commit, so each PR stays visible in
-   `git log --graph`: `gh pr merge --merge --delete-branch`
-8. **Sync**: `git checkout main && git pull`
+7. **Wait for CI**: `gh pr checks <number> --watch`
+8. **Merge once every check has passed**, with a real merge commit so each PR stays
+   visible in `git log --graph`: `gh pr merge --merge --delete-branch`
+9. **Sync**: `git checkout main && git pull`
 
 ### Rules that apply to every phase
 
@@ -52,9 +53,18 @@ issue**, and its body closes that issue with `Closes #N`. Branch names are
 working, tested changes — never an empty or trivial PR just to raise the count. Each phase
 prompt below suggests a split.
 
-**C. Fast merges.** Finish and verify all the work on the branch *before* opening the PR,
-then open and merge it right away, so a PR goes from opened to merged within a couple of
-minutes.
+**C. Verify, then merge — never merge red.** Finish and verify all the work on the
+branch *before* opening the PR. Then open it, wait for CI with
+`gh pr checks <number> --watch`, and merge only once every check has passed.
+
+`main` is protected: the **Backend (ruff + pytest)** and **Frontend (eslint + build)**
+checks are required, and enforcement applies to admins, so a red PR cannot be merged
+even deliberately.
+
+This replaces the earlier "merge within a couple of minutes" rule. Quickdraw is
+already earned, and speed bought nothing: three Phase 2 PRs were merged on green local
+runs while CI was red the whole time, because nobody looked. Correctness now matters
+more than the clock.
 
 **D. Update `docs/PROGRESS.md`** in the phase's last PR: mark the phase done, note any
 deviation from the spec, and bump the merged-PR count in the "GitHub achievements" section.
