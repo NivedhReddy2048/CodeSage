@@ -15,6 +15,7 @@ import time
 from apps.agents import agent_prompts as prompts
 from apps.agents import citations
 from apps.agents.budget import estimate_tokens
+from apps.agents.diffs import reconstruct_new_file
 from apps.agents.providers import ProviderError
 from apps.agents.schema import SchemaError, parse_findings
 from apps.agents.static_analysis import analyse
@@ -123,10 +124,11 @@ def static_analysis(state):
     run = AgentRun(name="static_analysis", model="ruff+bandit+pattern-scan")
 
     started = time.perf_counter()
-    contents = {entry.path: _new_file_text(entry) for entry in prepared.files}
+    contents = {entry.path: reconstruct_new_file(entry.text) for entry in prepared.files}
+    complete = {entry.path for entry in prepared.files if entry.is_new_file}
 
     try:
-        tool_findings = analyse(contents)
+        tool_findings = analyse(contents, complete=complete)
     except Exception as exc:  # noqa: BLE001 - a linter must not fail the review
         run.latency_ms = int((time.perf_counter() - started) * 1000)
         run.error = f"{type(exc).__name__}: {exc}"[:400]
@@ -161,26 +163,6 @@ def _tool_category(item):
     if item.tool == "bandit" or item.code.startswith(("S", "js-eval", "js-inner")):
         return Category.SECURITY
     return Category.CORRECTNESS
-
-
-def _new_file_text(entry):
-    """Reconstruct the post-change file content from its diff section.
-
-    Only the added and context lines, which is what the new file looks like within
-    the hunks. Enough for a linter to see the changed code in context; not a full
-    file, which the diff does not contain.
-    """
-    lines = []
-    for raw in entry.text.splitlines():
-        if raw.startswith(("+++", "---", "@@", "diff --git", "index ", "\\")):
-            continue
-        if raw.startswith("+"):
-            lines.append(raw[1:])
-        elif raw.startswith("-"):
-            continue
-        else:
-            lines.append(raw[1:] if raw.startswith(" ") else raw)
-    return "\n".join(lines)
 
 
 # ------------------------------------------------------------------------ security

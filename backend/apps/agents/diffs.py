@@ -71,6 +71,13 @@ SKIP_SUFFIXES = (
 
 BINARY_MARKER = "Binary files"
 
+# A hunk header names the line the hunk starts at in the new file, and a pull request
+# chooses that number. Reconstruction places lines at their real line numbers, so an
+# absurd header asks for an absurd file: `@@ -0,0 +99999999,1 @@` is a one-line diff
+# requesting a hundred million lines of memory. Lines past this are dropped. No real
+# source file comes close, and this module's premise is that the diff is hostile.
+MAX_RECONSTRUCTED_LINES = 20_000
+
 
 def should_skip(path):
     name = path.rsplit("/", 1)[-1]
@@ -173,6 +180,66 @@ def changed_lines(section_text):
     return numbers
 
 
+def adds_whole_file(section_text):
+    """Does this section add the file, so that its hunks are the whole of it?
+
+    Worth knowing because a reconstruction of an added file is the complete source,
+    and can be judged as source. A reconstruction of a few hunks out of a larger
+    file cannot: hunks from inside a class body reconstruct as indented top-level
+    code, and a linter will rightly call that a syntax error while saying nothing
+    about the change.
+    """
+    for raw in section_text.splitlines():
+        if raw.startswith("@@"):
+            break
+        if raw.startswith("new file mode"):
+            return True
+        if raw.startswith("--- ") and raw[4:].strip() == "/dev/null":
+            return True
+    return False
+
+
+def reconstruct_new_file(section_text):
+    """The post-change content of one diff section, at its real line numbers.
+
+    Built from hunk bodies alone: everything before the first `@@` is skipped. That
+    is the only reliable way to keep git's extended headers out of the source, since
+    `new file mode 100644`, `rename from`, `similarity index` and the rest begin with
+    none of the characters that mark a diff body line. A prefix blacklist misses
+    whichever header it was not told about, and a leaked header is both invalid
+    syntax and a one-line shift in every line number after it.
+
+    Gaps between hunks are padded with blank lines, so a line's position in the
+    result is its line number in the new file and a linter's output needs no
+    translation. A translation that is quietly wrong is worse than no finding: it
+    anchors a review comment to code the author never touched.
+    """
+    lines = []
+    number = None
+
+    for raw in section_text.splitlines():
+        hunk = HUNK_HEADER.match(raw)
+        if hunk:
+            number = int(hunk.group(1))
+            continue
+        if number is None:
+            continue  # still in the headers
+        if raw.startswith(("-", "\\")):
+            continue  # removed, or "\ No newline at end of file"
+        if number > MAX_RECONSTRUCTED_LINES:
+            break
+        content = raw[1:] if raw[:1] in ("+", " ") else raw
+        while len(lines) < number - 1:
+            lines.append("")
+        if len(lines) == number - 1:
+            lines.append(content)
+        else:
+            lines[number - 1] = content
+        number += 1
+
+    return "\n".join(lines)
+
+
 def prepare(diff_text, max_bytes):
     """Filter and truncate a diff, recording what was left out.
 
@@ -201,7 +268,12 @@ def prepare(diff_text, max_bytes):
         kept.append(section)
         used += size
         prepared.files.append(
-            DiffFile(path=path, changed_lines=changed_lines(section), text=section)
+            DiffFile(
+                path=path,
+                changed_lines=changed_lines(section),
+                text=section,
+                is_new_file=adds_whole_file(section),
+            )
         )
 
     prepared.text = "".join(kept)

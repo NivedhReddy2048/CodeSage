@@ -99,8 +99,26 @@ def is_config_file(path):
     return name in CONFIG_NAMES or name.startswith(".eslintrc")
 
 
-def analyse(files):
+def is_syntax_code(code):
+    """Is this diagnostic ruff complaining that the file does not parse?
+
+    Modern ruff reports a syntax error as `invalid-syntax`, older versions as E999,
+    and a codeless diagnostic is only ever a parse failure - so an empty code counts
+    too. Over-matching here loses a style rule at worst; under-matching posts
+    "invalid syntax" against code that is fine.
+    """
+    code = code or ""
+    return not code or code.startswith("E9") or "syntax" in code.lower()
+
+
+def analyse(files, complete=()):
     """Run the linters over `{path: content}` and return findings.
+
+    `complete` names the paths whose content is a whole file rather than a few
+    reconstructed hunks. Syntax diagnostics are kept only for those: part of a file
+    does not parse, and saying so describes our reconstruction instead of the pull
+    request. Everything not named is treated as partial, because guessing wrong in
+    that direction only costs a finding.
 
     Never raises: a linter that is missing, crashes or hangs costs its findings and
     nothing else.
@@ -122,7 +140,7 @@ def analyse(files):
     if python:
         with tempfile.TemporaryDirectory(prefix="codesage-sa-") as workdir:
             written = _write(python, workdir)
-            findings.extend(_run_ruff(workdir, written))
+            findings.extend(_run_ruff(workdir, written, frozenset(complete)))
             findings.extend(_run_bandit(workdir, written))
 
     findings.extend(_scan_javascript(javascript))
@@ -168,7 +186,7 @@ def _run(command, cwd):
         return None
 
 
-def _run_ruff(workdir, written):
+def _run_ruff(workdir, written, complete=frozenset()):
     """ruff with --isolated, so no configuration file anywhere can apply."""
     if shutil.which("ruff") is None:
         return []
@@ -207,6 +225,10 @@ def _run_ruff(workdir, written):
         if not original:
             continue
         code = entry.get("code") or ""
+        if is_syntax_code(code) and original not in complete:
+            # Only part of this file was reconstructed, so it was never going to
+            # parse. Reporting that would describe our own input, not the change.
+            continue
         findings.append(
             ToolFinding(
                 file=original,
