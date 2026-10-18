@@ -51,7 +51,11 @@ LOCAL_APPS = [
     "apps.repos",
     "apps.ingestion",
     "apps.reviews",
-    "apps.agents",
+    # apps.agents is deliberately NOT installed. It is a plain Python package, not a
+    # Django app: no models, no views, no migrations. Registering it would require an
+    # AppConfig, which would be the one Django import in a package whose whole point
+    # is not having any (the phase 4 architecture note). Leaving it out makes that
+    # rule grep-verifiable instead of a convention.
     "apps.notifications",
     "apps.analytics",
     "apps.audit",
