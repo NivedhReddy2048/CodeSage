@@ -14,7 +14,9 @@ import {
   storeTokens,
 } from "@/lib/tokens";
 import type {
+  ConnectedRepository,
   GitHubStartResponse,
+  InstallableResponse,
   LoginResponse,
   Organization,
   User,
@@ -155,4 +157,18 @@ export const api = {
   currentUser: () => request<User>("/api/auth/me/"),
 
   organizations: () => request<Organization[]>("/api/orgs/"),
+
+  repositories: () => request<ConnectedRepository[]>("/api/repos/"),
+
+  installableRepositories: () =>
+    request<InstallableResponse>("/api/repos/installable/"),
+
+  connectRepository: (githubId: number) =>
+    request<ConnectedRepository>("/api/repos/connect/", {
+      method: "POST",
+      body: { github_id: githubId },
+    }),
+
+  disconnectRepository: (id: number) =>
+    request<void>(`/api/repos/${id}/`, { method: "DELETE" }),
 };

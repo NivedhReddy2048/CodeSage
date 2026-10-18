@@ -11,8 +11,8 @@ pull requests, each closing its own issue. Architecture lives in
 |---|---|---|---|
 | 0 | Scaffold | `phase-0-scaffold` (squashed) | **Done** |
 | 1 | Auth | `phase-1a` backend, `1b` frontend, `1c` tests | **Done** |
-| 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | **In progress** (2a, 2b done) |
-| 3 | Ingestion | `phase-3a` chunk+embed, `3b` status UI | Not started |
+| 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | **Done** |
+| 3 | Ingestion | `phase-3a` chunk+embed, `3b` status UI | Next |
 | 4 | Agent pipeline v1 | `phase-4a` models, `4b` pipeline, `4c` PR comment | Not started |
 | 5 | Full 6-agent pipeline | `phase-5a` agents, `5b` RAG, `5c` synthesis | Not started |
 | 6 | Realtime + polish | `phase-6a` realtime, `6b` analytics, `6c` UI shell | Not started |
@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **7 / 16 toward bronze** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **8 / 16 toward bronze** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -76,7 +76,11 @@ once, listed "claude" as a repository contributor.
 
 ## Phase 2 — Repo connection (GitHub App)
 
-**Status:** In progress — 2a and 2b merged, 2c to come.
+**Status:** Done — 2a, 2b and 2c merged.
+
+Open a PR on a repository the App is installed on and `codesage-nr[bot]` comments
+within seconds. The `/repos` page shows what the installation can reach and lets an
+owner or admin connect and disconnect.
 
 The App is `CodeSage NR` (slug `codesage-nr`, App ID 5366297), installed on
 `NivedhReddy2048/codesage-testbed` only. Comments will post as `codesage-nr[bot]` —
@@ -106,7 +110,45 @@ Measured over `127.0.0.1`: **~60 ms** for verify + persist + enqueue, against Gi
 client-side `localhost` IPv6 resolution delay on Windows, not server time — the same
 request to `127.0.0.1` took 15 ms.)
 
+### 2c — connect-a-repo API and UI
+
+`GET /api/repos/`, `GET /api/repos/installable/`, `POST /api/repos/connect/` and
+`DELETE /api/repos/{id}/`, plus a `/repos` page listing connected repositories and
+those available to connect, with an install link when the App is absent.
+
+Verified live against real GitHub: unauthenticated 401; installable listed the testbed
+with `connected: false`; a repository id the installation cannot reach was rejected
+400; connect returned 201 then 200 on repeat; both views then showed it connected;
+disconnect returned 204.
+
 ### Decisions worth recording
+
+- **Connect and disconnect require owner or admin.** This is the first real use of
+  `Membership.role` from phase 1: a member can see what the organisation reviews but
+  must not rewire it.
+- **The posted repository id is resolved against GitHub, not trusted.** Connecting
+  checks the id against `GET /installation/repositories` first, so a caller cannot
+  attach a repository the App has no access to.
+- **Another tenant's repository reads as 404, not 403.** A 403 would confirm the row
+  exists, which is itself a leak across tenants.
+- **`current_organization()` is a single helper.** Phase 1 gives every user exactly
+  one personal organisation, so that is the answer today; phase 6's workspace switcher
+  changes this function and nothing else.
+- **Connecting pins the installation to the organisation.** From then on the webhook
+  path uses that explicit link instead of falling back to GitHub-login matching, so
+  the UI and the webhook can never disagree about which tenant a PR belongs to.
+- **A GitHub outage degrades the page rather than 500ing it.** If listing
+  installation repositories fails, connected repositories still render.
+- **The App slug is cached for a day.** It is needed to build the install URL and
+  never changes, so it is fetched once from `GET /app` rather than per request, or
+  supplied directly via `GITHUB_APP_SLUG`.
+
+### Open item for me
+
+**Setup URL (optional).** The GitHub App has no Setup URL, so installing or
+reconfiguring it leaves the browser on GitHub's own confirmation page. Setting it to
+`http://localhost:3000/repos` (and the Vercel URL in phase 7) would return the user
+straight to the repositories page. Not required for anything to work.
 
 - **Background work uses a thread, not Celery, for now.** Celery and its worker
   arrive in phase 3 with ingestion; standing one up here for a single small job would
