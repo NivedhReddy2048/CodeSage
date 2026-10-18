@@ -126,7 +126,16 @@ Built with LangGraph, same orchestration tool as EKIP. A `Review` triggers this 
 ## 6. RAG / grounding design
 
 - **Chunking**: parse by function/class (AST-aware, not naive line-splitting) so each chunk is a coherent unit — this is a meaningfully more sophisticated chunking story than "split every 500 tokens."
-- **Embeddings**: Gemini's free embedding endpoint, stored as a `vector` column in Postgres via `pgvector`.
+- **Embeddings**: `gemini-embedding-001` with **`outputDimensionality=1536`**, stored as a `vector(1536)` column via `pgvector`, searched by **cosine distance** over an **HNSW** index. The model name and dimension live in settings, not scattered through the code.
+
+  **Why 1536 and not the default.** `gemini-embedding-001` returns **3072** dimensions
+  unless told otherwise, and pgvector's `hnsw` and `ivfflat` indexes both cap at
+  **2000 dimensions**. A 3072-dim column is storable but *not indexable*, so every
+  similarity search silently degrades to a sequential scan — which defeats the whole
+  point of the retrieval design below. The model supports Matryoshka truncation via
+  `outputDimensionality`; 1536 stays indexable while keeping more signal than 768.
+  Verified against the live API on 2026-10-18: 768 and 1536 come back indexable, 3072
+  does not.
 - **Hybrid retrieval**: pgvector cosine similarity (dense) combined with Postgres `ts_rank` full-text search (sparse/keyword) — same "hybrid dense + BM25" concept from your resume, implemented natively in Postgres instead of a separate BM25 library, which is a good "why Postgres can do this without extra infra" talking point.
 - **Citation enforcement**: every grounding-agent claim must carry a `(file_path, line_range)` tuple pulled from the retrieved chunk's metadata — same citation-enforcement pattern as your Enterprise Document Intelligence project.
 
@@ -295,10 +304,11 @@ is a one-line edit:
 # JavaScript-rendered and could not be machine-verified, so RE-VERIFY at
 # console.groq.com before trusting the output.
 LLM_PRICING = {
-    "llama-3.3-70b-versatile": {"input": 0.59, "output": 0.79},
-    "gemini-2.5-flash":        {"input": 0.30, "output": 2.50},
-    "gemini-2.5-flash-lite":   {"input": 0.10, "output": 0.40},
-    "gemini-embedding":        {"input": 0.20, "output": 0.00},
+    "llama-3.3-70b-versatile":  {"input": 0.59, "output": 0.79},
+    # Replaces gemini-2.5-flash, which this account can no longer call. See the
+    # "Gemini model availability" note below before changing this.
+    "gemini-flash-lite-latest": {"input": 0.10, "output": 0.40},
+    "gemini-embedding-001":     {"input": 0.20, "output": 0.00},
 }
 
 # Fixed, not fetched at runtime: a review's cost must not change when FX moves,
@@ -318,6 +328,29 @@ Reviewed in 38 s · est. ₹2.10 at paid-tier rates
 
 Shown in the PR comment footer (Phase 5), on the review detail view, and aggregated on
 the dashboard as average cost and latency per review (Phase 6).
+
+### Gemini model availability, verified 2026-10-18
+
+Checked against a live key before building phase 3, because the plan above named
+models that turned out not to be callable.
+
+**`gemini-2.5-flash` and `gemini-2.5-flash-lite` return 404** — "no longer available
+to new users. Please update your code to use models/gemini-3.8-flash". Both were named
+in the price table above; both are now gone.
+
+**The replacement thinking models are unusable in a review path.** Latency for the
+prompt `"say ok"` on this key:
+
+| Model | Latency | Thinking tokens |
+|---|---|---|
+| `gemini-3.8-flash` | **96 s** | 72 |
+| `gemini-flash-latest` | **143 s** | 65 |
+| `gemini-flash-lite-latest` | **2 s** | none |
+
+Ninety-six seconds to emit one token would dominate the review latency the footer
+reports. **The failover target is therefore `gemini-flash-lite-latest`, and thinking
+models are never used in the review path.** Groq remains primary, so this only applies
+when Groq is rate-limited.
 
 ---
 

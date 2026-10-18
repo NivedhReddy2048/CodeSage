@@ -34,6 +34,8 @@ DJANGO_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    # Required by pgvector's HnswIndex, which builds on the postgres index machinery.
+    "django.contrib.postgres",
 ]
 
 THIRD_PARTY_APPS = [
@@ -194,6 +196,42 @@ GITHUB_APP_PRIVATE_KEY = env("GITHUB_APP_PRIVATE_KEY", default="")
 # Shared with GitHub so it can sign webhook deliveries; the receiver verifies
 # X-Hub-Signature-256 against it.
 GITHUB_WEBHOOK_SECRET = env("GITHUB_WEBHOOK_SECRET", default="")
+
+# ---------------------------------------------------------------------------
+# Ingestion and embeddings (phase 3, spec section 6)
+# ---------------------------------------------------------------------------
+
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
+
+EMBEDDING_MODEL = env("EMBEDDING_MODEL", default="gemini-embedding-001")
+
+# 1536, not the model's 3072 default. pgvector's hnsw and ivfflat indexes cap at 2000
+# dimensions, so a 3072-dim column is storable but NOT indexable and every similarity
+# search would silently become a sequential scan. Verified against the live API on
+# 2026-10-18. Changing this requires a migration: it is the column's declared width.
+EMBEDDING_DIMENSIONS = env.int("EMBEDDING_DIMENSIONS", default=1536)
+
+# Gemini's batch embedding endpoint accepts up to 100 inputs; 50 keeps individual
+# requests small enough to retry cheaply.
+EMBEDDING_BATCH_SIZE = env.int("EMBEDDING_BATCH_SIZE", default=50)
+EMBEDDING_MAX_RETRIES = env.int("EMBEDDING_MAX_RETRIES", default=5)
+EMBEDDING_BACKOFF_SECONDS = env.float("EMBEDDING_BACKOFF_SECONDS", default=2.0)
+
+# Free-tier guardrails. Neon's free plan is 0.5 GB, and at 1536 dimensions each
+# embedding is about 6 KB, so the chunk cap is the main lever on storage: 4000 chunks
+# is roughly 24 MB of vectors per repository.
+INGESTION_MAX_FILE_BYTES = env.int("INGESTION_MAX_FILE_BYTES", default=256 * 1024)
+INGESTION_MAX_CHUNKS_PER_REPO = env.int("INGESTION_MAX_CHUNKS_PER_REPO", default=4000)
+INGESTION_MAX_CHUNK_CHARS = env.int("INGESTION_MAX_CHUNK_CHARS", default=8000)
+INGESTION_MAX_ARCHIVE_BYTES = env.int("INGESTION_MAX_ARCHIVE_BYTES", default=100 * 1024 * 1024)
+
+# Celery, co-located with the web process on Render's free tier (spec section 7).
+CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=REDIS_URL)
+CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=REDIS_URL)
+CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
+CELERY_TASK_EAGER_PROPAGATES = True
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_TASK_TIME_LIMIT = env.int("CELERY_TASK_TIME_LIMIT", default=30 * 60)
 
 # Run webhook follow-up work inline instead of on a thread. Tests set this so they do
 # not race a background thread; it mirrors Celery's task_always_eager, which spec
