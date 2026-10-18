@@ -141,9 +141,9 @@ def test_synchronize_updates_the_head_sha(owner):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("action", ["closed", "reopened", "edited", "labeled"])
+@pytest.mark.parametrize("action", ["closed", "edited", "labeled", "assigned"])
 def test_non_reviewable_actions_post_nothing(owner, action):
-    """Only opened and synchronize change the diff."""
+    """These actions change no code, so they must not spend a review."""
     event = store(action=action, delivery=f"d-{action}")
 
     with mock.patch.object(tasks.github_app, "create_issue_comment") as comment:
@@ -153,6 +153,29 @@ def test_non_reviewable_actions_post_nothing(owner, action):
     assert PullRequest.objects.count() == 0
     event.refresh_from_db()
     assert event.processed_at is not None
+
+
+@pytest.mark.django_db
+def test_reopened_is_reviewable(owner):
+    """Changed in phase 4.
+
+    Phase 2 treated `reopened` as a no-op because it does not alter the diff. But a
+    PR reopened after being closed has had no review of this branch state, and the
+    user's expectation on reopening is that it gets looked at.
+    """
+    event = store(action="reopened", delivery="d-reopened")
+
+    with (
+        mock.patch.object(
+            tasks.github_app, "create_issue_comment", return_value={"id": 1}
+        ) as comment,
+        mock.patch("apps.reviews.tasks.review_pull_request_task.delay") as queued,
+    ):
+        tasks.handle_webhook_event(event.pk)
+
+    comment.assert_called_once()
+    queued.assert_called_once()
+    assert PullRequest.objects.count() == 1
 
 
 @pytest.mark.django_db

@@ -22,9 +22,11 @@ ACK_COMMENT_BODY = (
     "when it completes."
 )
 
-# The two actions that mean "there is new code to look at". `reopened`, `edited` and
-# the rest do not change the diff, so they must not trigger a review.
-REVIEWABLE_ACTIONS = {"opened", "synchronize"}
+# Actions that mean "there is code to look at". `reopened` is included because a
+# PR reopened after being closed has had no review on this branch state, and the
+# user's expectation is that reopening re-runs it. `edited` and `labeled` change no
+# code and must not spend a review.
+REVIEWABLE_ACTIONS = {"opened", "synchronize", "reopened"}
 
 
 def handle_webhook_event(event_id):
@@ -196,6 +198,19 @@ def handle_pull_request_event(event):
     )
 
     post_acknowledgement(pull_request, installation.installation_id)
+
+    # Hand off to the reviewer. Imported here so the repos app does not import the
+    # reviews app at module load.
+    from apps.reviews.tasks import review_pull_request_task
+
+    try:
+        review_pull_request_task.delay(pull_request.pk, installation.installation_id)
+    except Exception:  # noqa: BLE001 - a broker outage must not lose the ack comment
+        logger.exception(
+            "Could not queue a review for %s#%s",
+            repository.full_name,
+            pull_request.number,
+        )
 
 
 def post_acknowledgement(pull_request, installation_id):
