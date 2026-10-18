@@ -285,3 +285,61 @@ def test_the_endpoint_needs_no_authentication(client):
     response = post_delivery(client, pull_request_payload())
 
     assert response.status_code != 403
+
+
+# --------------------------------------------------------------- path normalisation
+
+
+@pytest.mark.django_db
+def test_delivery_to_the_slash_less_path_is_accepted(client):
+    """smee-client strips the trailing slash from its target.
+
+    Without a route at the slash-less path, APPEND_SLASH cannot redirect the POST
+    (the body would be lost) so Django raises and the relay sees a 500 — before any
+    of our code runs. Every other test here reverses the slashed name, so only this
+    one exercises the path the real relay actually uses.
+    """
+    body = json.dumps(pull_request_payload()).encode()
+
+    with mock.patch("apps.repos.views.run_in_background"):
+        response = client.post(
+            "/api/webhooks/github",
+            data=body,
+            content_type="application/json",
+            headers={
+                "X-GitHub-Event": "pull_request",
+                "X-GitHub-Delivery": "no-slash-1",
+                webhooks.SIGNATURE_HEADER: expected_signature(body, SECRET),
+            },
+        )
+
+    assert response.status_code == 202
+    assert WebhookEvent.objects.filter(delivery_id="no-slash-1").exists()
+
+
+@pytest.mark.django_db
+def test_both_webhook_paths_resolve_to_the_same_view():
+    from django.urls import reverse
+
+    assert reverse("github-webhook") == "/api/webhooks/github/"
+    assert reverse("github-webhook-no-slash") == "/api/webhooks/github"
+
+
+@pytest.mark.django_db
+def test_the_slash_less_path_still_rejects_a_bad_signature(client):
+    """The relay path must not be a way around signature verification."""
+    body = json.dumps(pull_request_payload()).encode()
+
+    response = client.post(
+        "/api/webhooks/github",
+        data=body,
+        content_type="application/json",
+        headers={
+            "X-GitHub-Event": "pull_request",
+            "X-GitHub-Delivery": "no-slash-bad",
+            webhooks.SIGNATURE_HEADER: "sha256=forged",
+        },
+    )
+
+    assert response.status_code == 401
+    assert WebhookEvent.objects.count() == 0
