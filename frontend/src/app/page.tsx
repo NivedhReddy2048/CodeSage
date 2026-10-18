@@ -1,10 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -69,9 +70,14 @@ export default function HomePage() {
             </p>
           </div>
         </div>
-        <Button variant="outline" onClick={signOut}>
-          Sign out
-        </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link href="/repos" className={buttonVariants({ variant: "outline" })}>
+            Repositories
+          </Link>
+          <Button variant="outline" onClick={signOut}>
+            Sign out
+          </Button>
+        </div>
       </header>
 
       <Card>
@@ -116,7 +122,7 @@ export default function HomePage() {
       </Card>
 
       <p className="mt-8 text-center text-xs text-muted-foreground">
-        Phase 1 of 8. Connecting repositories comes next.
+        Phase 2 of 8. Reviews begin in phase 4.
       </p>
     </div>
   );

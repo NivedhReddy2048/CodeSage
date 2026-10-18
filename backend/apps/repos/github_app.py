@@ -129,6 +129,35 @@ def get_app_metadata():
     return _request("GET", "/app", build_app_jwt()).json()
 
 
+def get_app_slug():
+    """The App's URL slug, used to build its install link.
+
+    Read from settings when configured, otherwise fetched once from `GET /app` and
+    cached — the slug never changes for a given App, so this is a cold-start cost
+    rather than a per-request one.
+    """
+    configured = getattr(settings, "GITHUB_APP_SLUG", "")
+    if configured:
+        return configured
+
+    cached = cache.get("github:app-slug")
+    if cached:
+        return cached
+
+    slug = get_app_metadata().get("slug") or ""
+    if slug:
+        cache.set("github:app-slug", slug, timeout=24 * 60 * 60)
+    return slug
+
+
+def install_url():
+    """Where to send a user to install or reconfigure the App."""
+    slug = get_app_slug()
+    if not slug:
+        return ""
+    return f"https://github.com/apps/{slug}/installations/new"
+
+
 def _token_cache_key(installation_id):
     return f"github:installation-token:{installation_id}"
 

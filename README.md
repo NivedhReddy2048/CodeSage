@@ -56,6 +56,9 @@ npm run dev
 Serves on http://localhost:3000. `NEXT_PUBLIC_API_URL` in `.env.local` points at the
 backend (`http://localhost:8000` locally, the Render URL in production).
 
+Once signed in, `/repos` lists what the GitHub App can reach and lets an owner or
+admin connect a repository.
+
 Sign in at http://localhost:3000/login once the OAuth App below is configured.
 
 ## GitHub OAuth App (needed to sign in)

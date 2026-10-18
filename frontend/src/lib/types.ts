@@ -29,3 +29,32 @@ export type LoginResponse = {
   user: User;
   created: boolean;
 };
+
+export type ConnectedRepository = {
+  id: number;
+  github_id: number;
+  full_name: string;
+  owner: string;
+  name: string;
+  default_branch: string;
+  private: boolean;
+  installation_id: number | null;
+  connected_by_login: string;
+  created_at: string;
+};
+
+export type InstallableRepository = {
+  github_id: number;
+  full_name: string;
+  owner: string;
+  name: string;
+  default_branch: string;
+  private: boolean;
+  connected: boolean;
+};
+
+export type InstallableResponse = {
+  installed: boolean;
+  install_url: string;
+  repositories: InstallableRepository[];
+};

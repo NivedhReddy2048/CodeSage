@@ -181,6 +181,10 @@ GITHUB_APP_ID = env("GITHUB_APP_ID", default="")
 # numeric App ID still accepted. Prefer this when set; the App ID is the fallback.
 GITHUB_APP_CLIENT_ID = env("GITHUB_APP_CLIENT_ID", default="")
 
+# URL slug of the App, used to build its install link. Optional: when unset it is
+# fetched once from GET /app and cached, since the slug never changes.
+GITHUB_APP_SLUG = env("GITHUB_APP_SLUG", default="")
+
 # Two ways to supply the private key, because the environments differ. Locally it is a
 # gitignored file; in production there is no filesystem for it, so the PEM contents
 # travel in an env var (escaped newlines are unescaped on read).
