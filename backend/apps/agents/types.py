@@ -70,6 +70,10 @@ class DiffFile:
     # from the change on GitHub.
     changed_lines: set[int] = field(default_factory=set)
     text: str = ""
+    # True when the diff added the file, which means its hunks are the complete new
+    # content. Static analysis needs the distinction: only then is a syntax error in
+    # the reconstruction the author's, rather than an artefact of seeing part of a file.
+    is_new_file: bool = False
 
 
 @dataclass

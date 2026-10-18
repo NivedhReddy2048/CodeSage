@@ -461,8 +461,12 @@ def test_grounding_cites_a_retrieved_chunk():
                 ProviderResponse(
                     findings_payload(
                         [
+                            # Line 10, not 13: ruff legitimately flags 13 in this
+                            # fixture (S608, F841), and synthesis merges findings
+                            # within two lines of each other. Colliding here would
+                            # test the merge rather than the citation.
                             finding_entry(
-                                line=13,
+                                line=10,
                                 severity="nit",
                                 cited_file="app/users.py",
                                 cited_line=16,
