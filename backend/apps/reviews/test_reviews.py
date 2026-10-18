@@ -90,7 +90,7 @@ def agent_result(**overrides):
 def run(pull_request, result, diff=DIFF):
     with (
         mock.patch("apps.reviews.services.fetch_diff", return_value=diff),
-        mock.patch("apps.reviews.services.run_review", return_value=result),
+        mock.patch("apps.reviews.services.run_pipeline", return_value=result),
         mock.patch("apps.reviews.services.github_app") as gh,
     ):
         gh.update_issue_comment.return_value = {"id": 4242}
@@ -342,7 +342,7 @@ def test_a_github_failure_does_not_lose_the_stored_review(pull_request):
 
     with (
         mock.patch("apps.reviews.services.fetch_diff", return_value=DIFF),
-        mock.patch("apps.reviews.services.run_review", return_value=agent_result()),
+        mock.patch("apps.reviews.services.run_pipeline", return_value=agent_result()),
         mock.patch("apps.reviews.services.github_app") as gh,
     ):
         gh.update_issue_comment.side_effect = GitHubAppError("403")

@@ -1,0 +1,13 @@
+# One-command local development: honcho start -f Procfile.dev
+#
+# Four processes, because a review needs all of them: the API receives the
+# webhook, the worker runs the pipeline, smee relays GitHub's delivery to
+# localhost, and the frontend serves the UI. Forgetting the worker is the usual
+# cause of "the webhook arrived but no comment appeared".
+#
+# --pool=solo is required on Windows: Celery's default prefork pool does not work
+# there and the worker silently accepts tasks it never executes.
+backend: python backend/manage.py runserver 8000
+worker: celery -A core --workdir backend worker --loglevel=info --pool=solo
+webhooks: npx --yes smee-client --url https://smee.io/pJatg6KyyGSr7ot --target http://localhost:8000/api/webhooks/github/
+frontend: npm --prefix frontend run dev

@@ -111,6 +111,21 @@ export type ReviewCall = {
   error: string;
 };
 
+export type AgentRun = {
+  id: number;
+  name: string;
+  model: string;
+  provider: string;
+  input_tokens: number;
+  output_tokens: number;
+  latency_ms: number;
+  succeeded: boolean;
+  used_fallback: boolean;
+  findings_count: number;
+  skipped_reason: string;
+  error: string;
+};
+
 export type Review = {
   id: number;
   repository: string;
@@ -125,6 +140,7 @@ export type Review = {
   duration_ms: number;
   estimated_cost_usd: string;
   estimated_cost_inr: string;
+  degraded: boolean;
   truncated: boolean;
   skipped_files: string[];
   error: string;
@@ -132,6 +148,7 @@ export type Review = {
   finished_at: string | null;
   findings: ReviewFinding[];
   calls: ReviewCall[];
+  agent_runs: AgentRun[];
 };
 
 export type ReviewSummary = {

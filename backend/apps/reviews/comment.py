@@ -33,7 +33,7 @@ def render_running(head_sha):
     )
 
 
-def render(review, findings, *, failure_reason="", unpriced=()):
+def render(review, findings, *, failure_reason="", unpriced=(), agent_runs=(), skipped=()):
     """The finished review."""
     lines = [HEADER, ""]
 
@@ -78,6 +78,10 @@ def render(review, findings, *, failure_reason="", unpriced=()):
     if disclosure:
         lines += [disclosure, ""]
 
+    agents = _render_agents(agent_runs, skipped)
+    if agents:
+        lines += [agents, ""]
+
     lines += [
         "---",
         format_footer(
@@ -118,3 +122,91 @@ def _render_disclosure(review):
 
 def _short(sha):
     return (sha or "unknown")[:7]
+
+
+AGENT_LABELS = {
+    "diff_intent": "Diff/Intent",
+    "static_analysis": "Static analysis",
+    "security": "Security",
+    "grounding": "Codebase grounding",
+    "test_coverage": "Test coverage",
+}
+
+
+def _render_agents(agent_runs, skipped):
+    """Say which agents ran and which did not.
+
+    A six-agent review that quietly ran four looks identical to one that ran six
+    and found less, unless it says so. Collapsed into a details block so the
+    findings stay the first thing a reviewer reads.
+    """
+    if not agent_runs:
+        return ""
+
+    rows = []
+    for run in agent_runs:
+        label = AGENT_LABELS.get(run.name, run.name)
+        if run.skipped_reason:
+            rows.append(f"| {label} | skipped | {run.skipped_reason} |")
+        elif run.error:
+            rows.append(f"| {label} | failed | {run.error[:90]} |")
+        else:
+            plural = "" if run.findings_count == 1 else "s"
+            detail = f"{run.findings_count} finding{plural}"
+            if run.model:
+                detail += f" · `{run.model}`"
+            if run.used_fallback:
+                detail += " (fallback)"
+            rows.append(f"| {label} | ok | {detail} |")
+
+    note = ""
+    if skipped:
+        note = (
+            "\n\nSome agents were skipped to stay inside the review's token budget; "
+            "the highest-priority ones run first."
+        )
+
+    table = "\n".join(rows)
+    return (
+        "<details>\n<summary>Agents</summary>\n\n"
+        "| Agent | Status | Detail |\n|---|---|---|\n"
+        f"{table}{note}\n\n</details>"
+    )
+
+
+def render_degraded(review, reason, agent_runs=()):
+    """The demo-mode fallback comment (spec section 5).
+
+    Deliberately unlike a review: no findings section, no "no issues found", and an
+    explicit statement that the change was NOT reviewed. A degraded result that
+    reads like a clean review is worse than no comment at all, because it tells a
+    reviewer the change was checked when it was not.
+    """
+    lines = [
+        HEADER,
+        "",
+        "> **Degraded mode — automated review unavailable.**",
+        ">",
+        "> No language model could be reached for this change, so **this pull "
+        "request has not been reviewed**. Please do not read this comment as "
+        "approval.",
+        "",
+        f"Commit: `{_short(review.head_sha)}`",
+        "",
+    ]
+
+    if reason:
+        lines += [f"Reason: {reason[:300]}", ""]
+
+    if any(run.succeeded and not run.provider for run in agent_runs):
+        lines += [
+            "Local static analysis did run. It is a partial signal only, and is "
+            "not a substitute for the review.",
+            "",
+        ]
+
+    lines += [
+        "Push a new commit to retry, or re-run the review from the CodeSage "
+        "dashboard once quota is available.",
+    ]
+    return "\n".join(lines).strip() + "\n"

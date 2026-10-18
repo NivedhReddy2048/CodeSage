@@ -11,12 +11,12 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from apps.agents import run_review
-from apps.agents.types import RepoContext, ReviewConfig
+from apps.agents import run_pipeline
+from apps.agents.types import RepoContext, RetrievedChunk, ReviewConfig
 from apps.repos import github_app
 from apps.repos.github_app import API_HEADERS, GitHubAppError
 from apps.reviews import comment as comment_renderer
-from apps.reviews.models import LLMCall, Review, ReviewFinding
+from apps.reviews.models import AgentRunRecord, LLMCall, Review, ReviewFinding
 from apps.reviews.pricing import estimate_usd, to_inr, unpriced_models
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,9 @@ def build_config():
         groq_api_key=settings.GROQ_API_KEY,
         gemini_api_key=settings.GEMINI_API_KEY,
         primary_model=settings.REVIEW_PRIMARY_MODEL,
+        cheap_model=settings.REVIEW_CHEAP_MODEL,
         fallback_model=settings.REVIEW_FALLBACK_MODEL,
+        token_budget=settings.REVIEW_TOKEN_BUDGET,
         request_timeout=settings.REVIEW_REQUEST_TIMEOUT,
         max_retries=settings.REVIEW_MAX_RETRIES,
         backoff_seconds=settings.REVIEW_BACKOFF_SECONDS,
@@ -104,24 +106,92 @@ def review_pull_request(pull_request, installation_id):
         head_sha=pull_request.head_sha,
     )
 
-    result = run_review(diff, context, build_config())
+    result = run_pipeline(
+        diff,
+        context,
+        build_config(),
+        # Retrieval is injected rather than imported: the agents package must stay
+        # free of the ORM, so the grounding agent receives a callable it can use
+        # without knowing Django exists.
+        retrieve=build_retriever(repository),
+    )
 
     with transaction.atomic():
         _store_calls(review, result.calls)
+        _store_agent_runs(review, getattr(result, "agent_runs", []))
         _store_totals(review, result)
         findings = _store_findings(review, result.findings)
 
     unpriced = unpriced_models(result.calls)
 
+    agent_runs = list(getattr(result, "agent_runs", []))
+    skipped = list(getattr(result, "skipped_agents", []))
+
     if result.succeeded:
-        body = comment_renderer.render(review, findings, unpriced=unpriced)
+        body = comment_renderer.render(
+            review, findings, unpriced=unpriced, agent_runs=agent_runs, skipped=skipped
+        )
+    elif review.degraded:
+        body = comment_renderer.render_degraded(review, result.failure_reason, agent_runs)
     else:
         body = comment_renderer.render(
-            review, [], failure_reason=result.failure_reason, unpriced=unpriced
+            review,
+            [],
+            failure_reason=result.failure_reason,
+            unpriced=unpriced,
+            agent_runs=agent_runs,
+            skipped=skipped,
         )
 
     _update_comment(pull_request, installation_id, body)
     return review
+
+
+def build_retriever(repository):
+    """A `query -> [RetrievedChunk]` callable over this repository's index.
+
+    Converts CodeChunk rows into the agents package's plain dataclass, which is
+    what keeps the Django boundary intact.
+    """
+
+    def retrieve(query):
+        from apps.ingestion.retrieval import search
+
+        return [
+            RetrievedChunk(
+                file_path=chunk.file_path,
+                symbol=chunk.symbol,
+                line_start=chunk.line_start,
+                line_end=chunk.line_end,
+                content=chunk.content,
+                score=score,
+            )
+            for chunk, score in search(repository, query)
+        ]
+
+    return retrieve
+
+
+def _store_agent_runs(review, runs):
+    AgentRunRecord.objects.bulk_create(
+        [
+            AgentRunRecord(
+                review=review,
+                name=run.name,
+                model=run.model,
+                provider=run.provider,
+                input_tokens=run.input_tokens,
+                output_tokens=run.output_tokens,
+                latency_ms=run.latency_ms,
+                succeeded=run.succeeded,
+                used_fallback=run.used_fallback,
+                findings_count=run.findings_count,
+                skipped_reason=run.skipped_reason[:255],
+                error=run.error,
+            )
+            for run in runs
+        ]
+    )
 
 
 def _store_calls(review, calls):
@@ -155,6 +225,11 @@ def _store_totals(review, result):
     review.estimated_cost_usd = usd
     review.estimated_cost_inr = to_inr(usd)
     review.truncated = result.truncated
+    # Degraded means local analysis ran but nothing answered. Distinct from failed,
+    # and the comment must say so rather than presenting a lint pass as a review.
+    review.degraded = (not result.succeeded) and any(
+        run.succeeded for run in getattr(result, "agent_runs", [])
+    )
     review.skipped_files = list(result.skipped_files)
     review.error = result.failure_reason[:2000] if result.failure_reason else ""
     review.finished_at = timezone.now()
