@@ -13,6 +13,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { IngestionStatus } from "@/components/ingestion-status";
 import { api } from "@/lib/api";
 import type { ConnectedRepository, InstallableResponse } from "@/lib/types";
 
@@ -154,7 +155,7 @@ export default function ReposPage() {
               {data.connected.map((repo) => (
                 <li
                   key={repo.id}
-                  className="flex items-center justify-between gap-4 py-3 first:pt-0 last:pb-0"
+                  className="flex items-start justify-between gap-4 py-3 first:pt-0 last:pb-0"
                 >
                   <div className="min-w-0">
                     <p className="truncate font-medium">{repo.full_name}</p>
@@ -162,6 +163,7 @@ export default function ReposPage() {
                       privateRepo={repo.private}
                       branch={repo.default_branch}
                     />
+                    <IngestionStatus repositoryId={repo.id} canManage />
                   </div>
                   <Button
                     variant="outline"
