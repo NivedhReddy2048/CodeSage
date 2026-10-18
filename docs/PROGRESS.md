@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **10 / 16 toward bronze** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **13 / 16 toward bronze** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -70,17 +70,42 @@ collaborator, so it is optional rather than part of the plan. An AI co-author tr
 not be used to earn it: that contradicts the no-AI-attribution rule and, when it was tried
 once, listed "claude" as a repository contributor.
 
-**Update the merged-PR count in this table in each phase's last PR.**
+**Update the merged-PR count in this table in each phase's last PR.** The figure
+counts merged PRs *including* the one making the edit, so it is correct the moment that
+PR lands rather than one behind forever.
 
 ---
 
 ## Phase 2 — Repo connection (GitHub App)
 
-**Status:** Done — 2a, 2b and 2c merged.
+**Status:** Done, and **verified live**.
 
-Open a PR on a repository the App is installed on and `codesage-nr[bot]` comments
-within seconds. The `/repos` page shows what the installation can reach and lets an
-owner or admin connect and disconnect.
+`codesage-nr[bot]` posted its acknowledgement on
+[codesage-testbed#1](https://github.com/NivedhReddy2048/codesage-testbed/pull/1)
+within seconds of the PR opening. The `/repos` page shows what the installation can
+reach and lets an owner or admin connect and disconnect.
+
+### Edit-not-duplicate, verified on a real PR
+
+A second commit was pushed to the same PR branch, producing a `pull_request`
+`synchronize` delivery. Both deliveries were received and processed, each answered
+**202** in under 0.1s:
+
+| delivery | event | action | processed |
+|---|---|---|---|
+| `1ead4f90-...` | `pull_request` | `opened` | yes |
+| `328241a0-...` | `pull_request` | `synchronize` | yes |
+
+Afterwards the PR still carried **exactly one** bot comment, with the same
+`ack_comment_id` (6248297170), while the stored `head_sha` advanced to the new commit.
+That combination is the proof: had the create branch run, there would be two comments.
+
+**`updated_at` did not change, and cannot be used as evidence here.** The
+acknowledgement body is a constant, and GitHub no-ops a PATCH whose body is
+byte-identical. Confirmed directly by PATCHing the comment with its own current body
+and watching `updated_at` stay put. Putting the head SHA in the acknowledgement text
+would make each `synchronize` a visible edit — worth doing when phase 4 gives the
+comment real content to carry.
 
 The App is `CodeSage NR` (slug `codesage-nr`, App ID 5366297), installed on
 `NivedhReddy2048/codesage-testbed` only. Comments will post as `codesage-nr[bot]` —
