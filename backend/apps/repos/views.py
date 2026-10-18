@@ -264,6 +264,14 @@ class RepositoryConnectView(OrganizationScopedMixin, APIView):
             installation.organization = organization
             installation.save(update_fields=["organization", "updated_at"])
 
+        if created:
+            # Index immediately on first connect, so the repository is useful without
+            # a second action. Imported here to keep the repos app from importing the
+            # ingestion app at module load.
+            from apps.ingestion.services import start_ingestion
+
+            start_ingestion(repository)
+
         return Response(
             RepositorySerializer(repository).data,
             status=status.HTTP_201_CREATED if created else status.HTTP_200_OK,
