@@ -90,6 +90,26 @@ class PreparedDiff:
         return False
 
 
+@dataclass(frozen=True)
+class RetrievedChunk:
+    """A chunk handed to the grounding agent.
+
+    Plain data, built by the caller from CodeChunk rows, so the agents package stays
+    free of the ORM.
+    """
+
+    file_path: str
+    symbol: str
+    line_start: int
+    line_end: int
+    content: str
+    score: float = 0.0
+
+    def covers(self, file_path, line):
+        """Whether a cited line falls inside this chunk."""
+        return self.file_path == file_path and self.line_start <= line <= self.line_end
+
+
 @dataclass
 class RepoContext:
     """What the reviewer knows about the change, beyond the diff itself."""
@@ -99,6 +119,24 @@ class RepoContext:
     pr_title: str = ""
     base_branch: str = ""
     head_sha: str = ""
+
+
+@dataclass
+class AgentRun:
+    """Telemetry for one agent in the pipeline (spec section 14)."""
+
+    name: str
+    model: str = ""
+    provider: str = ""
+    input_tokens: int = 0
+    output_tokens: int = 0
+    latency_ms: int = 0
+    succeeded: bool = False
+    used_fallback: bool = False
+    # Set when the agent was skipped rather than run, e.g. the token budget ran out.
+    skipped_reason: str = ""
+    findings_count: int = 0
+    error: str = ""
 
 
 @dataclass

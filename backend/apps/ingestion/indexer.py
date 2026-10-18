@@ -14,6 +14,7 @@ from django.utils import timezone
 from apps.ingestion import selection, source
 from apps.ingestion.chunking import chunk_file
 from apps.ingestion.embeddings import EmbeddingClient, EmbeddingError
+from apps.ingestion.identifiers import build_search_text
 from apps.ingestion.models import CodeChunk, IngestionJob
 from apps.ingestion.source import SourceFetchError
 
@@ -236,6 +237,9 @@ def _store(repository, chunks, vectors_by_hash, result):
                 line_end=chunk.line_end,
                 content=chunk.content,
                 content_hash=chunk.content_hash,
+                # The lexical half of retrieval. A database trigger turns this into
+                # the tsvector, so bulk_create cannot leave it stale.
+                search_text=build_search_text(chunk.file_path, chunk.symbol, chunk.content),
                 embedding=vectors_by_hash.get(chunk.content_hash),
             )
         )
