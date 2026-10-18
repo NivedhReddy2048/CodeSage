@@ -11,7 +11,7 @@ pull requests, each closing its own issue. Architecture lives in
 |---|---|---|---|
 | 0 | Scaffold | `phase-0-scaffold` (squashed) | **Done** |
 | 1 | Auth | `phase-1a` backend, `1b` frontend, `1c` tests | **Done** |
-| 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | **In progress** (2a done) |
+| 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | **In progress** (2a, 2b done) |
 | 3 | Ingestion | `phase-3a` chunk+embed, `3b` status UI | Not started |
 | 4 | Agent pipeline v1 | `phase-4a` models, `4b` pipeline, `4c` PR comment | Not started |
 | 5 | Full 6-agent pipeline | `phase-5a` agents, `5b` RAG, `5c` synthesis | Not started |
@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **6 / 16 toward bronze** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **7 / 16 toward bronze** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -76,7 +76,7 @@ once, listed "claude" as a repository contributor.
 
 ## Phase 2 — Repo connection (GitHub App)
 
-**Status:** In progress — 2a merged, 2b and 2c to come.
+**Status:** In progress — 2a and 2b merged, 2c to come.
 
 The App is `CodeSage NR` (slug `codesage-nr`, App ID 5366297), installed on
 `NivedhReddy2048/codesage-testbed` only. Comments will post as `codesage-nr[bot]` —
@@ -94,8 +94,42 @@ Verified live against real GitHub, not only against mocks: `GET /app` returns
 only subscribed event; the installation token scopes to just the testbed; and the cache
 turns an 843 ms mint into a 1 ms read.
 
+### 2b — signed webhook receiver and acknowledgement comment
+
+`POST /api/webhooks/github/` verifies `X-Hub-Signature-256`, stores a `WebhookEvent`,
+queues the follow-up work and returns 202 — no GitHub call on the request path. A
+`PullRequest` model holds the bot comment's id so phase 5 can edit that comment rather
+than adding a second one.
+
+Measured over `127.0.0.1`: **~60 ms** for verify + persist + enqueue, against GitHub's
+10 second budget. (A first measurement showed ~2 s, which turned out to be a
+client-side `localhost` IPv6 resolution delay on Windows, not server time — the same
+request to `127.0.0.1` took 15 ms.)
+
 ### Decisions worth recording
 
+- **Background work uses a thread, not Celery, for now.** Celery and its worker
+  arrive in phase 3 with ingestion; standing one up here for a single small job would
+  be work phase 3 immediately redoes. `apps/repos/dispatch.py` is a narrow seam with
+  the same call shape as a Celery task, so phase 3 replaces the body and no caller
+  changes. `BACKGROUND_TASKS_EAGER` runs it inline, which is how tests avoid racing a
+  thread and mirrors Celery's `task_always_eager` (spec §7).
+- **Connection teardown belongs only to the threaded path.** A first version closed
+  all database connections in a `finally` regardless; in eager mode that closed the
+  *caller's* connection and broke the request around it. A test caught it.
+- **An unset webhook secret rejects everything.** Failing closed matters here: the
+  endpoint is public, so treating "no secret configured" as "trust every caller" would
+  be the worst possible default.
+- **Only `opened` and `synchronize` trigger work.** Those are the two actions that
+  change the diff; `reopened`, `edited` and `labeled` must not spend a review.
+- **`synchronize` edits the existing comment instead of adding one**, so a PR with
+  five pushes still carries one bot comment.
+- **A repository is auto-registered on first webhook.** Installing the App is itself
+  the grant of access, so a PR gets a review without a second confirmation step in the
+  UI. The tenant is resolved from an explicit connect-flow link when one exists, and
+  otherwise from the personal organisation of the user whose GitHub login matches the
+  installation account. This is also what makes 2b testable on its own, before the 2c
+  UI exists.
 - **The JWT issuer prefers the Client ID, falling back to the App ID.** GitHub's docs
   now say "Use of the client ID is recommended"; the App ID is still accepted and is
   not deprecated. Supporting both means the project follows current guidance without

@@ -360,3 +360,38 @@ def test_the_authorization_header_is_a_bearer_token(app_settings):
     headers = request.call_args.kwargs["headers"]
     assert headers["Authorization"].startswith("Bearer ")
     assert headers["X-GitHub-Api-Version"] == "2022-11-28"
+
+
+# ---------------------------------------------------------------- PR comment calls
+
+
+def test_create_issue_comment_posts_to_the_issues_endpoint(app_settings):
+    """PRs are issues for the comments API, hence the /issues/ path."""
+    responses = [
+        api_response(201, {"token": "ghs_t", "expires_at": "2099-01-01T00:00:00Z"}),
+        api_response(201, {"id": 4242, "body": "hi"}),
+    ]
+
+    with mock.patch.object(github_app.requests, "request", side_effect=responses) as request:
+        comment = github_app.create_issue_comment(1, "owner/repo", 7, "hi")
+
+    assert comment["id"] == 4242
+    method, url = request.call_args.args
+    assert method == "POST"
+    assert url.endswith("/repos/owner/repo/issues/7/comments")
+    assert request.call_args.kwargs["json"] == {"body": "hi"}
+
+
+def test_update_issue_comment_patches_the_comment(app_settings):
+    responses = [
+        api_response(201, {"token": "ghs_t", "expires_at": "2099-01-01T00:00:00Z"}),
+        api_response(200, {"id": 4242, "body": "updated"}),
+    ]
+
+    with mock.patch.object(github_app.requests, "request", side_effect=responses) as request:
+        comment = github_app.update_issue_comment(1, "owner/repo", 4242, "updated")
+
+    assert comment["body"] == "updated"
+    method, url = request.call_args.args
+    assert method == "PATCH"
+    assert url.endswith("/repos/owner/repo/issues/comments/4242")

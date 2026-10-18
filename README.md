@@ -134,8 +134,20 @@ GitHub cannot reach `localhost`, so deliveries are relayed through
 App's webhook URL, and run the relay in its own terminal:
 
 ```bash
+cd frontend
+npm run webhooks
+```
+
+`smee-client` is pinned as a devDependency and the channel URL lives in the
+`webhooks` script in `frontend/package.json`. It sits in the frontend package only
+because that is where npm already is — it relays to the *backend*. Change the channel
+there if you create a new one, or run it directly:
+
+```bash
 npx --yes smee-client --url https://smee.io/YOUR_CHANNEL --target http://localhost:8000/api/webhooks/github/
 ```
+
+Three terminals are needed locally: backend, frontend, relay.
 
 ## Checks
 

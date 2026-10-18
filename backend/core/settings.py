@@ -191,6 +191,11 @@ GITHUB_APP_PRIVATE_KEY = env("GITHUB_APP_PRIVATE_KEY", default="")
 # X-Hub-Signature-256 against it.
 GITHUB_WEBHOOK_SECRET = env("GITHUB_WEBHOOK_SECRET", default="")
 
+# Run webhook follow-up work inline instead of on a thread. Tests set this so they do
+# not race a background thread; it mirrors Celery's task_always_eager, which spec
+# section 7 names as the fallback for lightweight jobs.
+BACKGROUND_TASKS_EAGER = env.bool("BACKGROUND_TASKS_EAGER", default=False)
+
 SPECTACULAR_SETTINGS = {
     "TITLE": "CodeSage API",
     "DESCRIPTION": "Multi-agent code review pipeline for GitHub pull requests.",
