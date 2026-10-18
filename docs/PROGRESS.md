@@ -13,8 +13,8 @@ pull requests, each closing its own issue. Architecture lives in
 | 1 | Auth | `phase-1a` backend, `1b` frontend, `1c` tests | **Done** |
 | 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | **Done** |
 | 3 | Ingestion | `phase-3a` engine, `3b` Celery+API, `3c` UI | **Done** |
-| 4 | Agent pipeline v1 | `phase-4a` models, `4b` pipeline, `4c` PR comment | Next |
-| 5 | Full 6-agent pipeline | `phase-5a` agents, `5b` RAG, `5c` synthesis | Not started |
+| 4 | Agent pipeline v1 | `phase-4a` agents pkg, `4b` reviews app, `4c` push+page | **Done** |
+| 5 | Full 6-agent pipeline | `phase-5a` agents, `5b` RAG, `5c` synthesis | Next |
 | 6 | Realtime + polish | `phase-6a` realtime, `6b` analytics, `6c` UI shell | Not started |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Not started |
 | 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **16 / 16 — bronze reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **19 merged — bronze (16) reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -73,6 +73,73 @@ once, listed "claude" as a repository contributor.
 **Update the merged-PR count in this table in each phase's last PR.** The figure
 counts merged PRs *including* the one making the edit, so it is correct the moment that
 PR lands rather than one behind forever.
+
+---
+
+## Phase 4 — Agent pipeline v1
+
+**Status:** Done. One review agent over the PR diff; the six-agent LangGraph pipeline
+and retrieval grounding are phase 5.
+
+### The spec's primary model does not exist on this key
+
+Spec §5 names `llama-3.3-70b-versatile`. **`GET /v1/models` does not list it**, even
+though Groq's docs still show it as a production model with no deprecation notice.
+Documentation and account entitlement disagree, and entitlement is what runs.
+
+Every callable candidate was probed with a real review prompt before choosing:
+
+| Model | Mode | Latency | Valid JSON | Tier |
+|---|---|---|---|---|
+| `openai/gpt-oss-120b` | json_object | 1569 ms | yes | production |
+| `openai/gpt-oss-20b` | json_object | 1814 ms | yes | production |
+| `qwen/qwen3.8-27b` | json_object | 970 ms | yes | preview |
+| `qwen/qwen3.8-27b` | none | 916 ms | **no** | preview |
+
+**Primary is `openai/gpt-oss-120b`.** `qwen` is fastest but Groq labels it preview
+("should not be used in production environments") and it emits invalid JSON without
+json_object mode. Fallback stays `gemini-flash-lite-latest` per §14.
+
+Live rate-limit headers report **1000 requests/day and 8000 TPM**, which is what sets
+`REVIEW_MAX_DIFF_BYTES`.
+
+### Decisions worth recording
+
+- **The agents package has no Django imports, and that is now enforced.**
+  `apps.agents` was removed from `INSTALLED_APPS` and its empty Django boilerplate
+  deleted, so the only Django import — the `AppConfig` that registration demanded —
+  is gone. A test greps the package for `django` and for sibling-app imports, so the
+  boundary cannot erode quietly.
+- **Prompt injection is treated as a real threat.** A diff is attacker-controlled.
+  Four layers: rules only in the system message, the diff delimited and labelled
+  untrusted, the output contract restated *after* the data, and structural validation
+  so even a subverted response cannot produce a shape the caller mishandles. Verified
+  live — the model caught the real bug *and* reported the injected instruction as a
+  security finding.
+- **Findings citing a line absent from the diff are dropped.** A comment anchored to
+  unrelated code is worse than silence: it looks authoritative and is wrong.
+- **A circuit breaker per provider.** With a quota exhausted, every review would
+  otherwise spend its full retry budget (~14 s of backoff) rediscovering the same 429
+  before failing over. A schema failure deliberately does *not* count against the
+  breaker — that is the model's fault, not the endpoint's.
+- **One corrective retry on invalid output**, then graceful failure with the reason in
+  the PR comment.
+- **The head SHA is in the comment because GitHub no-ops identical PATCHes.** Phase 2
+  established this; a constant body would make every re-review invisible.
+- **Cost is always labelled an estimate at paid-tier rates**, and an unpriced model
+  reports "cost unknown" rather than a confident `0.00`. Groq's figures come from
+  `console.groq.com/docs/models` — `groq.com/pricing` is JavaScript-rendered and
+  carries no numbers.
+- **`reopened` now triggers a review.** Phase 2 treated it as a no-op since it does
+  not alter the diff, but a reopened PR has had no review of this branch state.
+- **Push re-indexes, narrowly.** Only the default branch of a connected repository;
+  other branches, tags, deletions and unconnected repositories are ignored, because
+  indexing is the one thing that spends Gemini quota.
+
+### Found while building
+
+- A deleted file (`+++ /dev/null`) fell through to the `--- a/` fallback and was sent
+  to the model with no citable lines, spending tokens on a change nobody can act on.
 
 ---
 
