@@ -58,3 +58,29 @@ export type InstallableResponse = {
   install_url: string;
   repositories: InstallableRepository[];
 };
+
+export type IngestionStatus = "pending" | "running" | "done" | "failed";
+
+export type IngestionJob = {
+  id: number;
+  status: IngestionStatus;
+  is_active: boolean;
+  commit_sha: string;
+  files_discovered: number;
+  files_indexed: number;
+  files_skipped: number;
+  chunks_created: number;
+  chunks_reused: number;
+  embedding_api_calls: number;
+  error: string;
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  duration_seconds: number | null;
+};
+
+export type IngestionState = {
+  job: IngestionJob | null;
+  chunk_count: number;
+  indexed_files: number;
+};

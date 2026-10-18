@@ -15,6 +15,8 @@ import {
 } from "@/lib/tokens";
 import type {
   ConnectedRepository,
+  IngestionJob,
+  IngestionState,
   GitHubStartResponse,
   InstallableResponse,
   LoginResponse,
@@ -171,4 +173,10 @@ export const api = {
 
   disconnectRepository: (id: number) =>
     request<void>(`/api/repos/${id}/`, { method: "DELETE" }),
+
+  ingestionStatus: (id: number) =>
+    request<IngestionState>(`/api/repos/${id}/ingestion/`),
+
+  reindexRepository: (id: number) =>
+    request<IngestionJob>(`/api/repos/${id}/reindex/`, { method: "POST" }),
 };

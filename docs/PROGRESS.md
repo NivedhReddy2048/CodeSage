@@ -12,8 +12,8 @@ pull requests, each closing its own issue. Architecture lives in
 | 0 | Scaffold | `phase-0-scaffold` (squashed) | **Done** |
 | 1 | Auth | `phase-1a` backend, `1b` frontend, `1c` tests | **Done** |
 | 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | **Done** |
-| 3 | Ingestion | `phase-3a` chunk+embed, `3b` status UI | Next |
-| 4 | Agent pipeline v1 | `phase-4a` models, `4b` pipeline, `4c` PR comment | Not started |
+| 3 | Ingestion | `phase-3a` engine, `3b` Celery+API, `3c` UI | **Done** |
+| 4 | Agent pipeline v1 | `phase-4a` models, `4b` pipeline, `4c` PR comment | Next |
 | 5 | Full 6-agent pipeline | `phase-5a` agents, `5b` RAG, `5c` synthesis | Not started |
 | 6 | Realtime + polish | `phase-6a` realtime, `6b` analytics, `6c` UI shell | Not started |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Not started |
@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **13 / 16 toward bronze** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **16 / 16 — bronze reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -73,6 +73,81 @@ once, listed "claude" as a repository contributor.
 **Update the merged-PR count in this table in each phase's last PR.** The figure
 counts merged PRs *including* the one making the edit, so it is correct the moment that
 PR lands rather than one behind forever.
+
+---
+
+## Phase 3 — Ingestion
+
+**Status:** Done, and **verified live** against `NivedhReddy2048/codesage-testbed`.
+
+```
+files discovered    : 16
+files indexed       : 15
+files skipped       :  1   (empty app/__init__.py)
+chunks created      : 58
+chunks reused       : 40   (second run, from the content-hash cache)
+embedding API calls :  1   (batched)
+stored dimension    : 1536
+duration            : 6.2s
+```
+
+A manual query for `"function that looks up a user by id"` returns
+`app/users.py:1-5`, `web/users.js:3-5 findUserById` and `web/users.js:11-13
+fetchUser`. A query for `"SQL query built with string interpolation"` returns the
+planted injection bug, `app/orders.py:17-24 OrderRepository.search_by_status`, at
+rank 1.
+
+### Decisions worth recording
+
+- **Source arrives as a tarball through the App installation token, not `git`.**
+  Render's free tier has an ephemeral filesystem and no guarantee the app process can
+  shell out, so cloning is a thing that works locally and fails in production. The
+  archive is streamed with a size cap rather than written to disk.
+- **1536-dimension embeddings, not the model's 3072 default.** pgvector's hnsw and
+  ivfflat indexes cap at 2000 dimensions, so 3072 would be storable but unindexable
+  and every similarity search would silently become a sequential scan.
+- **The migration creates the pgvector extension itself.** docker-compose seeds the
+  dev database, but pytest builds a fresh test database and CI's service container
+  has no init script. Verified by migrating into a database with no extension.
+- **Embeddings are cached by content hash, including the file path.** Re-indexing an
+  unchanged file costs nothing, which is what makes frequent re-indexing affordable;
+  including the path keeps identical code in two files as two citations.
+- **A parse failure never fails the job.** `codesage-testbed`'s `test.py` has leading
+  indentation before `def` and raises `IndentationError`, so the fallback path is
+  exercised by a test rather than assumed.
+- **tree-sitter was considered and rejected** for JS/TS: a compiled dependency plus
+  per-language grammars on a 512 MB dyno, to improve boundaries in a system whose
+  results are already scored by embedding similarity.
+- **Celery runs co-located with the web process** (spec §7). A second job is refused
+  while one is pending or running, because two concurrent runs would race on the
+  indexer's delete-then-insert.
+- **Re-indexing requires owner or admin**, because it spends Gemini quota.
+
+### Found by running it, not by the tests
+
+- **The generic chunker merged whole files into one chunk.** Packing blocks purely by
+  size put every function of a small JS file together: individually unretrievable,
+  with a citation spanning the whole file. A declaration now breaks the chunk even
+  when the merged result would fit. `web/users.js` went from 1 chunk to 6, and the
+  repository from 45 to 58.
+- **An 80-character minimum silently dropped module context.** A realistic
+  imports-and-constants block measured 73 characters. Lowered to 40.
+
+### Known limitation
+
+Pure vector search ranks `app/users.py`'s module docstring above
+`UserRepository.find_by_id` for `"function that looks up a user by id"` — the prose
+restates the query, the code does not. This is precisely what spec §6's hybrid
+retrieval addresses: phase 5 adds Postgres `ts_rank` keyword matching alongside the
+dense search, which would lift the literal symbol name.
+
+### Not enabled: re-index on push
+
+The GitHub App subscribes to `pull_request` only, so pushing to the default branch
+does not re-index. Enabling it needs **Settings → Developer settings → GitHub Apps →
+CodeSage NR → Permissions & events → Subscribe to events → tick "Push"**. The
+content-hash cache makes frequent re-indexing cheap, so this is reasonable to turn on
+whenever wanted; the handler for it is not built yet.
 
 ---
 
