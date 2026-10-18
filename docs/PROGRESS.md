@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **8 / 16 toward bronze** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **10 / 16 toward bronze** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -142,6 +142,36 @@ disconnect returned 204.
 - **The App slug is cached for a day.** It is needed to build the install URL and
   never changes, so it is fetched once from `GET /app` rather than per request, or
   supplied directly via `GITHUB_APP_SLUG`.
+
+### Fixed after the phase merged
+
+Two defects got through all three Phase 2 PRs. In both cases the local suite was
+green, so they are recorded here for the reason they were missed rather than for the
+fix itself.
+
+**CI had no Redis service container** ([#18](https://github.com/NivedhReddy2048/CodeSage/pull/18)).
+2a added a `CACHES` setting pointing at Redis for installation-token caching. CI had
+a Postgres service from phase 1 but never gained a Redis one, so the backend job
+failed with `Error 111 connecting to localhost:6379` while every local run passed,
+because `docker compose` provides Redis here. Three PRs were merged without checking
+the CI result. The fix adds the service container — Redis is a real production
+dependency and the cache semantics are under test, so substituting an in-memory cache
+would have stopped testing what ships. The autouse cache fixture was also narrowed:
+it had been making pure JWT and key-loading tests depend on Redis.
+
+**The webhook route only existed with a trailing slash** ([#20](https://github.com/NivedhReddy2048/CodeSage/pull/20)).
+`smee-client` strips the trailing slash from its target, so it posted to
+`/api/webhooks/github` while the route was registered only as
+`/api/webhooks/github/`. `APPEND_SLASH` cannot redirect a POST without discarding the
+body, so `CommonMiddleware` raised and the relay saw a 500 before any project code
+ran — no delivery ever reached the handler. Every test passed because they all
+`reverse()` the route by name, which always yields the slashed path; nothing
+exercised the path a real client uses. Both paths are now registered, with a test
+asserting the slash-less one still rejects a bad signature.
+
+**The lesson, for later phases:** a green local suite and green unit tests are not a
+verified system. Check CI before merging, and exercise the real client path — the
+relay found in minutes what 161 passing tests did not.
 
 ### Open item for me
 
