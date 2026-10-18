@@ -108,6 +108,16 @@ CHANNEL_LAYERS = {
     }
 }
 
+# Cache — the same Redis. Needed for real: GitHub App installation tokens are cached
+# here until shortly before they expire (see apps/repos/github_app.py). Django ships
+# this backend natively from 4.0, so it costs no extra dependency.
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": REDIS_URL,
+    }
+}
+
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
@@ -162,6 +172,24 @@ GITHUB_CLIENT_SECRET = env("GITHUB_CLIENT_SECRET", default="")
 GITHUB_OAUTH_REDIRECT_URI = env(
     "GITHUB_OAUTH_REDIRECT_URI", default="http://localhost:3000/auth/callback"
 )
+
+# GitHub App — the PR loop (spec section 13). Separate identity from the OAuth App above:
+# this one owns webhooks, repository reads and PR comments, and posts as the bot.
+GITHUB_APP_ID = env("GITHUB_APP_ID", default="")
+
+# GitHub's docs say "Use of the client ID is recommended" for the JWT issuer, with the
+# numeric App ID still accepted. Prefer this when set; the App ID is the fallback.
+GITHUB_APP_CLIENT_ID = env("GITHUB_APP_CLIENT_ID", default="")
+
+# Two ways to supply the private key, because the environments differ. Locally it is a
+# gitignored file; in production there is no filesystem for it, so the PEM contents
+# travel in an env var (escaped newlines are unescaped on read).
+GITHUB_APP_PRIVATE_KEY_PATH = env("GITHUB_APP_PRIVATE_KEY_PATH", default="")
+GITHUB_APP_PRIVATE_KEY = env("GITHUB_APP_PRIVATE_KEY", default="")
+
+# Shared with GitHub so it can sign webhook deliveries; the receiver verifies
+# X-Hub-Signature-256 against it.
+GITHUB_WEBHOOK_SECRET = env("GITHUB_WEBHOOK_SECRET", default="")
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "CodeSage API",

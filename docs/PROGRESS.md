@@ -11,7 +11,7 @@ pull requests, each closing its own issue. Architecture lives in
 |---|---|---|---|
 | 0 | Scaffold | `phase-0-scaffold` (squashed) | **Done** |
 | 1 | Auth | `phase-1a` backend, `1b` frontend, `1c` tests | **Done** |
-| 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | Not started |
+| 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | **In progress** (2a done) |
 | 3 | Ingestion | `phase-3a` chunk+embed, `3b` status UI | Not started |
 | 4 | Agent pipeline v1 | `phase-4a` models, `4b` pipeline, `4c` PR comment | Not started |
 | 5 | Full 6-agent pipeline | `phase-5a` agents, `5b` RAG, `5c` synthesis | Not started |
@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **5 / 16 toward bronze** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **6 / 16 toward bronze** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -71,6 +71,63 @@ not be used to earn it: that contradicts the no-AI-attribution rule and, when it
 once, listed "claude" as a repository contributor.
 
 **Update the merged-PR count in this table in each phase's last PR.**
+
+---
+
+## Phase 2 — Repo connection (GitHub App)
+
+**Status:** In progress — 2a merged, 2b and 2c to come.
+
+The App is `CodeSage NR` (slug `codesage-nr`, App ID 5366297), installed on
+`NivedhReddy2048/codesage-testbed` only. Comments will post as `codesage-nr[bot]` —
+spec §13 writes `codesage[bot]`, but the plain name was unavailable, and the bot login
+is derived from the App name. Cosmetic only.
+
+### 2a — App authentication and repos models
+
+`AppInstallation`, `Repository` and `WebhookEvent` models, plus
+`apps/repos/github_app.py`: RS256 App JWT to installation token, with tokens cached in
+Redis until a minute before expiry.
+
+Verified live against real GitHub, not only against mocks: `GET /app` returns
+`contents: read`, `metadata: read`, `pull_requests: write` and `['pull_request']` as the
+only subscribed event; the installation token scopes to just the testbed; and the cache
+turns an 843 ms mint into a 1 ms read.
+
+### Decisions worth recording
+
+- **The JWT issuer prefers the Client ID, falling back to the App ID.** GitHub's docs
+  now say "Use of the client ID is recommended"; the App ID is still accepted and is
+  not deprecated. Supporting both means the project follows current guidance without
+  breaking when only the App ID is configured.
+- **The private key has two sources by design.** Locally it is a gitignored file
+  (`GITHUB_APP_PRIVATE_KEY_PATH`); in production there is no filesystem to put it on,
+  so the PEM travels in `GITHUB_APP_PRIVATE_KEY` with escaped newlines. Neither path
+  requires pasting a multi-line PEM into a `.env`.
+- **Redis became a real cache backend here.** Installation tokens need somewhere
+  durable and shared to live; Django has shipped a native Redis backend since 4.0, so
+  this cost no new dependency. Previously the project used the default in-memory cache.
+- **`pyjwt[crypto]` is now pinned explicitly.** RS256 needs `cryptography`, which was
+  present only as a transitive dependency of Twisted/pyOpenSSL. Depending on that
+  accidentally would have broken on any unrelated dependency change.
+- **A token expiring within the renewal margin is not cached at all**, rather than
+  cached briefly. Handing out a credential that dies mid-request is worse than paying
+  for a fresh mint.
+- **`Repository` uniqueness is per organisation, not global.** Two tenants may
+  legitimately connect the same public repository.
+- **`WebhookEvent.delivery_id` is unique**, which is what makes redelivery idempotent:
+  GitHub reuses the id, so a replay collides instead of queueing a duplicate review.
+- **Deleting an installation keeps its `Repository` rows** (`SET_NULL`). Uninstalling
+  the App should not erase the record of what was connected.
+
+### Fixed here: the serif font
+
+`globals.css` declared `--font-sans: var(--font-sans)` — a self-referential custom
+property, which CSS treats as invalid at computed-value time. So `html { @apply
+font-sans }` resolved to nothing and every page fell back to the browser's default
+serif, while `layout.tsx` published the real font as `--font-geist-sans`, which nothing
+read. Two scaffolds (create-next-app and shadcn) disagreeing on a variable name.
+One-line fix, confirmed in the compiled CSS: `html{font-family:var(--font-geist-sans)}`.
 
 ---
 
