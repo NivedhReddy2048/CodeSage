@@ -207,7 +207,13 @@ def _chunk_generic(file_path, text, language):
 
     for start, end in blocks[1:]:
         candidate = "\n".join(lines[current_start - 1 : end])
-        if len(candidate) <= settings.INGESTION_MAX_CHUNK_CHARS:
+        fits = len(candidate) <= settings.INGESTION_MAX_CHUNK_CHARS
+
+        # Break at a declaration even when the merged chunk would still fit.
+        # Merging purely on size put every function of a small JS file into a single
+        # chunk: individually unretrievable, with a citation spanning the whole file.
+        # A declaration is a real boundary, so it outranks packing efficiency.
+        if fits and not _starts_declaration(lines[start - 1 : end]):
             current_end = end
         else:
             chunks.extend(_emit_generic(file_path, language, current_start, current_end, lines))
@@ -236,6 +242,12 @@ def _blank_line_blocks(lines):
 def _emit_generic(file_path, language, start, end, lines):
     symbol, kind = _detect_declaration(lines[start - 1 : end])
     return _emit(file_path, symbol, kind, language, start, end, lines)
+
+
+def _starts_declaration(block_lines):
+    """Whether this block opens a new function, class or heading."""
+    _, kind = _detect_declaration(block_lines[:2])
+    return kind != "block"
 
 
 def _detect_declaration(block_lines):
