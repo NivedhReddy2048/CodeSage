@@ -7,6 +7,10 @@ channels-redis==4.3.0
 django-cors-headers==4.9.0
 celery[redis]==5.6.3
 django-environ==0.14.0
+# Orchestrates the six-agent graph. Pulls ~30 transitive deps (langchain-core,
+# pydantic, httpx, langsmith) - real weight on a 512MB dyno, accepted because the
+# graph is the centrepiece and parallel fan-out is verified working.
+langgraph==1.2.16
 drf-spectacular==0.30.0
 pgvector==0.5.1
 # gitwildmatch semantics (negations, **, dir-only patterns) are easy to get subtly

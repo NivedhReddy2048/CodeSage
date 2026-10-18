@@ -145,8 +145,16 @@ class ReviewConfig:
 
     groq_api_key: str = ""
     gemini_api_key: str = ""
+    # Model tiering against the shared 8000 TPM ceiling: the big model only where
+    # judgement matters most, the cheap one for classification and narrow passes.
     primary_model: str = "openai/gpt-oss-120b"
+    cheap_model: str = "openai/gpt-oss-20b"
     fallback_model: str = "gemini-flash-lite-latest"
+
+    # Total tokens one review may spend across every agent. Groq reports 8000 TPM
+    # and the bucket looks shared across models, so this leaves headroom rather
+    # than racing the limit and 429-ing partway through.
+    token_budget: int = 6500
     request_timeout: int = 90
     max_retries: int = 3
     backoff_seconds: float = 2.0
@@ -171,6 +179,9 @@ class ReviewResult:
     truncated: bool = False
     model_used: str = ""
     used_fallback: bool = False
+    # Per-agent telemetry (spec section 14), and agents the budget forced out.
+    agent_runs: list = field(default_factory=list)
+    skipped_agents: list = field(default_factory=list)
 
     @property
     def blocking(self):
