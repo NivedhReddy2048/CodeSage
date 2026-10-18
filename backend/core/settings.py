@@ -237,6 +237,57 @@ CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TASK_TIME_LIMIT = env.int("CELERY_TASK_TIME_LIMIT", default=30 * 60)
 
+# ---------------------------------------------------------------------------
+# Review pipeline (phase 4, spec sections 5 and 14)
+# ---------------------------------------------------------------------------
+
+GROQ_API_KEY = env("GROQ_API_KEY", default="")
+
+# The spec named llama-3.3-70b-versatile, but GET /v1/models does not list it for a
+# current free key even though Groq's docs still show it as production. Entitlement
+# beats documentation, so the primary is the largest production model the key can
+# actually call. qwen3.8-27b is faster but Groq labels it preview ("should not be
+# used in production") and it emits invalid JSON without json_object mode.
+REVIEW_PRIMARY_MODEL = env("REVIEW_PRIMARY_MODEL", default="openai/gpt-oss-120b")
+
+# Thinking models are barred from the review path: gemini-3.8-flash took 96s and
+# gemini-flash-latest 143s to emit one token (spec section 14).
+REVIEW_FALLBACK_MODEL = env("REVIEW_FALLBACK_MODEL", default="gemini-flash-lite-latest")
+
+# Live Groq rate-limit headers report 8000 tokens/minute, so an unbounded diff would
+# be rejected outright or starve the next review. Roughly 24 KB of diff is ~6k
+# tokens, leaving headroom for the prompt and the response.
+REVIEW_MAX_DIFF_BYTES = env.int("REVIEW_MAX_DIFF_BYTES", default=24000)
+REVIEW_MAX_FINDINGS = env.int("REVIEW_MAX_FINDINGS", default=25)
+REVIEW_REQUEST_TIMEOUT = env.int("REVIEW_REQUEST_TIMEOUT", default=90)
+REVIEW_MAX_RETRIES = env.int("REVIEW_MAX_RETRIES", default=3)
+REVIEW_BACKOFF_SECONDS = env.float("REVIEW_BACKOFF_SECONDS", default=2.0)
+REVIEW_BREAKER_FAILURE_THRESHOLD = env.int("REVIEW_BREAKER_FAILURE_THRESHOLD", default=3)
+REVIEW_BREAKER_RESET_SECONDS = env.float("REVIEW_BREAKER_RESET_SECONDS", default=300.0)
+
+# USD per 1,000,000 tokens, at each provider's PAID tier.
+#
+# Groq: https://console.groq.com/docs/models, "Production Models" table, column
+#   "PRICE PER 1M TOKENS" - checked 2026-10-18. Note groq.com/pricing carries no
+#   figures (JavaScript-rendered); the docs page is the official source.
+# Gemini: https://ai.google.dev/gemini-api/docs/pricing - checked 2026-10-16.
+#
+# These are estimates for display only. The project runs entirely on free tiers, so
+# actual spend is zero; every surface that shows a cost says "est. at paid-tier
+# rates" (spec section 14).
+LLM_PRICING = {
+    "openai/gpt-oss-120b": {"input": 0.15, "output": 0.60},
+    "openai/gpt-oss-20b": {"input": 0.075, "output": 0.30},
+    "gemini-flash-lite-latest": {"input": 0.10, "output": 0.40},
+    "gemini-embedding-001": {"input": 0.20, "output": 0.00},
+}
+
+# Fixed, not fetched at runtime: a review's recorded cost must not change when FX
+# moves, and a currency API is one more thing that can fail during a demo.
+# Source: ECB reference rate via api.frankfurter.dev - 1 USD = 95.06 INR on 2026-10-15.
+USD_TO_INR = env.float("USD_TO_INR", default=95.06)
+USD_TO_INR_AS_OF = "2026-10-15"
+
 # Run webhook follow-up work inline instead of on a thread. Tests set this so they do
 # not race a background thread; it mirrors Celery's task_always_eager, which spec
 # section 7 names as the fallback for lightweight jobs.
