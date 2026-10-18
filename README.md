@@ -152,6 +152,27 @@ npx --yes smee-client --url https://smee.io/YOUR_CHANNEL --target http://localho
 
 Three terminals are needed locally: backend, frontend, relay.
 
+## Running everything at once
+
+Four processes are needed for a review to complete: the API receives the webhook,
+the Celery worker runs the pipeline, the smee relay forwards GitHub's delivery to
+localhost, and the frontend serves the UI. Forgetting the worker is the usual cause
+of "the webhook arrived but no comment appeared".
+
+```bash
+backend\.venv\Scriptsctivate        # Windows
+source backend/.venv/bin/activate     # macOS / Linux
+
+# Windows only: honcho relays child output through its own stdout, and Next.js
+# prints a non-ASCII glyph that kills it under the default cp1252 codepage.
+set PYTHONIOENCODING=utf-8
+
+honcho start -f Procfile.dev
+```
+
+The virtualenv must be activated first: honcho spawns each command through the
+system shell, which does not inherit the venv's `Scripts/` or `bin/` directory.
+
 ## Checks
 
 ```bash
