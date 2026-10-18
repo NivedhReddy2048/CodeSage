@@ -193,6 +193,38 @@ def get_installation(installation_id):
     return _request("GET", f"/app/installations/{installation_id}", build_app_jwt()).json()
 
 
+def create_issue_comment(installation_id, repo_full_name, issue_number, body):
+    """Comment on a PR as the App.
+
+    PRs are issues as far as this endpoint is concerned, which is why the path says
+    `issues`. Needs the `pull_requests: write` permission.
+    """
+    token = get_installation_token(installation_id)
+    response = _request(
+        "POST",
+        f"/repos/{repo_full_name}/issues/{issue_number}/comments",
+        token,
+        json={"body": body},
+    )
+    return response.json()
+
+
+def update_issue_comment(installation_id, repo_full_name, comment_id, body):
+    """Edit a comment the App previously made.
+
+    Phase 5 uses this to turn the acknowledgement into the finished review, so a PR
+    carries one bot comment rather than a running commentary.
+    """
+    token = get_installation_token(installation_id)
+    response = _request(
+        "PATCH",
+        f"/repos/{repo_full_name}/issues/comments/{comment_id}",
+        token,
+        json={"body": body},
+    )
+    return response.json()
+
+
 def list_installation_repositories(installation_id):
     """Repositories an installation can reach, following pagination."""
     token = get_installation_token(installation_id)

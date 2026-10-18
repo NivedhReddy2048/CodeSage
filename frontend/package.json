@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "webhooks": "smee --url https://smee.io/pJatg6KyyGSr7ot --target http://localhost:8000/api/webhooks/github/"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
@@ -26,6 +27,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.3.5",
+    "smee-client": "5.0.0",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
