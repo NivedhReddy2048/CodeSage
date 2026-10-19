@@ -42,6 +42,9 @@ class Finding:
     category: Category
     message: str
     agent: str = "review"
+    # Grounding only: the verified `path:start-end` of the existing code this
+    # finding rests on. Stored on ReviewFinding.citation.
+    cited: str = ""
 
     @property
     def citation(self):

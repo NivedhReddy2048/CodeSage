@@ -16,6 +16,7 @@ from apps.agents.types import RepoContext, RetrievedChunk, ReviewConfig
 from apps.repos import github_app
 from apps.repos.github_app import API_HEADERS, GitHubAppError
 from apps.reviews import comment as comment_renderer
+from apps.reviews.inline import post_inline_comments
 from apps.reviews.models import AgentRunRecord, LLMCall, Review, ReviewFinding
 from apps.reviews.pricing import estimate_usd, to_inr, unpriced_models
 
@@ -139,8 +140,14 @@ def review_pull_request(pull_request, installation_id):
     skipped = list(getattr(result, "skipped_agents", []))
 
     if result.succeeded:
+        inline = _post_inline(pull_request, installation_id, review, findings)
         body = comment_renderer.render(
-            review, findings, unpriced=unpriced, agent_runs=agent_runs, skipped=skipped
+            review,
+            findings,
+            unpriced=unpriced,
+            agent_runs=agent_runs,
+            skipped=skipped,
+            inline=inline,
         )
     elif review.degraded:
         body = comment_renderer.render_degraded(review, result.failure_reason, agent_runs)
@@ -156,6 +163,28 @@ def review_pull_request(pull_request, installation_id):
 
     _update_comment(pull_request, installation_id, body)
     return review
+
+
+def _post_inline(pull_request, installation_id, review, findings):
+    """Inline comments for a completed review. Never fails the review."""
+    if not findings:
+        return None
+    try:
+        return post_inline_comments(
+            github_app,
+            installation_id,
+            pull_request,
+            review.head_sha,
+            findings,
+            settings.REVIEW_MAX_INLINE_COMMENTS,
+        )
+    except Exception:  # noqa: BLE001 - the summary comment must still be posted
+        logger.exception(
+            "Could not post inline comments on %s#%s",
+            pull_request.repository.full_name,
+            pull_request.number,
+        )
+        return None
 
 
 def build_retriever(repository):
@@ -259,6 +288,7 @@ def _store_findings(review, findings):
             file_path=finding.file,
             line=finding.line,
             message=finding.message,
+            citation=getattr(finding, "cited", "")[:512],
         )
         for finding in findings
     ]

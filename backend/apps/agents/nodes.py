@@ -283,6 +283,7 @@ def grounding(state):
             category=f.category,
             message=f"{f.message} (see {citation})",
             agent="grounding",
+            cited=citation,
         )
         for f, citation in kept
     ]

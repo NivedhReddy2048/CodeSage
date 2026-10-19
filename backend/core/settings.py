@@ -268,6 +268,9 @@ REVIEW_TOKEN_BUDGET = env.int("REVIEW_TOKEN_BUDGET", default=6500)
 # tokens, leaving headroom for the prompt and the response.
 REVIEW_MAX_DIFF_BYTES = env.int("REVIEW_MAX_DIFF_BYTES", default=24000)
 REVIEW_MAX_FINDINGS = env.int("REVIEW_MAX_FINDINGS", default=25)
+# Inline comments on the diff per review. Blocking findings come first, so a cap
+# trims nits; past a dozen or so, inline comments bury the conversation.
+REVIEW_MAX_INLINE_COMMENTS = env.int("REVIEW_MAX_INLINE_COMMENTS", default=15)
 REVIEW_REQUEST_TIMEOUT = env.int("REVIEW_REQUEST_TIMEOUT", default=90)
 REVIEW_MAX_RETRIES = env.int("REVIEW_MAX_RETRIES", default=3)
 REVIEW_BACKOFF_SECONDS = env.float("REVIEW_BACKOFF_SECONDS", default=2.0)

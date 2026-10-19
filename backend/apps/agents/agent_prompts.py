@@ -72,6 +72,11 @@ CITATIONS ARE MANDATORY AND CHECKED. Every finding must set "cited_file" and \
 citation is not inside a retrieved excerpt is discarded, so do not guess a path or \
 a line number. If nothing in the excerpts supports a finding, return an empty list.
 
+NAME THE EXISTING CODE. The message must name, in backticks, the existing function, \
+class or variable you are pointing at, exactly as it is spelled in the cited excerpt. \
+The excerpt is checked for that name, and only excerpts in the same language as the \
+changed file count: a JavaScript function is not precedent for Python code.
+
 Respond with a single JSON object and nothing else:
 {{"findings": [{{"file": "path in the diff", "line": 1, "severity": "nit", \
 "category": "correctness", "message": "what already exists and where", \

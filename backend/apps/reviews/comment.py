@@ -78,6 +78,7 @@ def render(
     unpriced=(),
     agent_runs=(),
     skipped=(),
+    inline=None,
 ):
     """The finished review.
 
@@ -125,6 +126,10 @@ def render(
                 lines.append(_render_finding(finding))
                 lines.append("")
 
+        inline_note = _render_inline_note(inline)
+        if inline_note:
+            lines += [inline_note, ""]
+
     disclosure = _render_disclosure(review)
     if disclosure:
         lines += [disclosure, ""]
@@ -145,6 +150,17 @@ def render(
     ]
 
     return "\n".join(lines).strip() + "\n"
+
+
+def _render_inline_note(inline):
+    if inline is None or not (inline.posted or inline.duplicates):
+        return ""
+    parts = []
+    if inline.posted:
+        parts.append(f"{inline.posted} new inline comment{'s' if inline.posted != 1 else ''}")
+    if inline.duplicates:
+        parts.append(f"{inline.duplicates} already on the diff from an earlier run")
+    return f"_Inline on the changed lines: {', '.join(parts)}._"
 
 
 def _render_finding(finding):

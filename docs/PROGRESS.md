@@ -14,7 +14,7 @@ pull requests, each closing its own issue. Architecture lives in
 | 2 | Repo connection (GitHub App) | `phase-2a` app auth, `2b` webhook, `2c` UI | **Done** |
 | 3 | Ingestion | `phase-3a` engine, `3b` Celery+API, `3c` UI | **Done** |
 | 4 | Agent pipeline v1 | `phase-4a` agents pkg, `4b` reviews app, `4c` push+page | **Done** |
-| 5 | Full 6-agent pipeline | `phase-5a` retrieval, `5b` graph, `5c` wiring | **Done** |
+| 5 | Full 6-agent pipeline | `phase-5a` retrieval, `5b` graph, `5c` wiring; hardening `5d` honest output, `5e` grounding + inline | **Done** |
 | 6 | Realtime + polish | `phase-6a` realtime, `6b` analytics, `6c` UI shell | Next |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Not started |
 | 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **22 merged — bronze (16) reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **27 merged — bronze (16) reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -78,7 +78,7 @@ PR lands rather than one behind forever.
 
 ## Phase 5 hardening — honest review output
 
-**Status:** In progress. Run before Phase 6, in two PRs.
+**Status:** Done. Run before Phase 6, in two PRs (5d, 5e).
 
 Several things the review comment said were not true. Each was found by reading a
 real comment against the database, not by the tests, which all passed.
@@ -128,6 +128,99 @@ grounding could produce nothing:
 diff_intent returned 32 output tokens and a valid intent, against 5 tokens and a
 failure before.
 
+### 5e — verified citations, inline comments, operator commands
+
+- **A citation must support the claim, not just exist.** The old check only asked
+  whether the cited line was inside a retrieved chunk. Retrieval returns lookalikes:
+  for "function that looks up a user by id", hybrid rank 1 is `web/users.js
+  findUserById`, and a model reviewing Python will cite it. Now the cited chunk must be
+  in the same language family as the changed file (JS and TS count as one), and must
+  contain a symbol the message names, as a whole identifier. Cross-language or
+  symbol-absent citations are dropped; a message that names no symbol at all is kept
+  but downgraded to a nit, since nothing can be checked. The grounding prompt now
+  requires the existing symbol in backticks. Tested, including the JS-lookalike-cited-
+  for-a-Python-function case. The verified citation is stored in
+  `ReviewFinding.citation`, which was previously always blank.
+- **Inline review comments on diff lines — new; they did not exist before.** Each
+  finding is posted as one PR review (`event: COMMENT`, never approve or block) on its
+  `path`/`line`, `side: RIGHT`, at the reviewed head SHA, capped at
+  `REVIEW_MAX_INLINE_COMMENTS` (15), blocking first. If GitHub rejects the batch (422,
+  usually a line outside the diff), comments are retried one at a time so the rest
+  land. **Deduplicated:** each comment carries a hidden marker, and a finding is skipped
+  when a live CodeSage comment already sits on the same file within ±2 lines — the
+  same window synthesis uses to call two findings one defect. Exact-line dedupe was
+  the first version and failed live: a rerun anchored the same PR #1 defect at line 1
+  instead of 3 and posted a second comment. GitHub nulls `line` on an outdated
+  comment, so a comment whose code has since changed does not block a fresh one.
+  Inline posting never fails a review.
+- **`manage.py rerun_review <repo> <pr_number>`** — refreshes the head from GitHub and
+  runs the review synchronously, bypassing webhook delivery-id dedupe on purpose.
+- **`manage.py retrieval_probe "<query>"`** — vector-only next to hybrid, with each
+  hit's rank in both retrievers. Both are documented in the README.
+
+**Testbed reruns, live** (`rerun_review`, all on Groq):
+
+| PR | Findings | Inline comments |
+|---|---|---|
+| #1 | 1 blocking | `test.py:3` |
+| #2 | 3 (2 blocking) | `web/orders.js:4`, `:7`, `:13` |
+| #3 | 2 (1 blocking) | `app/lookup.py:17`, `app/lookup.py:4` (grounded in Python `app/users.py`, not the JS lookalike) |
+
+Rerunning PR #1 three more times anchored its findings at lines 1, 4 and 1; each run
+reported them as already on the diff and posted nothing. Static analysis reported
+`ran ruff, bandit` on the Python PRs and `ran pattern-scan` on the JavaScript one.
+
+### Groq quota math
+
+Per review: **4 LLM calls** — `gpt-oss-120b` once (Security) and `gpt-oss-20b` three
+times (Diff/Intent, Grounding, Test coverage; Grounding only when retrieval returns
+something) — plus one Gemini embedding call for the retrieval query. Static analysis
+and synthesis make none. A 429 or 5xx can add up to two provider retries per call.
+
+Measured over six real reviews of testbed PRs #1-#3: **120b ≈ 890 tokens/review**
+(616 in + 270 out), **20b ≈ 4,170 tokens/review** (2,423 in + 1,746 out, about 1,390
+per call).
+
+Limits: live `x-ratelimit-*` headers on this key report **1,000 requests/day and 8,000
+tokens/minute for each model**. Groq's rate-limits table lists both models at **30
+RPM, 1K RPD, 8K TPM, 200K TPD**; the extracted table does not say which plan it is
+for, but the RPD and TPM figures match the live headers. TPD is not exposed in the
+headers, so 200K is the documented figure, not a measured one. The headers also
+showed the two models' remaining requests (990 vs 972) and tokens counting down
+independently, so **the buckets are per model, not shared** — correcting the Phase 5
+note below.
+
+| Model | Binding limit | Reviews/day |
+|---|---|---|
+| `gpt-oss-20b` | 200K TPD / 4,170 | **~48** |
+| `gpt-oss-20b` | 1,000 RPD / 3 | 333 |
+| `gpt-oss-120b` | 200K TPD / 890 | 225 |
+| `gpt-oss-120b` | 1,000 RPD / 1 | 1,000 |
+
+**Estimated capacity: about 48 full reviews a day**, bounded by `gpt-oss-20b`'s daily
+tokens. Per minute, 20b's 8K TPM allows one review at a time (two only if their calls
+do not overlap), and RPM is never binding at 4 calls. Past 48, the breaker opens on
+Groq's 429 and agents fail over to Gemini, so the review still runs, served and
+labelled as Gemini. Moving one 20b agent onto 120b would roughly double headroom,
+because 120b's daily budget is mostly unused. Eval runs (Phase 8) must budget against
+the 48/day figure, not the 1,000 RPD figure.
+
+### Known limitations
+
+- **Citation checking is lexical.** A message naming a common identifier that
+  happens to appear in the cited chunk (`user_id`) passes. It catches the lookalike
+  and wrong-chunk cases, not every unsupported claim.
+- **Inline dedupe is positional.** Two genuinely different defects within ±2 lines
+  of each other get one inline comment. That is the same trade synthesis already makes.
+- **Findings vary run to run.** Reruns of an unchanged commit reworded and re-anchored
+  findings (PR #1: off-by-one at line 3, then untested `get_user` at line 1). Single
+  runs, so variance is unmeasured until Phase 8.
+- **A crash between creating a Review and storing results leaves it `running`.** Seen
+  when migration 0004 had not yet been applied to the dev database; three rows were
+  closed by hand. A sweeper, or creating the row in the same transaction, would fix it.
+- **The running Celery worker does not reload code.** After this pass, restart it
+  (or use `rerun_review`) before relying on webhook-triggered reviews.
+
 ---
 
 ## Phase 5 — Full pipeline and hybrid retrieval
@@ -148,7 +241,9 @@ testbed:
 | **Vector only** | `app/users.py` module docstring | `web/users.js findUserById` | `web/users.js fetchUser` |
 | **Hybrid RRF** | `web/users.js findUserById` | **`app/users.py UserRepository.find_by_id`** | `tests/test_users.py` |
 
-`find_by_id` moved from **rank 4 to rank 2**, and the docstring left the top 3.
+`find_by_id` moved from **rank 5 to rank 2** (re-measured with `manage.py
+retrieval_probe`; vector rank 4 is `tests/test_users.py`), and the docstring left
+the top 3. The earlier "rank 4" here was wrong.
 
 ### Decisions worth recording
 
@@ -163,10 +258,11 @@ testbed:
 - **RRF rather than a weighted blend.** Cosine and `ts_rank` are not on the same
   scale and are not comparable between queries, so normalising would need per-query
   calibration. RRF fuses on rank instead.
-- **Model tiering is forced by the limits.** Groq reports 8000 TPM and the bucket
-  looks shared across models, so the 120b model is reserved for Security, the 20b
-  handles classification, grounding and test coverage, and static analysis uses no
-  model. A token budget skips lower-priority agents rather than 429-ing part way.
+- **Model tiering is forced by the limits.** Groq reports 8000 TPM per model, so
+  the 120b model is reserved for Security, the 20b handles classification,
+  grounding and test coverage, and static analysis uses no model. A token budget
+  skips lower-priority agents rather than 429-ing part way. (This originally said the
+  bucket "looks shared across models"; the 5e quota check found per-model buckets.)
 - **Synthesis is deterministic.** Dedupe, ranking and blocking-versus-nit all have
   correct answers; a model call would add latency, cost and hallucination risk.
   Severity resolves upward on disagreement.

@@ -160,7 +160,7 @@ localhost, and the frontend serves the UI. Forgetting the worker is the usual ca
 of "the webhook arrived but no comment appeared".
 
 ```bash
-backend\.venv\Scriptsctivate        # Windows
+backend\.venv\Scripts\activate        # Windows
 source backend/.venv/bin/activate     # macOS / Linux
 
 # Windows only: honcho relays child output through its own stdout, and Next.js
@@ -172,6 +172,37 @@ honcho start -f Procfile.dev
 
 The virtualenv must be activated first: honcho spawns each command through the
 system shell, which does not inherit the venv's `Scripts/` or `bin/` directory.
+
+## Operator commands
+
+Two management commands for working on the review pipeline. Run them from `backend/`
+with the virtualenv active.
+
+```bash
+# Re-review a pull request now, in this process, without the Celery worker.
+python manage.py rerun_review NivedhReddy2048/codesage-testbed 3
+```
+
+`rerun_review <repo> <pr_number>` refreshes the PR's head commit from GitHub and runs
+the same review the webhook triggers: the bot's summary comment is edited in place and
+inline comments are deduplicated against the ones already on the diff. It
+**deliberately bypasses webhook delivery-id dedupe** — it never creates a
+`WebhookEvent` — which is the point: GitHub redeliveries are ignored by design, so this
+is the way to re-review after quota returns, after changing pipeline code (the worker
+does not reload), or while the worker is down. It prints the per-agent table (with the
+model that actually served each agent), the comment link and the "Files changed" link.
+It spends a full review's LLM quota every time it runs.
+
+```bash
+# Compare vector-only and hybrid retrieval for one query.
+python manage.py retrieval_probe "function that looks up a user by id"
+python manage.py retrieval_probe "SQL query built with string interpolation" --repo owner/name --limit 8
+```
+
+`retrieval_probe "<query>"` prints the vector-only (cosine) ranking next to the hybrid
+(vector + full-text, fused with RRF) ranking, with each hybrid hit's rank in both
+underlying retrievers. `--repo` is optional when only one repository is indexed. It
+spends one Gemini embedding call.
 
 ## Checks
 
