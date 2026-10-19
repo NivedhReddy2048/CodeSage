@@ -122,6 +122,17 @@ def review_pull_request(pull_request, installation_id):
         _store_totals(review, result)
         findings = _store_findings(review, result.findings)
 
+    if not result.succeeded:
+        # The full reason goes to the log and the stored Review (shown on the review
+        # page). The public PR comment only ever carries a short human summary.
+        logger.warning(
+            "Review %s of %s#%s did not complete: %s",
+            review.pk,
+            repository.full_name,
+            pull_request.number,
+            result.failure_reason,
+        )
+
     unpriced = unpriced_models(result.calls)
 
     agent_runs = list(getattr(result, "agent_runs", []))
@@ -179,6 +190,7 @@ def _store_agent_runs(review, runs):
                 review=review,
                 name=run.name,
                 model=run.model,
+                requested_model=run.requested_model,
                 provider=run.provider,
                 input_tokens=run.input_tokens,
                 output_tokens=run.output_tokens,
@@ -188,6 +200,7 @@ def _store_agent_runs(review, runs):
                 findings_count=run.findings_count,
                 skipped_reason=run.skipped_reason[:255],
                 error=run.error,
+                detail=run.detail[:255],
             )
             for run in runs
         ]
@@ -254,6 +267,7 @@ def _store_findings(review, findings):
 
 
 def _finish_failed(review, pull_request, installation_id, reason):
+    logger.warning("Review %s could not fetch its diff: %s", review.pk, reason)
     review.status = Review.Status.FAILED
     review.error = reason[:2000]
     review.finished_at = timezone.now()
@@ -262,7 +276,9 @@ def _finish_failed(review, pull_request, installation_id, reason):
     _update_comment(
         pull_request,
         installation_id,
-        comment_renderer.render(review, [], failure_reason=reason),
+        comment_renderer.render(
+            review, [], failure_reason=reason, public_reason=comment_renderer.DIFF_UNAVAILABLE
+        ),
     )
     return review
 

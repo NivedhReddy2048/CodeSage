@@ -40,6 +40,63 @@ RESPONSE_SCHEMA = {
 }
 
 
+def _with_citation(schema):
+    """The findings schema plus the grounding agent's mandatory citation fields."""
+    import copy
+
+    extended = copy.deepcopy(schema)
+    item = extended["properties"]["findings"]["items"]
+    item["properties"]["cited_file"] = {"type": "string"}
+    item["properties"]["cited_line"] = {"type": "integer"}
+    item["required"] = [*item["required"], "cited_file", "cited_line"]
+    return extended
+
+
+# The grounding agent's contract: a finding plus where in EXISTING code it is
+# supported. Without these fields in the schema a provider that enforces it (Gemini)
+# cannot emit a citation, and every grounded finding fails the citation check.
+GROUNDING_SCHEMA = _with_citation(RESPONSE_SCHEMA)
+
+# The Diff/Intent classifier answers a different question, so it gets its own shape.
+INTENT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "intent": {
+            "type": "string",
+            "enum": ["feature", "fix", "refactor", "docs", "test", "chore"],
+        },
+        "summary": {"type": "string"},
+    },
+    "required": ["intent", "summary"],
+    "additionalProperties": False,
+}
+
+
+def to_gemini_schema(schema):
+    """Translate a JSON Schema into the OpenAPI subset Gemini's responseSchema takes.
+
+    Gemini rejects `additionalProperties` and spells types in upper case. Converted
+    generically, so each agent's schema has one definition rather than a hand-kept
+    twin per provider that drifts.
+    """
+    if isinstance(schema, list):
+        return [to_gemini_schema(item) for item in schema]
+    if not isinstance(schema, dict):
+        return schema
+
+    converted = {}
+    for key, value in schema.items():
+        if key == "additionalProperties":
+            continue
+        if key == "type" and isinstance(value, str):
+            converted[key] = value.upper()
+        elif key == "properties":
+            converted[key] = {name: to_gemini_schema(sub) for name, sub in value.items()}
+        else:
+            converted[key] = to_gemini_schema(value)
+    return converted
+
+
 class SchemaError(ValueError):
     """The model's output did not match the contract."""
 

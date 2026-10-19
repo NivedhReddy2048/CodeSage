@@ -76,6 +76,60 @@ PR lands rather than one behind forever.
 
 ---
 
+## Phase 5 hardening — honest review output
+
+**Status:** In progress. Run before Phase 6, in two PRs.
+
+Several things the review comment said were not true. Each was found by reading a
+real comment against the database, not by the tests, which all passed.
+
+### 5d — what ran, what served it, and what the public sees
+
+- **Static analysis claimed tools that never ran** ([#50](https://github.com/NivedhReddy2048/CodeSage/issues/50)).
+  bandit was installed nowhere and ruff only in `requirements-dev.txt`, which Render
+  does not install, yet every comment said `ruff+bandit+pattern-scan`. Both are now
+  runtime requirements, invoked as `python -m <tool>` from the running interpreter
+  (a worker without its venv on `PATH` still finds them), and the agent reports what
+  *actually* ran: `ran ruff, bandit`, or `skipped: bandit (not installed)`. A tool
+  that times out or prints no parseable report counts as not having run. If nothing
+  ran, the row says *skipped* with the reason rather than "ok, 0 findings". A test
+  fails if a tool static analysis invokes is missing from `requirements.txt`, and
+  another runs both linters for real with no mocks.
+- **The Agents table named the model that was asked for, not the one that answered**
+  ([#51](https://github.com/NivedhReddy2048/CodeSage/issues/51)). Providers now
+  report the serving model; `AgentRun`/`AgentRunRecord` keep it in `model` (what cost
+  and analytics use) and the original in a new `requested_model`. A row reads
+  `` `gemini-flash-lite-latest` via gemini (fallback for `openai/gpt-oss-20b`) ``.
+- **A failed agent rendered as ok.** Rows are now keyed on `succeeded`; anything not
+  succeeded and not skipped is `failed`, with or without an error string.
+- **Public comments carried raw provider errors** — HTTP bodies with quota figures
+  and organisation ids. The comment now gets a short reason (`AI providers
+  unavailable`, `The AI response was not in the expected format`, ...); the full
+  error is logged and stored on the Review, which the review page shows.
+- **The Gemini fallback was held to the wrong schema.** It already used native JSON
+  mode, but with the *findings* schema for every agent, so the intent classifier
+  could not return `{intent, summary}` (the "5 output tokens, failed" diff_intent in
+  #51) and the grounding agent could not emit `cited_file`/`cited_line`, so every
+  grounded finding failed its citation check. Each agent now passes its own schema;
+  one generic converter produces Gemini's dialect.
+
+**Fallback re-run, live** (testbed PR #1, Groq key deliberately invalid, nothing
+posted). All five agents succeed on Gemini; before the fix diff_intent failed and
+grounding could produce nothing:
+
+```
+| Diff/Intent        | ok | 0 findings · `gemini-flash-lite-latest` via gemini (fallback for `openai/gpt-oss-20b`) |
+| Codebase grounding | ok | 1 finding · `gemini-flash-lite-latest` via gemini (fallback for `openai/gpt-oss-20b`) |
+| Security           | ok | 1 finding · `gemini-flash-lite-latest` via gemini (fallback for `openai/gpt-oss-120b`) |
+| Static analysis    | ok | 1 finding · ran ruff, bandit |
+| Test coverage      | ok | 0 findings · `gemini-flash-lite-latest` via gemini (fallback for `openai/gpt-oss-20b`) |
+```
+
+diff_intent returned 32 output tokens and a valid intent, against 5 tokens and a
+failure before.
+
+---
+
 ## Phase 5 — Full pipeline and hybrid retrieval
 
 **Status:** Done.

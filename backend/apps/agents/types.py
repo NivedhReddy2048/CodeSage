@@ -130,8 +130,12 @@ class AgentRun:
     """Telemetry for one agent in the pipeline (spec section 14)."""
 
     name: str
+    # The model that actually served the call. Telemetry and cost are based on this,
+    # so after a failover it names the fallback model, never the one asked for.
     model: str = ""
     provider: str = ""
+    # The model the agent asked for. Differs from `model` only after a failover.
+    requested_model: str = ""
     input_tokens: int = 0
     output_tokens: int = 0
     latency_ms: int = 0
@@ -141,6 +145,9 @@ class AgentRun:
     skipped_reason: str = ""
     findings_count: int = 0
     error: str = ""
+    # Free-text detail for agents that are not a model call, e.g. which linters
+    # static analysis actually ran and which it could not.
+    detail: str = ""
 
 
 @dataclass

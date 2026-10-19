@@ -17,8 +17,14 @@ from apps.agents import citations
 from apps.agents.budget import estimate_tokens
 from apps.agents.diffs import reconstruct_new_file
 from apps.agents.providers import ProviderError
-from apps.agents.schema import SchemaError, parse_findings
-from apps.agents.static_analysis import analyse
+from apps.agents.schema import (
+    GROUNDING_SCHEMA,
+    INTENT_SCHEMA,
+    RESPONSE_SCHEMA,
+    SchemaError,
+    parse_findings,
+)
+from apps.agents.static_analysis import run_analysis
 from apps.agents.types import AgentRun, Category, Finding, Severity
 
 logger = logging.getLogger(__name__)
@@ -29,13 +35,19 @@ logger = logging.getLogger(__name__)
 AGENT_PRIORITY = ("security", "grounding", "diff_intent", "test_coverage")
 
 
-def _call_model(runtime, agent, model, system_prompt, user_message, estimated):
+def _call_model(
+    runtime, agent, model, system_prompt, user_message, estimated, schema=RESPONSE_SCHEMA
+):
     """One budgeted model call, returning (findings_raw, AgentRun).
 
     Shared by every LLM-backed node so budgeting, telemetry and error handling are
     identical across agents rather than reimplemented four times.
+
+    The run is stamped with the model that SERVED the call, not the one requested:
+    after a failover those differ, and cost, telemetry and the comment must describe
+    what actually ran.
     """
-    run = AgentRun(name=agent, model=model)
+    run = AgentRun(name=agent, model=model, requested_model=model)
 
     if not runtime.budget.reserve(agent, estimated):
         run.skipped_reason = runtime.budget.skipped[-1][1]
@@ -44,15 +56,18 @@ def _call_model(runtime, agent, model, system_prompt, user_message, estimated):
     started = time.perf_counter()
     try:
         response, provider_name, used_fallback = runtime.complete(
-            model, system_prompt, user_message
+            model, system_prompt, user_message, schema=schema
         )
     except ProviderError as exc:
         run.latency_ms = int((time.perf_counter() - started) * 1000)
+        # Nothing served the call, so no model is named as having run it.
+        run.model = ""
         run.error = str(exc)[:400]
         return None, run
 
     run.latency_ms = int((time.perf_counter() - started) * 1000)
     run.provider = provider_name
+    run.model = getattr(response, "model", "") or model
     run.used_fallback = used_fallback
     run.input_tokens = response.input_tokens
     run.output_tokens = response.output_tokens
@@ -105,12 +120,17 @@ def diff_intent(state):
         prompts.INTENT_SYSTEM_PROMPT,
         message,
         estimate_tokens(message) + 200,
+        schema=INTENT_SCHEMA,
     )
 
     intent = ""
-    if raw:
+    if raw is not None:
         intent = prompts.extract_intent(raw)
         run.succeeded = bool(intent)
+        if not intent:
+            # A model answered but said nothing usable. Recorded as an error so the
+            # run can never be mistaken for one that worked and found nothing.
+            run.error = "schema: no intent in the model's response"
 
     return {"intent": intent, "runs": [run]}
 
@@ -121,14 +141,16 @@ def diff_intent(state):
 def static_analysis(state):
     """Real linters, no model. Free in both tokens and latency."""
     prepared = state["prepared"]
-    run = AgentRun(name="static_analysis", model="ruff+bandit+pattern-scan")
+    # No model: the tools that ran are reported in `detail`, never in `model`, so
+    # nothing downstream mistakes a linter for an LLM or prices it as one.
+    run = AgentRun(name="static_analysis")
 
     started = time.perf_counter()
     contents = {entry.path: reconstruct_new_file(entry.text) for entry in prepared.files}
     complete = {entry.path for entry in prepared.files if entry.is_new_file}
 
     try:
-        tool_findings = analyse(contents, complete=complete)
+        report = run_analysis(contents, complete=complete)
     except Exception as exc:  # noqa: BLE001 - a linter must not fail the review
         run.latency_ms = int((time.perf_counter() - started) * 1000)
         run.error = f"{type(exc).__name__}: {exc}"[:400]
@@ -136,10 +158,18 @@ def static_analysis(state):
         return {"findings": [], "runs": [run]}
 
     run.latency_ms = int((time.perf_counter() - started) * 1000)
+    run.detail = report.describe()
+
+    # Only claim success if a tool actually looked. Nothing having run is a skip
+    # with the reason named, so "0 findings" never stands in for "never checked".
+    if not report.looked:
+        run.skipped_reason = run.detail or "no Python or JS/TS files to analyse"
+        return {"findings": [], "runs": [run]}
+
     run.succeeded = True
 
     findings = []
-    for item in tool_findings:
+    for item in report.findings:
         # Only report on lines the PR actually touched: a linter run over whole
         # files will otherwise flag pre-existing issues the author did not write.
         if not prepared.allows(item.file, item.line):
@@ -200,7 +230,7 @@ def grounding(state):
     """
     runtime = state["runtime"]
     prepared = state["prepared"]
-    run = AgentRun(name="grounding", model=runtime.config.cheap_model)
+    run = AgentRun(name="grounding", requested_model=runtime.config.cheap_model)
 
     if runtime.retrieve is None:
         run.skipped_reason = "no retrieval configured"
@@ -226,6 +256,7 @@ def grounding(state):
         prompts.GROUNDING_SYSTEM_PROMPT,
         message,
         estimate_tokens(message) + 500,
+        schema=GROUNDING_SCHEMA,
     )
     # Keep the retrieval context on the run that is reported.
     call_run.name = "grounding"

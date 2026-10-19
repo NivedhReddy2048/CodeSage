@@ -64,10 +64,13 @@ class Runtime:
         self.retrieve = retrieve
         self.budget = TokenBudget(config.token_budget)
 
-    def complete(self, model, system_prompt, user_message):
+    def complete(self, model, system_prompt, user_message, schema=None):
         """Call `model` on Groq, falling back to Gemini.
 
-        Returns `(response, provider_name, used_fallback)`. The breaker from phase 4
+        Returns `(response, provider_name, used_fallback)`; `response.model` names the
+        model that served it, which after a failover is not `model`. `schema` is the
+        calling agent's output contract, enforced natively where the provider can.
+        The breaker from phase 4
         still applies per provider, so an exhausted Groq quota is skipped rather
         than retried for every agent in the graph.
         """
@@ -115,13 +118,18 @@ class Runtime:
                 continue
 
             try:
-                response = provider.complete(system_prompt, messages)
+                response = provider.complete(system_prompt, messages, schema=schema)
             except ProviderError as exc:
                 breaker.record_failure()
+                # The full provider error goes to the log and the stored run. The
+                # public PR comment gets a short human reason instead.
+                logger.warning("%s (%s) failed: %s", provider.name, provider.model, exc)
                 errors.append(str(exc))
                 continue
 
             breaker.record_success()
+            if not response.model:
+                response.model = provider.model
             return response, provider.name, is_fallback
 
         raise ProviderError("; ".join(errors) or "no provider configured")
@@ -206,12 +214,12 @@ def run_pipeline(diff, context, config=None, retrieve=None):
     result.skipped_agents = list(runtime.budget.skipped)
 
     # Telemetry rolls up from the per-agent runs rather than being tracked twice.
-    result.calls = [
-        _as_call(run) for run in runs if run.provider or run.error or run.skipped_reason
-    ]
+    # Only model-backed agents become call rows: static analysis runs linters, and a
+    # call row for it would be priced and counted as if it were an LLM.
+    result.calls = [_as_call(run) for run in runs if run.requested_model or run.provider]
 
     succeeded = [r for r in runs if r.succeeded]
-    llm_attempted = [r for r in runs if r.model and r.provider or r.error]
+    llm_attempted = [r for r in runs if r.provider or (r.requested_model and r.error)]
     llm_succeeded = [r for r in succeeded if r.provider]
 
     # A review is only "successful" if at least one model actually answered. Static
@@ -233,7 +241,10 @@ def _as_call(run):
 
     return LLMCall(
         provider=run.provider or "none",
-        model=run.model,
+        # The serving model when a call succeeded at a provider; for an agent that
+        # no provider served, the model it asked for, so the failed row says what
+        # was attempted.
+        model=run.model or run.requested_model,
         input_tokens=run.input_tokens,
         output_tokens=run.output_tokens,
         latency_ms=run.latency_ms,

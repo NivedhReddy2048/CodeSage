@@ -275,7 +275,10 @@ def test_a_diff_fetch_failure_is_reported_in_the_comment(pull_request):
 
     assert review.status == Review.Status.FAILED
     body = gh.update_issue_comment.call_args.args[3]
-    assert "HTTP 404" in body
+    assert "Could not fetch this pull request's diff from GitHub" in body
+    assert "HTTP 404" not in body
+    # The detail is kept for the review page.
+    assert review.error == "HTTP 404"
 
 
 @pytest.mark.django_db

@@ -44,6 +44,7 @@ class AgentRunSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "model",
+            "requested_model",
             "provider",
             "input_tokens",
             "output_tokens",
@@ -53,6 +54,7 @@ class AgentRunSerializer(serializers.ModelSerializer):
             "findings_count",
             "skipped_reason",
             "error",
+            "detail",
         ]
         read_only_fields = fields
 

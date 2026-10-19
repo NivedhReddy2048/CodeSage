@@ -156,7 +156,11 @@ class AgentRunRecord(models.Model):
 
     review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name="agent_runs")
     name = models.CharField(max_length=64)
+    # The model that SERVED the agent's call, which after a failover is the
+    # fallback's - cost and per-model analytics are based on this.
     model = models.CharField(max_length=128, blank=True)
+    # The model the agent asked for. Differs from `model` only after a failover.
+    requested_model = models.CharField(max_length=128, blank=True)
     provider = models.CharField(max_length=40, blank=True)
     input_tokens = models.IntegerField(default=0)
     output_tokens = models.IntegerField(default=0)
@@ -167,6 +171,8 @@ class AgentRunRecord(models.Model):
     # Set when the agent never ran, e.g. the token budget was exhausted.
     skipped_reason = models.CharField(max_length=255, blank=True)
     error = models.TextField(blank=True)
+    # For agents that are not a model call: e.g. which linters actually ran.
+    detail = models.CharField(max_length=255, blank=True)
 
     class Meta:
         ordering = ["id"]
