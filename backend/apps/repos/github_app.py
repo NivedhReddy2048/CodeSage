@@ -275,3 +275,59 @@ def list_installation_repositories(installation_id):
         page += 1
 
     return repositories
+
+
+# ------------------------------------------------------------------ pull requests
+
+
+def get_pull_request(installation_id, repo_full_name, number):
+    """`GET /repos/{repo}/pulls/{number}`: the PR's current head, base and title."""
+    token = get_installation_token(installation_id)
+    return _request("GET", f"/repos/{repo_full_name}/pulls/{number}", token).json()
+
+
+def list_review_comments(installation_id, repo_full_name, number):
+    """Every inline review comment on a PR, following pagination."""
+    token = get_installation_token(installation_id)
+    comments = []
+    page = 1
+
+    while True:
+        batch = _request(
+            "GET",
+            f"/repos/{repo_full_name}/pulls/{number}/comments?per_page=100&page={page}",
+            token,
+        ).json()
+        comments.extend(batch)
+        if len(batch) < 100:
+            break
+        page += 1
+
+    return comments
+
+
+def create_review(installation_id, repo_full_name, number, commit_id, body, comments):
+    """Post one PR review carrying several inline comments.
+
+    One review rather than N single comments: one notification for the author, and
+    the comments land together. `event: COMMENT` because a bot must never approve
+    or block a merge on its own say-so.
+    """
+    token = get_installation_token(installation_id)
+    return _request(
+        "POST",
+        f"/repos/{repo_full_name}/pulls/{number}/reviews",
+        token,
+        json={"commit_id": commit_id, "event": "COMMENT", "body": body, "comments": comments},
+    ).json()
+
+
+def create_review_comment(installation_id, repo_full_name, number, commit_id, comment):
+    """Post a single inline comment. The fallback when a batched review is rejected."""
+    token = get_installation_token(installation_id)
+    return _request(
+        "POST",
+        f"/repos/{repo_full_name}/pulls/{number}/comments",
+        token,
+        json={"commit_id": commit_id, **comment},
+    ).json()
