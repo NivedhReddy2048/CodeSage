@@ -1,4 +1,7 @@
-from django.utils.dateparse import parse_datetime
+from datetime import datetime, time
+
+from django.utils import timezone
+from django.utils.dateparse import parse_date, parse_datetime
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework import serializers, status
@@ -81,10 +84,32 @@ class AuditLogView(ListAPIView):
             queryset = queryset.filter(actor_login__iexact=params["actor"])
         if params.get("q"):
             queryset = queryset.filter(target_label__icontains=params["q"])
-        since = parse_datetime(params.get("since") or "")
+        since = _bound(params.get("since"), time.min)
         if since:
             queryset = queryset.filter(created_at__gte=since)
-        until = parse_datetime(params.get("until") or "")
+        until = _bound(params.get("until"), time.max)
         if until:
             queryset = queryset.filter(created_at__lte=until)
         return queryset
+
+
+def _bound(value, time_of_day):
+    """A datetime, or a bare date (what a browser date input sends) widened to the
+    start or end of that day.
+
+    The date is tried first: on Python 3.11+ `parse_datetime` also accepts a bare
+    date and returns midnight, so `until=<today>` excluded everything after 00:00.
+    `parse_date` rejects anything with a time, so real datetimes still fall through.
+    """
+    if not value:
+        return None
+    try:
+        day = parse_date(value)
+    except ValueError:
+        day = None
+    if day:
+        return timezone.make_aware(datetime.combine(day, time_of_day))
+    try:
+        return parse_datetime(value)
+    except ValueError:
+        return None

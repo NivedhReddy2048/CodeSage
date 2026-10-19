@@ -160,3 +160,17 @@ def test_a_reindex_is_audited(world):
     assert api.post(f"/api/repos/{world['repo_a'].pk}/reindex/").status_code == 202
 
     assert AuditLogEntry.objects.filter(action="repo.reindexed").count() == before + 1
+
+
+def test_date_only_bounds_cover_the_whole_day(world):
+    """A browser date input sends YYYY-MM-DD; it must filter, not be ignored."""
+    from django.utils import timezone
+
+    today = timezone.localdate().isoformat()
+    api = factories.client(world["alice"])
+
+    assert api.get(f"/api/audit-log/?since={today}&until={today}").data["count"] == 2
+    assert api.get("/api/audit-log/?until=2000-01-01").data["count"] == 0
+    assert api.get("/api/audit-log/?since=2999-01-01").data["count"] == 0
+    # Garbage is ignored rather than erroring.
+    assert api.get("/api/audit-log/?since=yesterday").data["count"] == 2

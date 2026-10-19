@@ -248,3 +248,48 @@ export type ReviewDiff = {
   truncated: boolean;
   head_sha: string;
 };
+
+export type BreakdownRow = { key: string; count: number; blocking: number };
+
+export type AnalyticsOverview = {
+  range: { days: number; since: string; until: string };
+  cost_basis: string;
+  summary: {
+    prs_reviewed: number;
+    reviews: number;
+    completed_reviews: number;
+    degraded_reviews: number;
+    failed_reviews: number;
+    fallback_reviews: number;
+    findings: number;
+    blocking: number;
+    nits: number;
+    blocking_ratio: number | null;
+    avg_findings_per_pr: number | null;
+    avg_latency_ms: number | null;
+    est_cost_inr_total: string;
+    est_cost_inr_avg: string | null;
+  };
+  timeseries: {
+    date: string;
+    reviews: number;
+    findings: number;
+    blocking: number;
+    nits: number;
+    avg_latency_ms: number | null;
+    est_cost_inr: string;
+  }[];
+  by_category: BreakdownRow[];
+  by_agent: BreakdownRow[];
+};
+
+export type AppNotification = {
+  id: number;
+  kind: "review.finished" | "review.degraded" | "review.failed" | "indexing.failed";
+  title: string;
+  body: string;
+  link: string;
+  read: boolean;
+  read_at: string | null;
+  created_at: string;
+};

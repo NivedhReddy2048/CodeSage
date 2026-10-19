@@ -8,6 +8,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/components/auth-provider";
 import { CommandPalette } from "@/components/command-palette";
 import { OrganizationProvider, useOrganization } from "@/components/organization-provider";
+import { NotificationBell } from "@/components/notification-bell";
 import { ErrorState, ListSkeleton } from "@/components/states";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
@@ -98,6 +99,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </kbd>
             </Button>
             <div className="ml-auto flex items-center gap-1">
+              <NotificationBell />
               <ThemeToggle />
             </div>
           </header>
