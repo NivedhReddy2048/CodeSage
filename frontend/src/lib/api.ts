@@ -27,7 +27,9 @@ import type {
   OrganizationRole,
   Paginated,
   Review,
+  ReviewDiff,
   ReviewListItem,
+  ReviewProgress,
   ReviewSummary,
   User,
 } from "@/lib/types";
@@ -192,6 +194,13 @@ export const api = {
 
   review: (id: number) => request<Review>(`/api/reviews/${id}/`),
 
+  reviewStatus: (id: number) => request<ReviewProgress>(`/api/reviews/${id}/status/`),
+
+  reviewDiff: (id: number) => request<ReviewDiff>(`/api/reviews/${id}/diff/`),
+
+  rerunReview: (id: number) =>
+    request<{ review_id: number }>(`/api/reviews/${id}/rerun/`, { method: "POST" }),
+
   repositoryReviews: (id: number) =>
     request<ReviewSummary[]>(`/api/repos/${id}/reviews/`),
 
@@ -209,6 +218,16 @@ export const api = {
       body: { role },
     }),
 };
+
+/** The WebSocket URL for a path on the API host (http -> ws, https -> wss). */
+export function wsUrl(path: string) {
+  return `${BASE_URL.replace(/^http/, "ws")}${path}`;
+}
+
+/** Make sure the stored access token is fresh, refreshing it if needed. */
+export async function ensureFreshToken() {
+  await api.currentUser();
+}
 
 /** `?a=1&b=2`, dropping empty values; "" when nothing is set. */
 export function query(params: Record<string, string | number | undefined>) {

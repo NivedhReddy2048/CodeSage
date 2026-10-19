@@ -15,7 +15,7 @@ pull requests, each closing its own issue. Architecture lives in
 | 3 | Ingestion | `phase-3a` engine, `3b` Celery+API, `3c` UI | **Done** |
 | 4 | Agent pipeline v1 | `phase-4a` agents pkg, `4b` reviews app, `4c` push+page | **Done** |
 | 5 | Full 6-agent pipeline | `phase-5a` retrieval, `5b` graph, `5c` wiring; hardening `5d` honest output, `5e` grounding + inline | **Done** |
-| 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **In progress** (6a, 6b done) |
+| 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **In progress** (6a-6c done) |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Not started |
 | 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
 
@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **29 merged — bronze (16) reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **30 merged — bronze (16) reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -79,7 +79,49 @@ PR lands rather than one behind forever.
 ## Phase 6 — Realtime and enterprise UI
 
 **Status:** In progress. Four PRs: 6a backend realtime and data (done), 6b app shell
-and design system (done), 6c review experience, 6d dashboard, notifications and audit pages.
+and design system (done), 6c review experience (done), 6d dashboard, notifications and audit pages.
+
+### 6c — the review experience
+
+**Review page** (`/reviews/{id}`):
+- the reviewed diff with each finding threaded under the line it points at, and that
+  line outlined. Added and removed lines are labelled for screen readers as well as
+  coloured;
+- a sticky findings panel grouped by severity, where an anchored finding jumps to its
+  line and moves focus there. A finding on a line the diff does not show is listed
+  and says so;
+- the per-agent table: the model that actually served each agent, what it asked for
+  after a failover, provider, tokens, latency, status, and static analysis's
+  `ran ruff, bandit`;
+- a summary strip (findings, time, est. cost at paid-tier rates, tokens, models), the
+  GitHub PR link, and a confirmed re-run for owners and admins.
+
+**Reviews list** filters by repository, status (including degraded) and severity. The
+filters live in the URL, so a filtered view can be bookmarked and Back works.
+
+**The diff is the reviewed one.** `Review.diff` now stores the diff each review read.
+A review from before that is filled once from GitHub's compare API at its own head
+commit (`base...head_sha`, a three-dot compare, as a PR diff is), then cached. So the
+findings line up with the code that was reviewed, not with whatever the PR looks like
+now. A GitHub failure returns a short message, and the page still lists the findings.
+
+**Live status pill.** It says "Reviewing... 3/5 agents" in an `aria-live` region, fed
+by the 6a socket. If the socket cannot connect or drops, the page polls the status
+endpoint every 3 s and says so. A 4401 close gets one token refresh and one
+reconnect; a 4404 stops. When the review finishes, the page refetches the review and
+its diff.
+
+Verified live in Edge: a review run from another process moved the pill through
+0/5 → 1/5 → 2/5 → 4/5 → 5/5 → Done. The page then showed the finding anchored at
+`test.py:3`. Escape closes the re-run dialog and returns focus to its button.
+
+**Found in the browser:** while a review ran, the page said "No findings — this review
+produced no findings" with ₹0.0000 and 0/0 tokens. That reads like a finished clean
+review of a change nobody had finished looking at. While in flight it now says
+findings appear when the agents finish, with dashes for cost and tokens.
+
+**Found by the build:** `next build` typechecks test files too, and caught mocks the
+page tests added without declaring.
 
 ### 6b — app shell, design system, frontend tests
 

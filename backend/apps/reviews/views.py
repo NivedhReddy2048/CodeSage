@@ -143,6 +143,74 @@ class ReviewStatusView(APIView):
         return Response(progress.snapshot(review))
 
 
+class ReviewDiffView(APIView):
+    """The unified diff this review read, for the diff viewer.
+
+    Stored at review time. A review from before the diff was stored is filled from
+    GitHub's compare API at its exact head commit, then cached on the row, so the
+    findings line up with the code that was actually reviewed - not with whatever
+    the pull request looks like now.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={
+            200: OpenApiResponse(description="{diff, source: stored|github, truncated, head_sha}"),
+            404: OpenApiResponse(description="No such review in your organisation."),
+            502: OpenApiResponse(description="The diff could not be fetched from GitHub."),
+        }
+    )
+    def get(self, request, pk):
+        import logging
+
+        from apps.repos.github_app import GitHubAppError
+        from apps.reviews.services import (
+            MAX_STORED_DIFF_BYTES,
+            DiffFetchError,
+            fetch_compare_diff,
+        )
+
+        review = _visible_reviews(request.user).filter(pk=pk).first()
+        if review is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        source = "stored"
+        if not review.diff:
+            pull_request = review.pull_request
+            repository = pull_request.repository
+            if not (review.head_sha and repository.installation):
+                return Response(
+                    {"detail": "No diff is available for this review."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            try:
+                diff = fetch_compare_diff(
+                    repository.installation.installation_id,
+                    repository.full_name,
+                    pull_request.base_branch or repository.default_branch,
+                    review.head_sha,
+                )
+            except (DiffFetchError, GitHubAppError) as exc:
+                logging.getLogger(__name__).warning("Diff for review %s: %s", pk, exc)
+                return Response(
+                    {"detail": "Could not fetch this diff from GitHub."},
+                    status=status.HTTP_502_BAD_GATEWAY,
+                )
+            review.diff = diff[:MAX_STORED_DIFF_BYTES]
+            review.save(update_fields=["diff"])
+            source = "github"
+
+        return Response(
+            {
+                "diff": review.diff,
+                "source": source,
+                "truncated": len(review.diff) >= MAX_STORED_DIFF_BYTES,
+                "head_sha": review.head_sha,
+            }
+        )
+
+
 class ReviewRerunView(APIView):
     """Queue a fresh review of this review's pull request. Owner/admin only."""
 

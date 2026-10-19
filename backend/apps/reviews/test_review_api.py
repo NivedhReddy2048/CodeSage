@@ -254,3 +254,87 @@ def test_progress_survives_the_end_of_the_review(world):
     finished = broadcast.call_args.args[1]
     assert finished["type"] == "review.finished"
     assert finished["completed"] == 5
+
+
+# ---------------------------------------------------------------------- diff
+
+DIFF_TEXT = (
+    "diff --git a/app/x.py b/app/x.py\n--- a/app/x.py\n+++ b/app/x.py\n@@ -1 +1 @@\n-a\n+b\n"
+)
+
+
+def test_the_stored_diff_is_served(world):
+    Review.objects.filter(pk=world["done_a"].pk).update(diff=DIFF_TEXT)
+
+    data = factories.client(world["alice"]).get(f"/api/reviews/{world['done_a'].pk}/diff/").data
+
+    assert data["diff"] == DIFF_TEXT
+    assert data["source"] == "stored"
+    assert data["truncated"] is False
+
+
+def test_an_older_review_is_filled_from_github_at_its_own_commit_then_cached(world):
+    from unittest import mock
+
+    review = world["done_a"]
+    with mock.patch("apps.reviews.services.fetch_compare_diff", return_value=DIFF_TEXT) as fetch:
+        first = factories.client(world["alice"]).get(f"/api/reviews/{review.pk}/diff/").data
+        second = factories.client(world["alice"]).get(f"/api/reviews/{review.pk}/diff/").data
+
+    # The reviewed commit, not the PR's current head.
+    assert fetch.call_args.args[2:] == ("main", review.head_sha)
+    assert fetch.call_count == 1
+    assert (first["source"], second["source"]) == ("github", "stored")
+    assert Review.objects.get(pk=review.pk).diff == DIFF_TEXT
+
+
+def test_a_github_failure_is_a_short_message_not_the_raw_error(world):
+    from unittest import mock
+
+    from apps.reviews.services import DiffFetchError
+
+    with mock.patch(
+        "apps.reviews.services.fetch_compare_diff",
+        side_effect=DiffFetchError("Could not fetch alice/app main...abc: HTTP 404 secret-ish"),
+    ):
+        response = factories.client(world["alice"]).get(f"/api/reviews/{world['done_a'].pk}/diff/")
+
+    assert response.status_code == 502
+    assert response.data == {"detail": "Could not fetch this diff from GitHub."}
+
+
+def test_another_organisations_diff_is_not_found(world):
+    Review.objects.filter(pk=world["review_b"].pk).update(diff=DIFF_TEXT)
+
+    response = factories.client(world["alice"]).get(f"/api/reviews/{world['review_b'].pk}/diff/")
+
+    assert response.status_code == 404
+    assert "diff" not in response.data
+
+
+def test_the_review_stores_the_diff_it_read(world):
+    from unittest import mock
+
+    from apps.agents.types import ReviewResult
+    from apps.reviews import services
+
+    with (
+        mock.patch("apps.reviews.services.github_app"),
+        mock.patch("apps.reviews.services.fetch_diff", return_value=DIFF_TEXT),
+        mock.patch(
+            "apps.reviews.services.run_pipeline",
+            return_value=ReviewResult(succeeded=True, model_used="m"),
+        ),
+    ):
+        review = services.review_pull_request(world["pr_a"], 1)
+
+    assert review.diff == DIFF_TEXT
+
+
+def test_the_detail_payload_does_not_carry_the_diff(world):
+    """The diff can be hundreds of KB; it has its own endpoint."""
+    Review.objects.filter(pk=world["done_a"].pk).update(diff=DIFF_TEXT)
+
+    data = factories.client(world["alice"]).get(f"/api/reviews/{world['done_a'].pk}/").data
+
+    assert "diff" not in data

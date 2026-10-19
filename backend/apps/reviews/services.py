@@ -25,6 +25,9 @@ logger = logging.getLogger(__name__)
 
 API_ROOT = "https://api.github.com"
 DIFF_TIMEOUT = 60
+# What the review page keeps of a diff. Far above the review budget (the agents see
+# REVIEW_MAX_DIFF_BYTES), because the page shows what was skipped as well.
+MAX_STORED_DIFF_BYTES = 500_000
 
 
 class DiffFetchError(Exception):
@@ -73,6 +76,32 @@ def fetch_diff(installation_id, full_name, pr_number):
     if response.status_code != 200:
         raise DiffFetchError(
             f"Could not fetch the diff for {full_name}#{pr_number}: HTTP {response.status_code}"
+        )
+    return response.text
+
+
+def fetch_compare_diff(installation_id, full_name, base, head_sha):
+    """The diff between `base` and an exact commit, as a three-dot compare.
+
+    Three-dot (merge base to head) is what a pull request's own diff is, so this
+    reproduces the diff a past review read even after the PR has moved on.
+    """
+    token = github_app.get_installation_token(installation_id)
+    try:
+        response = requests.get(
+            f"{API_ROOT}/repos/{full_name}/compare/{base}...{head_sha}",
+            headers={
+                **API_HEADERS,
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github.v3.diff",
+            },
+            timeout=DIFF_TIMEOUT,
+        )
+    except requests.RequestException as exc:
+        raise DiffFetchError(f"Could not reach GitHub: {exc}") from exc
+    if response.status_code != 200:
+        raise DiffFetchError(
+            f"Could not fetch {full_name} {base}...{head_sha}: HTTP {response.status_code}"
         )
     return response.text
 
@@ -129,6 +158,9 @@ def _run_review(review, pull_request, installation_id):
         diff = fetch_diff(installation_id, repository.full_name, pull_request.number)
     except (DiffFetchError, GitHubAppError) as exc:
         return _finish_failed(review, pull_request, installation_id, str(exc))
+
+    review.diff = diff[:MAX_STORED_DIFF_BYTES]
+    review.save(update_fields=["diff"])
 
     context = RepoContext(
         full_name=repository.full_name,

@@ -75,6 +75,11 @@ class Review(models.Model):
     skipped_files = models.JSONField(default=list, blank=True)
 
     error = models.TextField(blank=True)
+    # The unified diff this review read, so the review page can show findings on
+    # the exact lines that were reviewed even after more commits land. Capped at
+    # MAX_STORED_DIFF_BYTES; older reviews are filled from GitHub on first view.
+    diff = models.TextField(blank=True)
+
     # Per-agent state while the pipeline runs: {"security": "running", ...}. What the
     # status endpoint and a (re)connecting WebSocket report, so neither has to have
     # been listening from the start.
