@@ -15,13 +15,27 @@ class PermissionDenied(Exception):
 def current_organization(user):
     """The organisation a request acts on behalf of.
 
-    Phase 1 gives every user exactly one personal organisation, so that is the answer
-    today. Phase 6 adds the workspace switcher, at which point this reads the choice
-    from the request instead; keeping the lookup in one place means that change lands
-    here and nowhere else.
+    The workspace switcher's choice when the request names one (the
+    `X-Organization-Id` header, read at authentication), but only if the caller is a
+    member of it: the header is a preference, never a grant. Otherwise the caller's
+    personal organisation, then any organisation they belong to.
     """
+    requested = getattr(user, "requested_organization_id", None)
+    if requested:
+        membership = (
+            Membership.objects.filter(user=user, organization_id=requested)
+            .select_related("organization")
+            .first()
+        )
+        if membership:
+            return membership.organization
+
+    # The personal organisation the user OWNS. Every personal org is is_personal,
+    # so once a user joins someone else's, "a personal org" is ambiguous.
     membership = (
-        Membership.objects.filter(user=user, organization__is_personal=True)
+        Membership.objects.filter(
+            user=user, organization__is_personal=True, role=Membership.Role.OWNER
+        )
         .select_related("organization")
         .first()
     ) or (Membership.objects.filter(user=user).select_related("organization").first())

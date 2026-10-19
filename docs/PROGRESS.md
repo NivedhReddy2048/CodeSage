@@ -15,7 +15,7 @@ pull requests, each closing its own issue. Architecture lives in
 | 3 | Ingestion | `phase-3a` engine, `3b` Celery+API, `3c` UI | **Done** |
 | 4 | Agent pipeline v1 | `phase-4a` agents pkg, `4b` reviews app, `4c` push+page | **Done** |
 | 5 | Full 6-agent pipeline | `phase-5a` retrieval, `5b` graph, `5c` wiring; hardening `5d` honest output, `5e` grounding + inline | **Done** |
-| 6 | Realtime + polish | `phase-6a` realtime, `6b` analytics, `6c` UI shell | Next |
+| 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **In progress** (6a done) |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Not started |
 | 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
 
@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **27 merged — bronze (16) reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **28 merged — bronze (16) reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -73,6 +73,87 @@ once, listed "claude" as a repository contributor.
 **Update the merged-PR count in this table in each phase's last PR.** The figure
 counts merged PRs *including* the one making the edit, so it is correct the moment that
 PR lands rather than one behind forever.
+
+---
+
+## Phase 6 — Realtime and enterprise UI
+
+**Status:** In progress. Four PRs: 6a backend realtime and data (done), 6b app shell
+and design system, 6c review experience, 6d dashboard, notifications and audit pages.
+
+### 6a — realtime, notifications, analytics, audit, re-run
+
+**Live progress socket, `/ws/reviews/{id}/`.** The pipeline gained an injected
+`on_progress(agent, state, status)` callback (the agents package stays Django-free);
+each of the five analysis agents reports `started` and `finished` with
+`ok`/`failed`/`skipped`. The review service turns that into a `review.progress` event
+on the Redis channel layer and writes the same state to `Review.progress`. The socket
+sends a `review.snapshot` first, then progress events, then `review.finished`.
+`GET /api/reviews/{id}/status/` returns the same snapshot as the poll fallback.
+
+Verified live across processes: a review run from a separate process streamed to a
+socket on the running server, with diff_intent running alone, the four analysis
+agents fanning out, the count rising 1/5 → 5/5, then `review.finished`.
+
+- **The JWT goes in the first message, not the URL.** A browser WebSocket cannot set
+  `Authorization`, and a token in the query string ends up in access logs. Bad or
+  expired token, or no auth within 10 s: close `4401`. A review outside every
+  organisation the user belongs to: close `4404`, the same as a missing one, so the
+  socket cannot probe for other tenants' ids. The socket joins the review's group only
+  after both checks, so a user can never receive another organisation's events.
+- **Origin is checked.** `AllowedHostsOriginValidator` refuses a handshake from a
+  foreign origin (verified: `evil.example` refused, `localhost:3000` accepted). This is
+  the cross-site WebSocket hijacking guard. It also refuses a handshake with no Origin,
+  which is why a Node or CLI client must send one.
+- **Counts five agents, not six.** Spec §9 writes "3/6 agents complete"; synthesis is
+  the deterministic merge step after the five, not an agent that can be pending.
+
+**Found live, not by the tests:** the finished event and the status endpoint reported
+0/5 after every review. The service's final full `review.save()` wrote its stale
+in-memory `progress` over the reporter's updates. The reporter now keeps that object in
+step, and a regression test (confirmed to fail without the fix) covers it.
+
+**Also fixed:** a review that crashed mid-run stayed `running` forever (seen in 5e).
+`review_pull_request` now always ends the review `failed` with the error recorded, then
+announces it and notifies.
+
+**Workspace selection.** `X-Organization-Id`, read at authentication and honoured by
+`current_organization()` only if the caller is a member, so every existing org-scoped
+endpoint follows the switcher with no per-view changes. Naming another tenant's id
+falls back to the caller's own organisation. Writing the tests exposed an ambiguity:
+the fallback took "a personal organisation", and once a user joins someone else's
+personal organisation there are two. It now takes the one the user owns.
+
+**New endpoints**, all org-scoped and each covered by a cross-org test:
+
+| Endpoint | Who | Notes |
+|---|---|---|
+| `GET /api/reviews/` | members | Paginated; filter `repository`, `status` (incl. `degraded`), `severity` |
+| `GET /api/reviews/{id}/status/` | members | Poll fallback; same shape as the socket snapshot |
+| `POST /api/reviews/{id}/rerun/` | owner/admin | 202 with the new pending review id; 409 while one runs (a run older than 15 min counts as dead); audit-logged |
+| `GET /api/notifications/`, `POST .../{id}/read/`, `POST .../read-all/` | members | Per-recipient, per-organisation |
+| `GET /api/analytics/overview/` | members | KPIs, zero-filled daily series, by category, by agent; `?days=`, `?repository=` |
+| `GET /api/repos/{id}/findings/analytics/` | members | Spec §8 path: the same view narrowed to one repository |
+| `GET /api/audit-log/` | owner/admin | Paginated; filter `action`, `actor`, `q`, `since`, `until` |
+| `GET /api/orgs/members/`, `PATCH /api/orgs/members/{id}/` | members / owner | Role changes; the last owner cannot be demoted; audit-logged |
+
+- **Raw errors only for owners and admins.** Review, call and agent-run payloads carry
+  `error_summary` (the same short public reason the PR comment uses) for everyone;
+  `error` is blank unless the caller is owner or admin.
+- **Audit log is append-only in code**: `save()` refuses an existing row, `delete()`
+  refuses, the queryset blocks bulk update and delete, and the admin is read-only.
+  Retrofitted into connect, disconnect, re-index, re-run (API and
+  `manage.py rerun_review`) and role changes. A failed audit write is logged and never
+  fails the action.
+- **Notifications** fan out per member, so read state is personal: review finished,
+  review degraded, review failed, indexing failed.
+- **Analytics definitions** live in one module: findings per PR use each PR's latest
+  completed review, so re-runs do not double-count; latency is over completed reviews
+  only, so a fast failure cannot look like speed; cost covers every review and carries
+  a `cost_basis` label saying it is an estimate at paid-tier rates.
+
+**After merging: restart the Celery worker.** The task gained an optional `review_id`
+argument; a worker still running the old code fails on API-triggered re-runs.
 
 ---
 

@@ -16,10 +16,11 @@ returns.
 
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.repos import github_app
+from apps.audit.services import Action
+from apps.audit.services import record as audit
 from apps.repos.github_app import GitHubAppError
 from apps.repos.models import Repository
-from apps.reviews.models import PullRequest
+from apps.reviews.rerun import refresh_pull_request
 from apps.reviews.services import review_pull_request
 
 
@@ -35,28 +36,25 @@ class Command(BaseCommand):
         installation_id = repository.installation.installation_id
 
         try:
-            data = github_app.get_pull_request(installation_id, repository.full_name, pr_number)
+            pull_request = refresh_pull_request(repository, pr_number)
         except GitHubAppError as exc:
             raise CommandError(f"Could not read {repo}#{pr_number} from GitHub: {exc}") from exc
 
-        pull_request, created = PullRequest.objects.update_or_create(
-            repository=repository,
-            number=pr_number,
-            defaults={
-                "github_id": data.get("id"),
-                "title": data.get("title") or "",
-                "author_login": (data.get("user") or {}).get("login") or "",
-                "head_sha": (data.get("head") or {}).get("sha") or "",
-                "base_branch": (data.get("base") or {}).get("ref") or "",
-                "state": data.get("state") or "",
-            },
-        )
         self.stdout.write(
-            f"Reviewing {repository.full_name}#{pr_number} at {pull_request.head_sha[:7]}"
-            f"{' (new PR record)' if created else ''}..."
+            f"Reviewing {repository.full_name}#{pr_number} at {pull_request.head_sha[:7]}..."
         )
 
         review = review_pull_request(pull_request, installation_id)
+        audit(
+            repository.organization,
+            None,
+            Action.REVIEW_RERUN,
+            target=pull_request,
+            target_label=f"{repository.full_name}#{pr_number}",
+            new_review=review.pk,
+            head_sha=pull_request.head_sha,
+            source="manage.py rerun_review",
+        )
         pull_request.refresh_from_db()
 
         self.stdout.write(

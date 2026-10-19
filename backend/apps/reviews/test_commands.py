@@ -46,7 +46,7 @@ def test_rerun_review_refreshes_the_head_and_reviews_synchronously(pull_request)
     out = StringIO()
     with (
         mock.patch(
-            "apps.reviews.management.commands.rerun_review.github_app.get_pull_request",
+            "apps.reviews.rerun.github_app.get_pull_request",
             return_value=PR_DATA,
         ),
         mock.patch(
@@ -73,7 +73,7 @@ def test_rerun_review_bypasses_delivery_dedupe(pull_request):  # noqa: F811
     )
     with (
         mock.patch(
-            "apps.reviews.management.commands.rerun_review.github_app.get_pull_request",
+            "apps.reviews.rerun.github_app.get_pull_request",
             return_value=PR_DATA,
         ),
         mock.patch(
@@ -92,7 +92,7 @@ def test_rerun_review_bypasses_delivery_dedupe(pull_request):  # noqa: F811
 def test_rerun_review_creates_a_pr_record_it_has_not_seen(pull_request):  # noqa: F811
     with (
         mock.patch(
-            "apps.reviews.management.commands.rerun_review.github_app.get_pull_request",
+            "apps.reviews.rerun.github_app.get_pull_request",
             return_value=PR_DATA,
         ),
         mock.patch(

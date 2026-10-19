@@ -8,6 +8,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.audit.services import Action
+from apps.audit.services import record as audit
 from apps.repos import github_app, services, webhooks
 from apps.repos.dispatch import run_in_background
 from apps.repos.github_app import GitHubAppError
@@ -265,6 +267,14 @@ class RepositoryConnectView(OrganizationScopedMixin, APIView):
             installation.save(update_fields=["organization", "updated_at"])
 
         if created:
+            audit(
+                organization,
+                request.user,
+                Action.REPO_CONNECTED,
+                target=repository,
+                target_label=repository.full_name,
+                github_id=github_id,
+            )
             # Index immediately on first connect, so the repository is useful without
             # a second action. Imported here to keep the repos app from importing the
             # ingestion app at module load.
@@ -316,5 +326,13 @@ class RepositoryDetailView(OrganizationScopedMixin, APIView):
         if repository is None:
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
+        label, github_id = repository.full_name, repository.github_id
         repository.delete()
+        audit(
+            organization,
+            request.user,
+            Action.REPO_DISCONNECTED,
+            target_label=label,
+            github_id=github_id,
+        )
         return Response(status=status.HTTP_204_NO_CONTENT)

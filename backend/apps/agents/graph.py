@@ -52,6 +52,11 @@ class GraphState(TypedDict, total=False):
     synthesised: list
 
 
+# The agents a progress counter counts: "3/5 agents complete". Synthesis is not
+# one of them - it is the merge step, and it runs after the last of these.
+AGENT_NAMES = ("diff_intent", "static_analysis", "security", "grounding", "test_coverage")
+
+
 class Runtime:
     """Provider access, failover and budget for one review.
 
@@ -59,10 +64,24 @@ class Runtime:
     a global and two concurrent reviews cannot interfere.
     """
 
-    def __init__(self, config, retrieve=None):
+    def __init__(self, config, retrieve=None, on_progress=None):
         self.config = config
         self.retrieve = retrieve
         self.budget = TokenBudget(config.token_budget)
+        self.on_progress = on_progress
+
+    def report(self, agent, state, status=""):
+        """Tell the caller an agent started or finished. Never fails the review.
+
+        Called from the parallel agents' threads at once; the callback owns any
+        locking it needs.
+        """
+        if self.on_progress is None:
+            return
+        try:
+            self.on_progress(agent, state, status)
+        except Exception:  # noqa: BLE001 - progress is a courtesy, not the review
+            logger.exception("Progress callback failed for %s %s", agent, state)
 
     def complete(self, model, system_prompt, user_message, schema=None):
         """Call `model` on Groq, falling back to Gemini.
@@ -139,11 +158,11 @@ def build_graph():
     """Wire and compile the graph. Compiled once per call; it is cheap and stateless."""
     graph = StateGraph(GraphState)
 
-    graph.add_node("diff_intent", nodes.diff_intent)
-    graph.add_node("static_analysis", nodes.static_analysis)
-    graph.add_node("security", nodes.security)
-    graph.add_node("grounding", nodes.grounding)
-    graph.add_node("test_coverage", nodes.test_coverage)
+    graph.add_node("diff_intent", _tracked("diff_intent", nodes.diff_intent))
+    graph.add_node("static_analysis", _tracked("static_analysis", nodes.static_analysis))
+    graph.add_node("security", _tracked("security", nodes.security))
+    graph.add_node("grounding", _tracked("grounding", nodes.grounding))
+    graph.add_node("test_coverage", _tracked("test_coverage", nodes.test_coverage))
     graph.add_node("synthesis", _synthesis_node)
 
     graph.add_edge(START, "diff_intent")
@@ -159,6 +178,33 @@ def build_graph():
     return graph.compile()
 
 
+def _tracked(name, node):
+    """Wrap a node so the caller hears when it starts and how it finished."""
+
+    def run(state):
+        runtime = state["runtime"]
+        runtime.report(name, "started")
+        try:
+            out = node(state)
+        except Exception:
+            runtime.report(name, "finished", "failed")
+            raise
+        runtime.report(name, "finished", _outcome(name, out.get("runs", [])))
+        return out
+
+    run.__name__ = name
+    return run
+
+
+def _outcome(name, runs):
+    run = next((r for r in runs if r.name == name), None)
+    if run is None:
+        return "failed"
+    if run.skipped_reason:
+        return "skipped"
+    return "ok" if run.succeeded else "failed"
+
+
 def _synthesis_node(state):
     """Merge, deduplicate and prioritise. No model call: this is pure logic.
 
@@ -171,8 +217,12 @@ def _synthesis_node(state):
     return {"findings": [], "runs": [], "synthesised": merged}
 
 
-def run_pipeline(diff, context, config=None, retrieve=None):
-    """Run the six-agent pipeline. The phase 5 entry point."""
+def run_pipeline(diff, context, config=None, retrieve=None, on_progress=None):
+    """Run the six-agent pipeline. The phase 5 entry point.
+
+    `on_progress(agent, state, status)` is called as each agent starts
+    (`state="started"`) and finishes (`state="finished"`, status ok/failed/skipped).
+    """
     config = config or ReviewConfig()
     started = time.perf_counter()
 
@@ -186,7 +236,7 @@ def run_pipeline(diff, context, config=None, retrieve=None):
         result.duration_ms = int((time.perf_counter() - started) * 1000)
         return result
 
-    runtime = Runtime(config, retrieve=retrieve)
+    runtime = Runtime(config, retrieve=retrieve, on_progress=on_progress)
 
     try:
         final = build_graph().invoke(

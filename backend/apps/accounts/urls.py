@@ -5,6 +5,8 @@ from apps.accounts.views import (
     CurrentUserView,
     GitHubCallbackView,
     GitHubLoginStartView,
+    MemberListView,
+    MemberRoleView,
     OrganizationListView,
 )
 
@@ -14,4 +16,6 @@ urlpatterns = [
     path("auth/token/refresh/", TokenRefreshView.as_view(), name="token-refresh"),
     path("auth/me/", CurrentUserView.as_view(), name="current-user"),
     path("orgs/", OrganizationListView.as_view(), name="organization-list"),
+    path("orgs/members/", MemberListView.as_view(), name="member-list"),
+    path("orgs/members/<int:pk>/", MemberRoleView.as_view(), name="member-role"),
 ]

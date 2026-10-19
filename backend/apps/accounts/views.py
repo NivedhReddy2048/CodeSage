@@ -12,6 +12,8 @@ from apps.accounts.serializers import (
     AuthTokenResponseSerializer,
     GitHubCallbackSerializer,
     GitHubStartResponseSerializer,
+    MemberRoleSerializer,
+    MembershipSerializer,
     OrganizationSerializer,
     UserSerializer,
 )
@@ -107,3 +109,86 @@ class OrganizationListView(generics.ListAPIView):
             .annotate(current_user_role=Subquery(my_role))
             .order_by("name")
         )
+
+
+class MemberListView(APIView):
+    """Members of the caller's current organisation, with their roles."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(responses={200: MembershipSerializer(many=True)})
+    def get(self, request):
+        from apps.repos.services import current_organization
+
+        organization = current_organization(request.user)
+        if organization is None:
+            return Response([])
+        members = Membership.objects.filter(organization=organization).select_related("user")
+        return Response(MembershipSerializer(members.order_by("created_at"), many=True).data)
+
+
+class MemberRoleView(APIView):
+    """Change one member's role. Owners only; audit-logged."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=MemberRoleSerializer,
+        responses={
+            200: MembershipSerializer,
+            400: OpenApiResponse(description="Invalid role, or it would leave no owner."),
+            403: OpenApiResponse(description="Requires the owner role."),
+            404: OpenApiResponse(description="Not a member of your organisation."),
+        },
+    )
+    def patch(self, request, pk):
+        from apps.audit.services import Action
+        from apps.audit.services import record as audit
+        from apps.repos.services import current_organization, role_in
+
+        organization = current_organization(request.user)
+        # Scoped lookup: a membership in another organisation reads as absent.
+        membership = (
+            Membership.objects.filter(pk=pk, organization=organization)
+            .select_related("user")
+            .first()
+        )
+        if membership is None:
+            return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        if role_in(request.user, organization) != Membership.Role.OWNER:
+            return Response(
+                {"detail": "Changing roles requires the owner role."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = MemberRoleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        new_role = serializer.validated_data["role"]
+        old_role = membership.role
+
+        if old_role == new_role:
+            return Response(MembershipSerializer(membership).data)
+
+        if old_role == Membership.Role.OWNER:
+            owners = Membership.objects.filter(
+                organization=organization, role=Membership.Role.OWNER
+            ).count()
+            if owners <= 1:
+                return Response(
+                    {"detail": "An organisation must keep at least one owner."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        membership.role = new_role
+        membership.save(update_fields=["role"])
+        audit(
+            organization,
+            request.user,
+            Action.MEMBER_ROLE_CHANGED,
+            target=membership.user,
+            target_label=membership.user.github_login or membership.user.username,
+            old_role=old_role,
+            new_role=new_role,
+        )
+        return Response(MembershipSerializer(membership).data)
