@@ -17,6 +17,11 @@ pgvector==0.5.1
 # wrong by hand, and selection honours each repository's own .gitignore.
 pathspec==1.1.1
 psycopg[binary]==3.3.6
+# Static analysis runs these on every review, so they are runtime dependencies, not
+# dev tools: Render installs this file only. Both are invoked as `python -m <tool>`
+# against PR content in an isolated temp directory - see apps/agents/static_analysis.py.
+bandit==1.9.4
+ruff==0.16.8
 # [crypto] pulls in `cryptography`, required to sign the GitHub App's RS256 JWT.
 pyjwt[crypto]==2.15.1
 requests==2.34.2

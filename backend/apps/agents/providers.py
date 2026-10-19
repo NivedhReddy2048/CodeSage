@@ -10,7 +10,7 @@ from dataclasses import dataclass
 
 import requests
 
-from apps.agents.schema import RESPONSE_SCHEMA
+from apps.agents.schema import RESPONSE_SCHEMA, to_gemini_schema
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +31,10 @@ class ProviderResponse:
     content: str
     input_tokens: int = 0
     output_tokens: int = 0
+    # The model that served this response, as named by the provider that served it.
+    # Callers record this rather than the model they asked for, which after a
+    # failover is a different provider's model entirely.
+    model: str = ""
 
 
 class Provider:
@@ -47,7 +51,8 @@ class Provider:
     def configured(self):
         return bool(self.api_key)
 
-    def complete(self, system_prompt, messages):
+    def complete(self, system_prompt, messages, schema=None):
+        """Return a ProviderResponse. `schema` is the JSON Schema the reply must match."""
         raise NotImplementedError
 
     def _post_with_retries(self, url, **kwargs):
@@ -85,7 +90,7 @@ class Provider:
 class GroqProvider(Provider):
     name = "groq"
 
-    def complete(self, system_prompt, messages):
+    def complete(self, system_prompt, messages, schema=None):
         payload = {
             "model": self.model,
             "messages": [{"role": "system", "content": system_prompt}, *messages],
@@ -114,13 +119,14 @@ class GroqProvider(Provider):
             content=content,
             input_tokens=usage.get("prompt_tokens") or 0,
             output_tokens=usage.get("completion_tokens") or 0,
+            model=self.model,
         )
 
 
 class GeminiProvider(Provider):
     name = "gemini"
 
-    def complete(self, system_prompt, messages):
+    def complete(self, system_prompt, messages, schema=None):
         # Gemini has no system role; it takes a separate systemInstruction, which
         # preserves the same separation between rules and untrusted content.
         contents = [
@@ -133,8 +139,13 @@ class GeminiProvider(Provider):
             "generationConfig": {
                 "temperature": 0,
                 "maxOutputTokens": 4096,
+                # Native structured output: the response is constrained to this
+                # schema rather than asked nicely to follow it. The schema must be
+                # the calling agent's own - forcing the findings shape on the
+                # intent classifier or the grounding agent produced valid JSON
+                # that answered the wrong question.
                 "responseMimeType": "application/json",
-                "responseSchema": _gemini_schema(),
+                "responseSchema": to_gemini_schema(schema or RESPONSE_SCHEMA),
             },
         }
 
@@ -156,40 +167,5 @@ class GeminiProvider(Provider):
             content=content,
             input_tokens=usage.get("promptTokenCount") or 0,
             output_tokens=usage.get("candidatesTokenCount") or 0,
+            model=self.model,
         )
-
-
-def _gemini_schema():
-    """RESPONSE_SCHEMA in the dialect Gemini accepts.
-
-    It rejects `additionalProperties`, so the schema is rebuilt rather than reused
-    verbatim; keeping one source of truth for the property names avoids the two
-    drifting apart.
-    """
-    item = RESPONSE_SCHEMA["properties"]["findings"]["items"]
-    return {
-        "type": "OBJECT",
-        "properties": {
-            "findings": {
-                "type": "ARRAY",
-                "items": {
-                    "type": "OBJECT",
-                    "properties": {
-                        "file": {"type": "STRING"},
-                        "line": {"type": "INTEGER"},
-                        "severity": {
-                            "type": "STRING",
-                            "enum": item["properties"]["severity"]["enum"],
-                        },
-                        "category": {
-                            "type": "STRING",
-                            "enum": item["properties"]["category"]["enum"],
-                        },
-                        "message": {"type": "STRING"},
-                    },
-                    "required": list(item["required"]),
-                },
-            }
-        },
-        "required": ["findings"],
-    }

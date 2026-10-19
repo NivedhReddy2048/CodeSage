@@ -9,6 +9,11 @@ Two constraints shape this:
 
 2. **It must disclose what it did not look at.** A short review of a truncated diff
    looks identical to a short review of clean code unless it says otherwise.
+
+3. **It is public, so it never carries a raw error.** Provider errors include
+   response bodies, account and quota details, and request URLs. The comment gets a
+   short human reason from `public_reason`; the full error is logged and stored on
+   the Review, where the review page shows it.
 """
 
 from apps.reviews.pricing import format_footer
@@ -24,6 +29,37 @@ ACK_BODY = (
 )
 
 
+PROVIDERS_UNAVAILABLE = "AI providers unavailable"
+DIFF_UNAVAILABLE = "Could not fetch this pull request's diff from GitHub"
+DETAILS_NOTE = "Full details are recorded on the review in the CodeSage dashboard."
+
+
+def public_reason(error):
+    """A short, human reason that is safe to post on a public pull request.
+
+    Deliberately coarse. The specifics a raw error carries - HTTP bodies, quota
+    numbers, key prefixes, URLs - help an operator and nobody reading the PR, and
+    some of them should not be published at all.
+    """
+    text = (error or "").lower()
+    if not text:
+        return ""
+    if "no llm provider is configured" in text or "no provider configured" in text:
+        return "No AI provider is configured"
+    if text.startswith("schema") or "schema:" in text:
+        return "The AI response was not in the expected format"
+    if text.startswith("retrieval failed"):
+        return "Code search was unavailable"
+    if text.startswith("every agent was skipped"):
+        return "Every agent was skipped to stay inside the token budget"
+    if any(
+        marker in text
+        for marker in ("groq", "gemini", "circuit", "http ", "timed out", "network", "provider")
+    ):
+        return PROVIDERS_UNAVAILABLE
+    return "An internal error occurred"
+
+
 def render_running(head_sha):
     """Shown while a review is in flight, naming the commit being reviewed."""
     return (
@@ -33,17 +69,32 @@ def render_running(head_sha):
     )
 
 
-def render(review, findings, *, failure_reason="", unpriced=(), agent_runs=(), skipped=()):
-    """The finished review."""
+def render(
+    review,
+    findings,
+    *,
+    failure_reason="",
+    public_reason=None,
+    unpriced=(),
+    agent_runs=(),
+    skipped=(),
+):
+    """The finished review.
+
+    `failure_reason` is the raw internal reason and is never printed; it is mapped
+    to a short public one unless the caller supplies `public_reason` itself.
+    """
     lines = [HEADER, ""]
 
     if failure_reason:
+        shown = public_reason or _public_reason(failure_reason)
         lines += [
             "The review could not be completed.",
             "",
-            f"> {failure_reason}",
+            f"> {shown}.",
             "",
-            "Push a new commit to try again, or re-run it from the CodeSage dashboard.",
+            "Push a new commit to try again, or re-run it from the CodeSage dashboard. "
+            + DETAILS_NOTE,
             "",
         ]
     elif not findings:
@@ -147,17 +198,15 @@ def _render_agents(agent_runs, skipped):
     for run in agent_runs:
         label = AGENT_LABELS.get(run.name, run.name)
         if run.skipped_reason:
-            rows.append(f"| {label} | skipped | {run.skipped_reason} |")
-        elif run.error:
-            rows.append(f"| {label} | failed | {run.error[:90]} |")
+            rows.append(f"| {label} | skipped | {_cell(run.skipped_reason)} |")
+        elif not run.succeeded:
+            # Keyed on `succeeded`, not on whether an error string happens to be
+            # set: an agent that got nothing usable back has failed whether or not
+            # anyone attached a message, and must never read as "ok, 0 findings".
+            reason = _public_reason(run.error) or "No usable output"
+            rows.append(f"| {label} | failed | {reason} |")
         else:
-            plural = "" if run.findings_count == 1 else "s"
-            detail = f"{run.findings_count} finding{plural}"
-            if run.model:
-                detail += f" · `{run.model}`"
-            if run.used_fallback:
-                detail += " (fallback)"
-            rows.append(f"| {label} | ok | {detail} |")
+            rows.append(f"| {label} | ok | {_ok_detail(run)} |")
 
     note = ""
     if skipped:
@@ -172,6 +221,31 @@ def _render_agents(agent_runs, skipped):
         "| Agent | Status | Detail |\n|---|---|---|\n"
         f"{table}{note}\n\n</details>"
     )
+
+
+def _ok_detail(run):
+    plural = "" if run.findings_count == 1 else "s"
+    parts = [f"{run.findings_count} finding{plural}"]
+    if run.detail:
+        parts.append(_cell(run.detail))
+    if run.model:
+        served = f"`{run.model}`"
+        if run.provider:
+            served += f" via {run.provider}"
+        requested = getattr(run, "requested_model", "")
+        if run.used_fallback:
+            served += f" (fallback for `{requested}`)" if requested else " (fallback)"
+        parts.append(served)
+    return " · ".join(parts)
+
+
+def _cell(text):
+    """Keep free text from breaking the markdown table."""
+    return " ".join(str(text).replace("|", "/").split())[:160]
+
+
+# Module-level alias: `render` takes a parameter named `public_reason`.
+_public_reason = public_reason
 
 
 def render_degraded(review, reason, agent_runs=()):
@@ -196,7 +270,7 @@ def render_degraded(review, reason, agent_runs=()):
     ]
 
     if reason:
-        lines += [f"Reason: {reason[:300]}", ""]
+        lines += [f"Reason: {public_reason(reason) or PROVIDERS_UNAVAILABLE}. {DETAILS_NOTE}", ""]
 
     if any(run.succeeded and not run.provider for run in agent_runs):
         lines += [

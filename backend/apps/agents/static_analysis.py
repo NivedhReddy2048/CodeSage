@@ -39,18 +39,24 @@ exactly the one that executes repo-controlled JavaScript. JS/TS therefore gets t
 pattern pass below, which executes nothing.
 """
 
+import importlib.util
+import json
 import logging
 import re
-import shutil
 import subprocess
+import sys
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 TIMEOUT_SECONDS = 30
 MAX_FILES = 40
+
+# The Python linters, run as `python -m <name>`. Each must be pinned in
+# requirements.txt (not only requirements-dev.txt), and a test enforces it.
+PYTHON_TOOLS = ("ruff", "bandit")
 
 # Never analysed: these are configuration, and configuration is the attack surface.
 CONFIG_NAMES = frozenset(
@@ -94,6 +100,53 @@ class ToolFinding:
     severity: str = "nit"
 
 
+@dataclass
+class AnalysisReport:
+    """What static analysis found, and - just as important - what actually ran.
+
+    "0 findings" means nothing unless the reader knows a tool looked. So every tool
+    the change needed is accounted for: it ran, or it is named in `unavailable`
+    with the reason it did not.
+    """
+
+    findings: list = field(default_factory=list)
+    ran: list = field(default_factory=list)
+    # tool -> why it did not run ("not installed", "timed out", ...)
+    unavailable: dict = field(default_factory=dict)
+
+    @property
+    def looked(self):
+        return bool(self.ran)
+
+    def describe(self):
+        """One line for the Agents table: `ran ruff, bandit · skipped: x (why)`."""
+        parts = []
+        if self.ran:
+            parts.append("ran " + ", ".join(self.ran))
+        if self.unavailable:
+            skipped = ", ".join(f"{tool} ({why})" for tool, why in self.unavailable.items())
+            parts.append(f"skipped: {skipped}")
+        return " · ".join(parts)
+
+
+class ToolUnavailable(Exception):
+    """A tool could not be run, or produced output that cannot be trusted."""
+
+
+def tool_command(module):
+    """The argv prefix that runs `module` from THIS interpreter, or None.
+
+    Resolved through the running interpreter rather than PATH. A worker started
+    without its virtualenv activated has the packages importable but their console
+    scripts off PATH, so `shutil.which` reported a tool missing while the comment
+    still claimed it ran. Asking the interpreter also ties availability to
+    requirements.txt, which is what production installs.
+    """
+    if importlib.util.find_spec(module) is None:
+        return None
+    return [sys.executable, "-m", module]
+
+
 def is_config_file(path):
     name = path.rsplit("/", 1)[-1]
     return name in CONFIG_NAMES or name.startswith(".eslintrc")
@@ -112,7 +165,12 @@ def is_syntax_code(code):
 
 
 def analyse(files, complete=()):
-    """Run the linters over `{path: content}` and return findings.
+    """Findings only. See `run_analysis` for the full report."""
+    return run_analysis(files, complete=complete).findings
+
+
+def run_analysis(files, complete=()):
+    """Run the linters over `{path: content}`; report what ran and what it found.
 
     `complete` names the paths whose content is a whole file rather than a few
     reconstructed hunks. Syntax diagnostics are kept only for those: part of a file
@@ -123,15 +181,15 @@ def analyse(files, complete=()):
     Never raises: a linter that is missing, crashes or hangs costs its findings and
     nothing else.
     """
+    report = AnalysisReport()
     analysable = {
         path: content
         for path, content in list(files.items())[:MAX_FILES]
         if content and not is_config_file(path)
     }
     if not analysable:
-        return []
+        return report
 
-    findings = []
     python = {p: c for p, c in analysable.items() if p.endswith((".py", ".pyi"))}
     javascript = {
         p: c for p, c in analysable.items() if p.endswith((".js", ".jsx", ".ts", ".tsx", ".mjs"))
@@ -140,11 +198,23 @@ def analyse(files, complete=()):
     if python:
         with tempfile.TemporaryDirectory(prefix="codesage-sa-") as workdir:
             written = _write(python, workdir)
-            findings.extend(_run_ruff(workdir, written, frozenset(complete)))
-            findings.extend(_run_bandit(workdir, written))
+            runners = {
+                "ruff": lambda: _run_ruff(workdir, written, frozenset(complete)),
+                "bandit": lambda: _run_bandit(workdir, written),
+            }
+            for tool in PYTHON_TOOLS:
+                try:
+                    report.findings.extend(runners[tool]())
+                except ToolUnavailable as exc:
+                    report.unavailable[tool] = str(exc)
+                else:
+                    report.ran.append(tool)
 
-    findings.extend(_scan_javascript(javascript))
-    return findings
+    if javascript:
+        report.findings.extend(_scan_javascript(javascript))
+        report.ran.append("pattern-scan")
+
+    return report
 
 
 def _write(files, workdir):
@@ -169,7 +239,7 @@ def _write(files, workdir):
 
 
 def _run(command, cwd):
-    """Run a tool with no shell, a timeout, and failures swallowed."""
+    """Run a tool with no shell and a timeout. Raises ToolUnavailable on failure."""
     try:
         return subprocess.run(
             command,
@@ -181,19 +251,42 @@ def _run(command, cwd):
             # PR must never reach a shell.
             shell=False,
         )
-    except (subprocess.TimeoutExpired, OSError) as exc:
-        logger.warning("Static analysis tool failed: %s", exc)
-        return None
+    except subprocess.TimeoutExpired as exc:
+        logger.warning("Static analysis tool timed out: %s", exc)
+        raise ToolUnavailable(f"timed out after {TIMEOUT_SECONDS}s") from exc
+    except OSError as exc:
+        logger.warning("Static analysis tool failed to start: %s", exc)
+        raise ToolUnavailable("failed to start") from exc
+
+
+def _parse_json_output(tool, result):
+    """A tool's JSON report, or ToolUnavailable if it did not produce one.
+
+    Both linters print a JSON document even when they find nothing (`[]` for ruff,
+    a `results` object for bandit), so empty or unparseable stdout means the tool
+    did not do its job - and must not be reported as a clean pass.
+    """
+    try:
+        return json.loads(result.stdout)
+    except (json.JSONDecodeError, TypeError) as exc:
+        logger.warning(
+            "%s produced no parseable report (exit %s): %s",
+            tool,
+            result.returncode,
+            str(result.stderr or "")[:500],
+        )
+        raise ToolUnavailable("produced no report") from exc
 
 
 def _run_ruff(workdir, written, complete=frozenset()):
     """ruff with --isolated, so no configuration file anywhere can apply."""
-    if shutil.which("ruff") is None:
-        return []
+    command = tool_command("ruff")
+    if command is None:
+        raise ToolUnavailable("not installed")
 
     result = _run(
         [
-            "ruff",
+            *command,
             "check",
             # The security-critical flag: ignore every pyproject.toml, ruff.toml and
             # setup.cfg, including any the pull request added.
@@ -208,15 +301,9 @@ def _run_ruff(workdir, written, complete=frozenset()):
         ],
         workdir,
     )
-    if result is None or not result.stdout:
-        return []
-
-    import json
-
-    try:
-        entries = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return []
+    entries = _parse_json_output("ruff", result)
+    if not isinstance(entries, list):
+        raise ToolUnavailable("produced no report")
 
     findings = []
     for entry in entries:
@@ -245,22 +332,14 @@ def _run_ruff(workdir, written, complete=frozenset()):
 
 def _run_bandit(workdir, written):
     """bandit with our own flags and no --ini, so repo settings cannot apply."""
-    if shutil.which("bandit") is None:
-        return []
+    command = tool_command("bandit")
+    if command is None:
+        raise ToolUnavailable("not installed")
 
-    result = _run(
-        ["bandit", "-r", ".", "-f", "json", "-q", "-ll"],
-        workdir,
-    )
-    if result is None or not result.stdout:
-        return []
-
-    import json
-
-    try:
-        payload = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        return []
+    result = _run([*command, "-r", ".", "-f", "json", "-q", "-ll"], workdir)
+    payload = _parse_json_output("bandit", result)
+    if not isinstance(payload, dict):
+        raise ToolUnavailable("produced no report")
 
     findings = []
     for entry in payload.get("results", []):

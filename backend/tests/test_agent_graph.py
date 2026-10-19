@@ -79,7 +79,7 @@ def fake_complete(responses):
     """Patch Runtime.complete with canned per-model answers."""
     calls = []
 
-    def _complete(self, model, system_prompt, user_message):
+    def _complete(self, model, system_prompt, user_message, schema=None):
         calls.append((model, system_prompt, user_message))
         payload = responses.get(model, responses.get("*", '{"findings": []}'))
         if callable(payload):
@@ -144,10 +144,10 @@ def test_ruff_is_invoked_with_isolated():
 
     def fake_run(command, cwd):
         commands.append(command)
-        return None
+        return mock.Mock(stdout="[]", returncode=0)
 
     with mock.patch.object(static_analysis, "_run", side_effect=fake_run):
-        with mock.patch.object(static_analysis.shutil, "which", return_value="/usr/bin/ruff"):
+        with mock.patch.object(static_analysis, "tool_command", side_effect=lambda m: [m]):
             static_analysis.analyse({"a.py": "x = 1\n"})
 
     # Several tools run; pick ruff's invocation rather than whichever was last.
@@ -161,10 +161,10 @@ def test_bandit_is_never_given_an_ini_flag():
 
     def fake_run(command, cwd):
         commands.append(command)
-        return None
+        return mock.Mock(stdout="[]", returncode=0)
 
     with mock.patch.object(static_analysis, "_run", side_effect=fake_run):
-        with mock.patch.object(static_analysis.shutil, "which", return_value="/usr/bin/x"):
+        with mock.patch.object(static_analysis, "tool_command", side_effect=lambda m: [m]):
             static_analysis.analyse({"a.py": "x = 1\n"})
 
     for command in commands:
@@ -178,10 +178,10 @@ def test_no_package_manager_is_ever_invoked():
 
     def fake_run(command, cwd):
         commands.append(command)
-        return None
+        return mock.Mock(stdout="[]", returncode=0)
 
     with mock.patch.object(static_analysis, "_run", side_effect=fake_run):
-        with mock.patch.object(static_analysis.shutil, "which", return_value="/usr/bin/x"):
+        with mock.patch.object(static_analysis, "tool_command", side_effect=lambda m: [m]):
             static_analysis.analyse({"a.py": "x = 1\n", "web/a.js": "var x = 1;\n"})
 
     forbidden = {"npm", "npx", "yarn", "pnpm", "node", "bun", "pip", "python"}
@@ -193,9 +193,10 @@ def test_subprocesses_never_use_a_shell():
     """A filename from a PR must not reach a shell."""
     with mock.patch.object(static_analysis.subprocess, "run") as run:
         run.return_value = mock.Mock(stdout="", returncode=0)
-        with mock.patch.object(static_analysis.shutil, "which", return_value="/usr/bin/x"):
+        with mock.patch.object(static_analysis, "tool_command", side_effect=lambda m: [m]):
             static_analysis.analyse({"a.py": "x = 1\n"})
 
+    assert run.call_args_list, "no tool was invoked at all"
     for call in run.call_args_list:
         assert call.kwargs.get("shell", False) is False
         assert call.kwargs.get("timeout")
@@ -212,21 +213,81 @@ def test_paths_are_flattened_into_the_sandbox(tmp_path):
     assert {p.name for p in tmp_path.iterdir()} == set(written)
 
 
-def test_a_missing_linter_is_not_fatal():
-    with mock.patch.object(static_analysis.shutil, "which", return_value=None):
-        assert static_analysis.analyse({"a.py": "import os\n"}) == []
+def test_a_missing_linter_is_not_fatal_and_is_not_claimed_as_run():
+    with mock.patch.object(static_analysis, "tool_command", return_value=None):
+        report = static_analysis.run_analysis({"a.py": "import os\n"})
+
+    assert report.findings == []
+    assert report.ran == []
+    assert report.unavailable == {"ruff": "not installed", "bandit": "not installed"}
+    assert not report.looked
 
 
-def test_a_linter_timeout_is_not_fatal():
+def test_a_linter_timeout_is_not_fatal_and_is_not_claimed_as_run():
     import subprocess as sp
 
     with (
-        mock.patch.object(static_analysis.shutil, "which", return_value="/usr/bin/x"),
+        mock.patch.object(static_analysis, "tool_command", side_effect=lambda m: [m]),
         mock.patch.object(
             static_analysis.subprocess, "run", side_effect=sp.TimeoutExpired("ruff", 30)
         ),
     ):
-        assert static_analysis.analyse({"a.py": "x = 1\n"}) == []
+        report = static_analysis.run_analysis({"a.py": "x = 1\n"})
+
+    assert report.findings == []
+    assert report.ran == []
+    assert set(report.unavailable) == {"ruff", "bandit"}
+    assert "timed out" in report.unavailable["ruff"]
+
+
+def test_a_linter_with_no_parseable_output_is_not_claimed_as_run():
+    """Empty stdout is a tool that did not do its job, not a clean pass."""
+    with (
+        mock.patch.object(static_analysis, "tool_command", side_effect=lambda m: [m]),
+        mock.patch.object(
+            static_analysis.subprocess,
+            "run",
+            return_value=mock.Mock(stdout="", stderr="boom", returncode=2),
+        ),
+    ):
+        report = static_analysis.run_analysis({"a.py": "x = 1\n"})
+
+    assert report.ran == []
+    assert report.unavailable["ruff"] == "produced no report"
+
+
+def test_tools_run_from_the_current_interpreter_not_path():
+    """A worker without its venv on PATH still has the packages importable."""
+    import sys
+
+    with mock.patch.object(static_analysis.importlib.util, "find_spec", return_value=object()):
+        assert static_analysis.tool_command("ruff") == [sys.executable, "-m", "ruff"]
+    with mock.patch.object(static_analysis.importlib.util, "find_spec", return_value=None):
+        assert static_analysis.tool_command("ruff") is None
+
+
+def test_both_python_linters_really_execute():
+    """No mocks: ruff and bandit must both run here, as they must in production (#50)."""
+    report = static_analysis.run_analysis({"a.py": "import pickle\npickle.loads(b'x')\n"})
+
+    assert report.ran == ["ruff", "bandit"], report.unavailable
+    assert {f.tool for f in report.findings} >= {"ruff", "bandit"}
+    assert report.describe() == "ran ruff, bandit"
+
+
+def test_every_tool_static_analysis_runs_is_a_runtime_requirement():
+    """A tool in requirements-dev.txt only is absent on Render, which installs
+    requirements.txt. That drift is how ruff and bandit silently never ran (#50)."""
+    from pathlib import Path
+
+    runtime = (Path(__file__).resolve().parents[1] / "requirements.txt").read_text()
+    pinned = {
+        line.split("==")[0].split("[")[0].strip().lower()
+        for line in runtime.splitlines()
+        if line.strip() and not line.lstrip().startswith(("#", "-r"))
+    }
+    for tool in static_analysis.PYTHON_TOOLS:
+        assert tool in pinned, f"{tool} is run by static analysis but not in requirements.txt"
 
 
 def test_javascript_patterns_are_detected_without_execution():
@@ -329,7 +390,7 @@ def test_diff_intent_runs_before_the_others():
     """Its classification is fed to the agents that follow."""
     seen = []
 
-    def complete(self, model, system_prompt, user_message):
+    def complete(self, model, system_prompt, user_message, schema=None):
         seen.append(system_prompt[:40])
         if "classify" in system_prompt:
             return ProviderResponse('{"intent": "fix", "summary": "s"}', 10, 5), "groq", False
@@ -348,14 +409,20 @@ def test_the_analysis_agents_run_in_parallel():
     """Sequential would be the sum of the delays; parallel is about the maximum."""
     import time
 
-    def complete(self, model, system_prompt, user_message):
+    def complete(self, model, system_prompt, user_message, schema=None):
         if "classify" in system_prompt:
             return ProviderResponse('{"intent": "fix", "summary": "s"}', 10, 5), "groq", False
         time.sleep(0.3)
         return ProviderResponse('{"findings": []}', 10, 5), "groq", False
 
+    # The real linters take about a second to start, which would swamp a timing
+    # test about the LLM agents. They are covered by their own tests.
+    no_tools = mock.patch(
+        "apps.agents.nodes.run_analysis",
+        return_value=static_analysis.AnalysisReport(ran=["ruff"]),
+    )
     started = time.perf_counter()
-    with mock.patch.object(Runtime, "complete", complete):
+    with mock.patch.object(Runtime, "complete", complete), no_tools:
         run_pipeline(DIFF, context(), config())
     elapsed = time.perf_counter() - started
 
@@ -394,7 +461,7 @@ def test_budget_exhaustion_skips_agents_rather_than_failing():
 
 @pytest.mark.django_db
 def test_a_failing_agent_does_not_sink_the_review():
-    def complete(self, model, system_prompt, user_message):
+    def complete(self, model, system_prompt, user_message, schema=None):
         if "security reviewer" in system_prompt:
             from apps.agents.providers import ProviderError
 
@@ -415,7 +482,7 @@ def test_a_failing_agent_does_not_sink_the_review():
 def test_every_agent_failing_is_reported_not_raised():
     from apps.agents.providers import ProviderError
 
-    def complete(self, model, system_prompt, user_message):
+    def complete(self, model, system_prompt, user_message, schema=None):
         raise ProviderError("everything is down")
 
     with mock.patch.object(Runtime, "complete", complete):
@@ -453,7 +520,7 @@ def test_grounding_cites_a_retrieved_chunk():
         )
     ]
 
-    def complete(self, model, system_prompt, user_message):
+    def complete(self, model, system_prompt, user_message, schema=None):
         if "classify" in system_prompt:
             return ProviderResponse('{"intent": "feature", "summary": "s"}', 10, 5), "groq", False
         if "already exists" in system_prompt:
@@ -494,7 +561,7 @@ def test_grounding_drops_an_invented_citation():
     """The model cites a file it was never shown."""
     retrieved = [RetrievedChunk("app/users.py", "find_by_id", 15, 20, "def find_by_id(): ...")]
 
-    def complete(self, model, system_prompt, user_message):
+    def complete(self, model, system_prompt, user_message, schema=None):
         if "classify" in system_prompt:
             return ProviderResponse('{"intent": "f", "summary": "s"}', 10, 5), "groq", False
         if "already exists" in system_prompt:

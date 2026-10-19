@@ -5,7 +5,6 @@ finding - it is a confident finding about the wrong line, or about code nobody w
 Both shipped: see issue #47.
 """
 
-import shutil
 import textwrap
 from unittest import mock
 
@@ -224,7 +223,7 @@ def test_a_fragment_that_does_not_parse_is_not_reported():
     Calling that a syntax error describes our reconstruction, not the pull request.
     """
     with (
-        mock.patch("apps.agents.static_analysis.shutil.which", return_value="ruff"),
+        mock.patch("apps.agents.static_analysis.tool_command", side_effect=lambda m: [m]),
         mock.patch("apps.agents.static_analysis._run") as run,
     ):
         run.side_effect = lambda command, cwd: (
@@ -233,7 +232,7 @@ def test_a_fragment_that_does_not_parse_is_not_reported():
                 ' "message": "Unexpected indentation", "location": {"row": 1}}]'
             )
             if command[0] == "ruff"
-            else mock.Mock(stdout="")
+            else mock.Mock(stdout='{"results": []}')
         )
         findings = static_analysis.analyse({"app/x.py": "    indented = 1\n"}, complete=())
 
@@ -243,7 +242,7 @@ def test_a_fragment_that_does_not_parse_is_not_reported():
 def test_a_whole_file_that_does_not_parse_is_reported():
     """Testbed PR #1 really is broken Python, and a reviewer should be told."""
     with (
-        mock.patch("apps.agents.static_analysis.shutil.which", return_value="ruff"),
+        mock.patch("apps.agents.static_analysis.tool_command", side_effect=lambda m: [m]),
         mock.patch("apps.agents.static_analysis._run") as run,
     ):
         run.side_effect = lambda command, cwd: (
@@ -252,7 +251,7 @@ def test_a_whole_file_that_does_not_parse_is_reported():
                 ' "message": "Unexpected indentation", "location": {"row": 1}}]'
             )
             if command[0] == "ruff"
-            else mock.Mock(stdout="")
+            else mock.Mock(stdout='{"results": []}')
         )
         findings = static_analysis.analyse(
             {"app/x.py": "    indented = 1\n"}, complete={"app/x.py"}
@@ -264,7 +263,7 @@ def test_a_whole_file_that_does_not_parse_is_reported():
 def test_a_real_defect_is_reported_in_a_fragment():
     """Suppressing syntax noise must not suppress the findings that matter."""
     with (
-        mock.patch("apps.agents.static_analysis.shutil.which", return_value="ruff"),
+        mock.patch("apps.agents.static_analysis.tool_command", side_effect=lambda m: [m]),
         mock.patch("apps.agents.static_analysis._run") as run,
     ):
         run.side_effect = lambda command, cwd: (
@@ -273,7 +272,7 @@ def test_a_real_defect_is_reported_in_a_fragment():
                 ' "message": "Use of possibly insecure function", "location": {"row": 54}}]'
             )
             if command[0] == "ruff"
-            else mock.Mock(stdout="")
+            else mock.Mock(stdout='{"results": []}')
         )
         findings = static_analysis.analyse({"app/x.py": "x = 1\n"}, complete=())
 
@@ -288,7 +287,10 @@ def test_the_node_hands_the_linters_whole_files_and_marks_them():
     prepared = prepare(ADDED_FILE + LATE_HUNK, MAX_BYTES)
     assert len(prepared.files) == 2
 
-    with mock.patch("apps.agents.nodes.analyse", return_value=[]) as analyse:
+    with mock.patch(
+        "apps.agents.nodes.run_analysis",
+        return_value=static_analysis.AnalysisReport(ran=["ruff"]),
+    ) as analyse:
         static_analysis_node({"prepared": prepared})
 
     contents, kwargs = analyse.call_args.args[0], analyse.call_args.kwargs
@@ -298,7 +300,7 @@ def test_the_node_hands_the_linters_whole_files_and_marks_them():
     assert contents["app/users.py"].splitlines()[53] == "    import os"
 
 
-@pytest.mark.skipif(shutil.which("ruff") is None, reason="ruff is not installed")
+@pytest.mark.skipif(static_analysis.tool_command("ruff") is None, reason="ruff is not installed")
 def test_real_ruff_findings_land_on_lines_the_diff_allows():
     """The whole fix, against the real tool rather than a mock.
 
@@ -332,7 +334,10 @@ def test_real_ruff_findings_land_on_lines_the_diff_allows():
 
 
 def test_the_node_survives_a_diff_with_no_files():
+    """Nothing to analyse is a skip with a reason, never "ok, 0 findings"."""
     result = static_analysis_node({"prepared": PreparedDiff(text="")})
 
     assert result["findings"] == []
-    assert result["runs"][0].succeeded is True
+    run = result["runs"][0]
+    assert run.succeeded is False
+    assert run.skipped_reason == "no Python or JS/TS files to analyse"
