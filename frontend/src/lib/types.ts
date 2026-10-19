@@ -228,3 +228,23 @@ export type AuditEntry = {
   metadata: Record<string, unknown>;
   created_at: string;
 };
+
+/** The socket's snapshot / progress / finished events, and the status endpoint. */
+export type ReviewProgress = {
+  type: "review.snapshot" | "review.progress" | "review.finished";
+  review_id: number;
+  status: ReviewStatus;
+  degraded?: boolean;
+  agents: Record<string, AgentState>;
+  completed: number;
+  total: number;
+  agent?: string;
+  state?: AgentState;
+};
+
+export type ReviewDiff = {
+  diff: string;
+  source: "stored" | "github";
+  truncated: boolean;
+  head_sha: string;
+};

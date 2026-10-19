@@ -14,6 +14,11 @@ const apiMock = vi.hoisted(() => ({
   auditLog: vi.fn(),
   ingestionStatus: vi.fn(),
   reindexRepository: vi.fn(),
+  reviews: vi.fn(),
+  repositories: vi.fn(),
+  review: vi.fn(),
+  reviewDiff: vi.fn(),
+  reviewStatus: vi.fn(),
 }));
 vi.mock("@/lib/api", async (original) => ({
   ...(await original<typeof import("@/lib/api")>()),
@@ -166,5 +171,98 @@ describe("indexing status", () => {
     expect(await screen.findByText("Details")).toBeInTheDocument();
     expect(screen.getByText("HTTP 429: RESOURCE_EXHAUSTED")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Re-index" })).toBeInTheDocument();
+  });
+});
+
+describe("reviews list filters", () => {
+  it("live in the URL, so a filtered view can be bookmarked", async () => {
+    const { navigation } = await import("@/test/mocks");
+    const { default: ReviewsPage } = await import("@/app/(app)/reviews/page");
+    apiMock.reviews.mockResolvedValue({ count: 0, next: null, previous: null, results: [] });
+    apiMock.repositories.mockResolvedValue([{ id: 7, full_name: "alice/app" }]);
+    navigation.search = new URLSearchParams("repository=7");
+    render(<ReviewsPage />, { wrapper: Providers });
+
+    await userEvent.selectOptions(await screen.findByLabelText("Status"), "degraded");
+
+    expect(navigation.push).toHaveBeenCalledWith("/reviews?repository=7&status=degraded");
+    expect(apiMock.reviews).toHaveBeenCalledWith(
+      expect.objectContaining({ repository: "7", page: 1 }),
+    );
+    expect(await screen.findByText("No reviews match these filters")).toBeInTheDocument();
+  });
+});
+
+describe("review detail", () => {
+  const review = {
+    id: 31,
+    repository: "alice/app",
+    repository_id: 7,
+    pr_number: 3,
+    pr_title: "Lookup",
+    pr_url: "https://github.com/alice/app/pull/3",
+    can_manage: false,
+    status: "done",
+    head_sha: "76fb4bd0",
+    model_used: "openai/gpt-oss-120b",
+    used_fallback: false,
+    total_input_tokens: 10,
+    total_output_tokens: 5,
+    duration_ms: 3600,
+    estimated_cost_usd: "0",
+    estimated_cost_inr: "0.0725",
+    degraded: false,
+    truncated: false,
+    skipped_files: [],
+    error: "",
+    error_summary: "",
+    progress: {},
+    created_at: "",
+    started_at: null,
+    finished_at: null,
+    findings: [],
+    calls: [],
+    agent_runs: [],
+  };
+
+  async function renderReview(overrides: Record<string, unknown>, orgId?: string) {
+    const { navigation } = await import("@/test/mocks");
+    const { default: ReviewPage } = await import("@/app/(app)/reviews/[id]/page");
+    navigation.params = { id: "31" };
+    if (orgId) window.localStorage.setItem("codesage.organization", orgId);
+    apiMock.review.mockResolvedValue({ ...review, ...overrides });
+    apiMock.reviewDiff.mockResolvedValue({ diff: "", source: "stored", truncated: false, head_sha: "" });
+    render(<ReviewPage />, { wrapper: Providers });
+    await screen.findByRole("heading", { name: "alice/app#3" });
+  }
+
+  it("a member gets no re-run button", async () => {
+    await renderReview({ can_manage: false }, "20");
+    expect(screen.queryByRole("button", { name: "Re-run review" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Pull request on GitHub/ })).toHaveAttribute(
+      "href",
+      "https://github.com/alice/app/pull/3",
+    );
+  });
+
+  it("an owner gets one", async () => {
+    await renderReview({ can_manage: true });
+    expect(await screen.findByRole("button", { name: "Re-run review" })).toBeInTheDocument();
+  });
+
+  it("a degraded review says so, with the short reason only", async () => {
+    await renderReview({
+      status: "failed",
+      degraded: true,
+      error_summary: "AI providers unavailable",
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("AI providers unavailable");
+    expect(screen.queryByText(/Error details/)).not.toBeInTheDocument();
+  });
+
+  it("labels the cost as an estimate", async () => {
+    await renderReview({});
+    expect(screen.getByText("Est. cost at paid-tier rates")).toBeInTheDocument();
+    expect(screen.getByText("₹0.0725")).toBeInTheDocument();
   });
 });
