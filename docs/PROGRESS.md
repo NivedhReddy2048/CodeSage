@@ -15,8 +15,8 @@ pull requests, each closing its own issue. Architecture lives in
 | 3 | Ingestion | `phase-3a` engine, `3b` Celery+API, `3c` UI | **Done** |
 | 4 | Agent pipeline v1 | `phase-4a` agents pkg, `4b` reviews app, `4c` push+page | **Done** |
 | 5 | Full 6-agent pipeline | `phase-5a` retrieval, `5b` graph, `5c` wiring; hardening `5d` honest output, `5e` grounding + inline | **Done** |
-| 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **In progress** (6a-6c done) |
-| 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Not started |
+| 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **Done** |
+| 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Next |
 | 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
 
 Phase 8 depends only on Phase 5, so it can be built before or after Phase 7.
@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **30 merged — bronze (16) reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **31 merged — bronze (16) reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -78,8 +78,52 @@ PR lands rather than one behind forever.
 
 ## Phase 6 — Realtime and enterprise UI
 
-**Status:** In progress. Four PRs: 6a backend realtime and data (done), 6b app shell
-and design system (done), 6c review experience (done), 6d dashboard, notifications and audit pages.
+**Status:** Done. Four PRs: 6a backend realtime and data, 6b app shell and design
+system, 6c review experience, 6d dashboard, notifications and audit pages.
+
+### 6d — dashboard, notifications, audit log
+
+**Dashboard.** One filter row above everything it scopes: period presets for the last
+7, 30 or 90 days, and a repository. The filters live in the URL. Below it:
+- a KPI row: PRs reviewed, average findings per PR, average review time (completed
+  reviews only), and est. cost per review, which carries "at paid-tier rates · actual
+  spend ₹0";
+- three charts: reviews per day (one series, so a single colour and no legend
+  box), findings by category (single-colour bars; a darkening ramp on unordered
+  categories is a listed anti-pattern), and agent contribution, split blocking/nit;
+- recent reviews.
+
+The charts are hand-built SVG and HTML rather than a library, so the marks follow
+the dataviz spec: bars at most 24 px with 4 px rounded data ends, square at the
+baseline, a 2 px surface gap between stacked segments, solid hairline grid, a label
+on the peak only, and text in text colours, never the series colour. Every chart has:
+- a table view;
+- a tooltip on hover with the same readout on keyboard focus (arrow keys walk the
+  days);
+- a dimmed previous render, rather than a skeleton flash, when filters change.
+
+**One palette, validated, not eyeballed.** The two series colours are slots 1 and 2 of
+the dataviz reference palette, run through its validator against this app's actual
+card surfaces. Light (`#ffffff`): CVD ΔE 24.7, normal-vision ΔE 33.6, contrast at
+least 3:1. Dark (`#171717`), validated separately with its own steps: ΔE 26.8 / 31.8,
+also at least 3:1.
+
+**Notification bell.** The unread count is in the button's accessible name, not only
+the badge. The latest notifications open in a menu: opening one marks it read and
+follows its link, and "Mark all as read" clears the rest. It polls once a minute and
+on open.
+
+**Audit log.** Filters by action, actor, target text, and a from/to date range. They
+are applied together, so typing does not refetch per keystroke, and kept in the URL.
+The table is paginated with a page count and shows each entry's details.
+
+**Found by a test:** a browser date input sends `2026-10-19`, and on Python 3.11+
+Django's `parse_datetime` accepts a bare date as midnight, so `until=<today>`
+excluded the whole day. A date is now widened to the start or end of that day.
+
+Verified in Edge, in light, dark and at 390 px: no console errors, no page overflow,
+filters update the URL, and the bell and audit filters work against live data (the
+audit entry came from a real re-index through the API).
 
 ### 6c — the review experience
 

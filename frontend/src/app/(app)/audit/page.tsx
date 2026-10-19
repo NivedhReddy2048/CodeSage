@@ -1,7 +1,8 @@
 "use client";
 
 import { Lock, ScrollText } from "lucide-react";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import { PageHeader } from "@/components/page-header";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/states";
@@ -16,12 +17,116 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useResource } from "@/hooks/use-resource";
-import { api } from "@/lib/api";
+import { api, query } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
+import type { AuditEntry } from "@/lib/types";
 
-export default function AuditLogPage() {
-  const [page, setPage] = useState(1);
-  const entries = useResource(() => api.auditLog({ page }), `audit-${page}`);
+const PAGE_SIZE = 25;
+
+export const AUDIT_ACTIONS = [
+  { value: "", label: "Any action" },
+  { value: "repo.connected", label: "Repository connected" },
+  { value: "repo.disconnected", label: "Repository disconnected" },
+  { value: "repo.reindexed", label: "Re-index requested" },
+  { value: "review.rerun", label: "Review re-run" },
+  { value: "member.role_changed", label: "Member role changed" },
+];
+
+type Filters = { action: string; actor: string; q: string; since: string; until: string };
+const EMPTY: Filters = { action: "", actor: "", q: "", since: "", until: "" };
+
+function details(entry: AuditEntry) {
+  const parts = Object.entries(entry.metadata ?? {}).map(([key, value]) => `${key.replace(/_/g, " ")}: ${String(value)}`);
+  return parts.join(" · ");
+}
+
+const fieldClass = "h-8 min-w-0 rounded-md border bg-background px-2 text-sm";
+
+function FilterForm({ initial, onApply }: { initial: Filters; onApply: (filters: Filters) => void }) {
+  // A draft, applied together: typing in "actor" does not refetch per keystroke.
+  const [draft, setDraft] = useState(initial);
+  const set = (key: keyof Filters) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
+    setDraft((current) => ({ ...current, [key]: event.target.value }));
+  const active = Object.values(initial).some(Boolean);
+
+  return (
+    <form
+      aria-label="Filter the audit log"
+      className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-[repeat(5,minmax(0,1fr))_auto] lg:items-end"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onApply(draft);
+      }}
+    >
+      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+        Action
+        <select value={draft.action} onChange={set("action")} className={fieldClass}>
+          {AUDIT_ACTIONS.map((action) => (
+            <option key={action.value} value={action.value}>
+              {action.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+        Actor
+        <input value={draft.actor} onChange={set("actor")} placeholder="GitHub login" className={fieldClass} />
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+        Target contains
+        <input value={draft.q} onChange={set("q")} placeholder="e.g. codesage-testbed" className={fieldClass} />
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+        From
+        <input type="date" value={draft.since} onChange={set("since")} className={fieldClass} />
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+        To
+        <input type="date" value={draft.until} onChange={set("until")} className={fieldClass} />
+      </label>
+      <div className="flex gap-2">
+        <Button type="submit" size="sm">
+          Apply
+        </Button>
+        {active ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setDraft(EMPTY);
+              onApply(EMPTY);
+            }}
+          >
+            Clear
+          </Button>
+        ) : null}
+      </div>
+    </form>
+  );
+}
+
+function AuditLog() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const filters: Filters = {
+    action: params.get("action") ?? "",
+    actor: params.get("actor") ?? "",
+    q: params.get("q") ?? "",
+    since: params.get("since") ?? "",
+    until: params.get("until") ?? "",
+  };
+  const page = Math.max(1, Number(params.get("page")) || 1);
+  const request = { ...filters, page, page_size: PAGE_SIZE };
+  const entries = useResource(() => api.auditLog(request), query(request));
+
+  function go(next: Filters, nextPage = 1) {
+    router.push(`/audit${query({ ...next, page: nextPage > 1 ? nextPage : undefined })}`);
+  }
+
+  const total = entries.data?.count ?? 0;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const filtered = Object.values(filters).some(Boolean);
 
   return (
     <>
@@ -31,58 +136,91 @@ export default function AuditLogPage() {
       />
       <Card>
         <CardContent>
-          {entries.loading ? (
-            <TableSkeleton rows={8} columns={4} label="Loading the audit log" />
-          ) : entries.status === 403 ? (
+          {entries.status === 403 ? (
             <EmptyState
               icon={Lock}
               title="Owners and admins only"
               description="The audit log is visible to organisation owners and admins."
             />
-          ) : entries.error ? (
-            <ErrorState message={entries.error} onRetry={entries.reload} />
-          ) : entries.data && entries.data.results.length > 0 ? (
-            <>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>When</TableHead>
-                    <TableHead>Actor</TableHead>
-                    <TableHead>Action</TableHead>
-                    <TableHead>Target</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {entries.data.results.map((entry) => (
-                    <TableRow key={entry.id}>
-                      <TableCell className="whitespace-nowrap text-muted-foreground">
-                        <time dateTime={entry.created_at}>{formatDateTime(entry.created_at)}</time>
-                      </TableCell>
-                      <TableCell>{entry.actor_login || "system"}</TableCell>
-                      <TableCell>{entry.action_label}</TableCell>
-                      <TableCell className="max-w-72 truncate">{entry.target_label}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <nav aria-label="Pagination" className="mt-4 flex justify-end gap-2">
-                <Button variant="outline" size="sm" disabled={!entries.data.previous} onClick={() => setPage(page - 1)}>
-                  Previous
-                </Button>
-                <Button variant="outline" size="sm" disabled={!entries.data.next} onClick={() => setPage(page + 1)}>
-                  Next
-                </Button>
-              </nav>
-            </>
           ) : (
-            <EmptyState
-              icon={ScrollText}
-              title="Nothing recorded yet"
-              description="Connecting a repository, re-indexing, re-running a review or changing a role adds an entry here."
-            />
+            <>
+              <FilterForm key={query(filters)} initial={filters} onApply={(next) => go(next)} />
+              {entries.loading && !entries.data ? (
+                <TableSkeleton rows={8} columns={4} label="Loading the audit log" />
+              ) : entries.error ? (
+                <ErrorState message={entries.error} onRetry={entries.reload} />
+              ) : entries.data && entries.data.results.length > 0 ? (
+                <>
+                  <div className={entries.loading ? "opacity-50 transition-opacity" : undefined}>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>When</TableHead>
+                          <TableHead>Actor</TableHead>
+                          <TableHead>Action</TableHead>
+                          <TableHead>Target</TableHead>
+                          <TableHead className="hidden lg:table-cell">Details</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {entries.data.results.map((entry) => (
+                          <TableRow key={entry.id}>
+                            <TableCell className="whitespace-nowrap text-muted-foreground">
+                              <time dateTime={entry.created_at}>{formatDateTime(entry.created_at)}</time>
+                            </TableCell>
+                            <TableCell>{entry.actor_login || "system"}</TableCell>
+                            <TableCell>{entry.action_label}</TableCell>
+                            <TableCell className="max-w-64 truncate" title={entry.target_label}>
+                              {entry.target_label}
+                            </TableCell>
+                            <TableCell className="hidden max-w-80 truncate text-xs text-muted-foreground lg:table-cell" title={details(entry)}>
+                              {details(entry)}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <nav
+                    aria-label="Pagination"
+                    className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground"
+                  >
+                    <span>
+                      Page {page} of {pages} &middot; {total} entr{total === 1 ? "y" : "ies"}
+                    </span>
+                    <span className="flex gap-2">
+                      <Button variant="outline" size="sm" disabled={!entries.data.previous} onClick={() => go(filters, page - 1)}>
+                        Previous
+                      </Button>
+                      <Button variant="outline" size="sm" disabled={!entries.data.next} onClick={() => go(filters, page + 1)}>
+                        Next
+                      </Button>
+                    </span>
+                  </nav>
+                </>
+              ) : (
+                <EmptyState
+                  icon={ScrollText}
+                  title={filtered ? "No entries match these filters" : "Nothing recorded yet"}
+                  description={
+                    filtered
+                      ? "Try a wider date range or clear a filter."
+                      : "Connecting a repository, re-indexing, re-running a review or changing a role adds an entry here."
+                  }
+                />
+              )}
+            </>
           )}
         </CardContent>
       </Card>
     </>
+  );
+}
+
+export default function AuditLogPage() {
+  return (
+    <Suspense fallback={<TableSkeleton rows={8} columns={4} label="Loading the audit log" />}>
+      <AuditLog />
+    </Suspense>
   );
 }

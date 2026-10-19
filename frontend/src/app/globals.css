@@ -51,6 +51,10 @@
   --color-status-ok-bg: var(--status-ok-bg);
   --color-status-running: var(--status-running);
   --color-status-running-bg: var(--status-running-bg);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-chart-grid: var(--chart-grid);
+  --color-chart-axis: var(--chart-axis);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -94,6 +98,13 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   --focus: oklch(0.5 0.17 255);
+  /* Chart series: categorical slots 1-2 of the dataviz reference palette, run
+     through its validator against this card surface (#ffffff): CVD dE 24.7,
+     normal-vision dE 33.6, both >= 3:1. Text never wears these. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --chart-grid: #e1e0d9;
+  --chart-axis: #c3c2b7;
   /* Status badges. Text on badge and on card is >= 5.5:1 (WCAG AA) in both themes. */
   --status-blocking: oklch(0.50 0.19 27);
   --status-blocking-bg: oklch(0.965 0.025 27);
@@ -142,6 +153,12 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
   --focus: oklch(0.78 0.12 255);
+  /* Same two hues stepped for the dark card (#171717), validated separately:
+     CVD dE 26.8, normal-vision dE 31.8, both >= 3:1. */
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --chart-grid: #2c2c2a;
+  --chart-axis: #383835;
   /* Status badges, dark theme. */
   --status-blocking: oklch(0.82 0.10 25);
   --status-blocking-bg: oklch(0.30 0.08 25);

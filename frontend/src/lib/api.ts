@@ -15,6 +15,8 @@ import {
   storeTokens,
 } from "@/lib/tokens";
 import type {
+  AnalyticsOverview,
+  AppNotification,
   AuditEntry,
   ConnectedRepository,
   IngestionJob,
@@ -208,6 +210,18 @@ export const api = {
     request<Paginated<ReviewListItem>>(`/api/reviews/${query(params)}`),
 
   members: () => request<Member[]>("/api/orgs/members/"),
+
+  analytics: (params: Record<string, string | number | undefined> = {}) =>
+    request<AnalyticsOverview>(`/api/analytics/overview/${query(params)}`),
+
+  notifications: () =>
+    request<{ unread_count: number; results: AppNotification[] }>("/api/notifications/"),
+
+  markNotificationRead: (id: number) =>
+    request<AppNotification>(`/api/notifications/${id}/read/`, { method: "POST" }),
+
+  markAllNotificationsRead: () =>
+    request<{ marked: number }>("/api/notifications/read-all/", { method: "POST" }),
 
   auditLog: (params: Record<string, string | number | undefined> = {}) =>
     request<Paginated<AuditEntry>>(`/api/audit-log/${query(params)}`),
