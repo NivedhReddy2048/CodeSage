@@ -16,6 +16,7 @@ from apps.agents.types import RepoContext, RetrievedChunk, ReviewConfig
 from apps.repos import github_app
 from apps.repos.github_app import API_HEADERS, GitHubAppError
 from apps.reviews import comment as comment_renderer
+from apps.reviews import progress
 from apps.reviews.inline import post_inline_comments
 from apps.reviews.models import AgentRunRecord, LLMCall, Review, ReviewFinding
 from apps.reviews.pricing import estimate_usd, to_inr, unpriced_models
@@ -76,20 +77,50 @@ def fetch_diff(installation_id, full_name, pr_number):
     return response.text
 
 
-def review_pull_request(pull_request, installation_id):
+def review_pull_request(pull_request, installation_id, review=None):
     """Review one pull request and update the bot's comment.
 
     Always returns a Review row: a failed review is a recorded outcome with a
-    message in the PR comment, never a traceback the user never sees.
-    """
-    repository = pull_request.repository
+    message in the PR comment, never a traceback the user never sees. `review` is a
+    row created ahead of time (a re-run requested from the UI, which needs an id to
+    show before the worker picks the job up); otherwise one is created here.
 
-    review = Review.objects.create(
-        pull_request=pull_request,
-        status=Review.Status.RUNNING,
-        head_sha=pull_request.head_sha,
-        started_at=timezone.now(),
-    )
+    Whatever happens, the review ends finished or failed - never stuck in
+    `running` - and its watchers and the organisation's members are told.
+    """
+    if review is None:
+        review = Review.objects.create(
+            pull_request=pull_request,
+            status=Review.Status.RUNNING,
+            head_sha=pull_request.head_sha,
+            started_at=timezone.now(),
+        )
+    else:
+        review.status = Review.Status.RUNNING
+        review.head_sha = pull_request.head_sha
+        review.started_at = timezone.now()
+        review.save(update_fields=["status", "head_sha", "started_at"])
+
+    try:
+        _run_review(review, pull_request, installation_id)
+    except Exception as exc:  # noqa: BLE001 - recorded on the row, never left running
+        logger.exception("Review %s crashed", review.pk)
+        review.status = Review.Status.FAILED
+        review.error = f"{type(exc).__name__}: {exc}"[:2000]
+        review.finished_at = timezone.now()
+        review.save(update_fields=["status", "error", "finished_at"])
+
+    review.refresh_from_db()
+    progress.announce_finished(review)
+
+    from apps.notifications.services import notify_review
+
+    notify_review(review)
+    return review
+
+
+def _run_review(review, pull_request, installation_id):
+    repository = pull_request.repository
 
     # Tell the PR which commit is being looked at before the slow part starts.
     _update_comment(pull_request, installation_id, comment_renderer.render_running(review.head_sha))
@@ -115,6 +146,7 @@ def review_pull_request(pull_request, installation_id):
         # free of the ORM, so the grounding agent receives a callable it can use
         # without knowing Django exists.
         retrieve=build_retriever(repository),
+        on_progress=progress.ProgressReporter(review),
     )
 
     with transaction.atomic():

@@ -94,6 +94,18 @@ class RepositoryReindexView(RepositoryScopedView):
             return Response(IngestionJobSerializer(running).data, status=status.HTTP_200_OK)
 
         job, started = start_ingestion(repository)
+        if started:
+            from apps.audit.services import Action
+            from apps.audit.services import record as audit
+
+            audit(
+                repository.organization,
+                request.user,
+                Action.REPO_REINDEXED,
+                target=repository,
+                target_label=repository.full_name,
+                job=job.pk,
+            )
         return Response(
             IngestionJobSerializer(job).data,
             status=status.HTTP_202_ACCEPTED if started else status.HTTP_200_OK,

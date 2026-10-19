@@ -35,3 +35,14 @@ def never_reach_a_real_broker():
     with mock.patch.object(Task, "apply_async", autospec=True) as apply_async:
         apply_async.return_value = mock.Mock(id="test-task-id")
         yield apply_async
+
+
+@pytest.fixture(autouse=True)
+def in_memory_channel_layer(settings):
+    """Live progress events go to an in-process layer, never the developer's Redis.
+
+    Channels drops its cached layer when CHANNEL_LAYERS changes, so each test gets a
+    fresh, empty one.
+    """
+    settings.CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+    yield

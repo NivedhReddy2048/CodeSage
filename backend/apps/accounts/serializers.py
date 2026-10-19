@@ -61,3 +61,7 @@ class MembershipSerializer(serializers.ModelSerializer):
         model = Membership
         fields = ["id", "user", "role", "created_at"]
         read_only_fields = fields
+
+
+class MemberRoleSerializer(serializers.Serializer):
+    role = serializers.ChoiceField(choices=Membership.Role.choices)

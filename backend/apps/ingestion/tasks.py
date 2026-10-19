@@ -29,6 +29,10 @@ def index_repository_task(job_id):
         return None
 
     result = index_repository(job)
+    if job.status == IngestionJob.Status.FAILED:
+        from apps.notifications.services import notify_indexing_failed
+
+        notify_indexing_failed(job)
     return {
         "job_id": job.pk,
         "status": job.status,

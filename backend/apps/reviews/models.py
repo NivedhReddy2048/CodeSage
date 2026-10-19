@@ -75,6 +75,10 @@ class Review(models.Model):
     skipped_files = models.JSONField(default=list, blank=True)
 
     error = models.TextField(blank=True)
+    # Per-agent state while the pipeline runs: {"security": "running", ...}. What the
+    # status endpoint and a (re)connecting WebSocket report, so neither has to have
+    # been listening from the start.
+    progress = models.JSONField(default=dict, blank=True)
     started_at = models.DateTimeField(null=True, blank=True)
     finished_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
