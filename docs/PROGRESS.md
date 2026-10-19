@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **31 merged — bronze (16) reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **32 merged — bronze (16) reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -80,6 +80,66 @@ PR lands rather than one behind forever.
 
 **Status:** Done. Four PRs: 6a backend realtime and data, 6b app shell and design
 system, 6c review experience, 6d dashboard, notifications and audit pages.
+
+### Fixed after Phase 6: sign-in hung on "Completing sign-in..."
+
+**Symptom.** After signing out and choosing "Continue with GitHub" again, the callback
+page never left "Completing sign-in...". Reported as affecting only the second
+sign-in, the one where GitHub skips the consent screen.
+
+**Reproduced** in Edge, with GitHub's authorize step and the code exchange simulated.
+It hung on every dev-mode sign-in, the first included. The exchange ran once and
+returned 200 with valid tokens; nothing happened afterwards.
+
+**Cause, confirmed by logging the effect:** the callback effect had two guards.
+- A `started` ref, so the single-use code was exchanged once.
+- An `active` flag, cleared in cleanup, to ignore late results.
+
+Strict Mode runs an effect, cleans it up, and runs it again. Run 1 started the only
+exchange, cleanup cleared `active`, and run 2 returned early because of the ref. The
+exchange resolved into a closure nobody was listening to: no redirect, and, because
+the `.catch` checked the same flag, no error either. Each guard is reasonable alone;
+together they drop the only result. Production does not double-run effects, which is
+why it looked intermittent.
+
+How the other suspects came out:
+- **The code exchanged twice:** no; the ref prevented that.
+- **State removed before the second run:** no; the second run never read it.
+- **A stale workspace header or token:** no; sign-out already cleared them.
+- **The OAuth `state` in sessionStorage:** not the cause, but sign-out did leave it
+  behind.
+
+**Fix.**
+- **Exactly one exchange.** It now lives outside React (`lib/oauth.ts`): one promise
+  per callback URL, shared by however many times the effect runs or the page
+  remounts. Every run subscribes, and the live one acts on the result, so it is
+  exchanged exactly once and always heard.
+- **A timeout.** Any failure, or 20 s without an answer, shows a short reason and a
+  "Try again" link back to `/login`. GitHub's raw detail never reaches the page.
+- **Sign-out clears everything.** `clearSession()` removes both tokens, the chosen
+  workspace and any pending OAuth state. A successful sign-in clears the same before
+  storing new tokens, so one account never inherits another's workspace.
+
+**Tests.** Regression tests under `StrictMode` cover:
+- the double effect run;
+- a remount mid-exchange;
+- a second sign-in after sign-out;
+- a stale workspace;
+- a failed exchange, an unreachable backend, a cancelled sign-in, a state from
+  another tab, the timeout, and what sign-out clears.
+
+Against the old callback page all eight page tests fail, error paths included. Live:
+three sign-in and sign-out rounds in a row each reached the dashboard with exactly one
+exchange; a 400 showed the short error after 1.9 s, and a backend that never
+answered timed out at 20 s.
+
+**Login page.** It is the first page a demo visitor sees, so it now has:
+- the logo and a one-line value proposition;
+- three feature points: multi-agent review, grounded in your codebase, and inline PR
+  comments;
+- a "View on GitHub" link and a theme toggle.
+
+Checked in light, dark and at 390 px.
 
 ### 6d — dashboard, notifications, audit log
 

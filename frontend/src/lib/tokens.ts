@@ -60,6 +60,20 @@ export function clearTokens() {
 }
 
 /**
+ * Everything a session leaves behind: both tokens, the chosen workspace, and any
+ * half-finished OAuth state. Sign-out uses this, and so does a successful sign-in
+ * before it stores the new tokens, so one account never inherits another's state.
+ */
+export function clearSession() {
+  clearTokens();
+  try {
+    window.sessionStorage.removeItem(OAUTH_STATE_KEY);
+  } catch {
+    // Blocked storage has nothing to clear.
+  }
+}
+
+/**
  * The workspace chosen in the org switcher, sent as X-Organization-Id. Only a
  * preference: the backend honours it solely for organisations the user belongs to.
  */
