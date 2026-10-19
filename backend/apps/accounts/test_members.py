@@ -124,3 +124,19 @@ def test_an_invalid_role_is_rejected(world):
     )
 
     assert response.status_code == 400
+
+
+def test_the_browser_may_send_the_workspace_header(client):
+    """X-Organization-Id is not CORS-safelisted, so the browser preflights it. Without
+    it in CORS_ALLOW_HEADERS every request from a chosen workspace failed before
+    reaching Django - which the frontend took for an expired session and signed out."""
+    response = client.options(
+        "/api/auth/me/",
+        HTTP_ORIGIN="http://localhost:3000",
+        HTTP_ACCESS_CONTROL_REQUEST_METHOD="GET",
+        HTTP_ACCESS_CONTROL_REQUEST_HEADERS="authorization,x-organization-id",
+    )
+
+    allowed = response.headers["Access-Control-Allow-Headers"].lower()
+    assert "x-organization-id" in allowed
+    assert "authorization" in allowed

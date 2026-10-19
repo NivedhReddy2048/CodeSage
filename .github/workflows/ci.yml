@@ -95,5 +95,10 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Component tests (Vitest + Testing Library, jsdom). Inside this job rather
+      # than a new one, so the existing required check covers them.
+      - name: Test
+        run: npm test
+
       - name: Build
         run: npm run build

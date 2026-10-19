@@ -39,6 +39,18 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-status-blocking: var(--status-blocking);
+  --color-status-blocking-bg: var(--status-blocking-bg);
+  --color-status-nit: var(--status-nit);
+  --color-status-nit-bg: var(--status-nit-bg);
+  --color-status-degraded: var(--status-degraded);
+  --color-status-degraded-bg: var(--status-degraded-bg);
+  --color-status-fallback: var(--status-fallback);
+  --color-status-fallback-bg: var(--status-fallback-bg);
+  --color-status-ok: var(--status-ok);
+  --color-status-ok-bg: var(--status-ok-bg);
+  --color-status-running: var(--status-running);
+  --color-status-running-bg: var(--status-running-bg);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -81,6 +93,20 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --focus: oklch(0.5 0.17 255);
+  /* Status badges. Text on badge and on card is >= 5.5:1 (WCAG AA) in both themes. */
+  --status-blocking: oklch(0.50 0.19 27);
+  --status-blocking-bg: oklch(0.965 0.025 27);
+  --status-nit: oklch(0.46 0.03 255);
+  --status-nit-bg: oklch(0.965 0.008 255);
+  --status-degraded: oklch(0.50 0.12 60);
+  --status-degraded-bg: oklch(0.965 0.045 85);
+  --status-fallback: oklch(0.48 0.17 295);
+  --status-fallback-bg: oklch(0.965 0.025 295);
+  --status-ok: oklch(0.48 0.12 155);
+  --status-ok-bg: oklch(0.965 0.035 155);
+  --status-running: oklch(0.48 0.15 255);
+  --status-running-bg: oklch(0.965 0.025 255);
 }
 
 .dark {
@@ -115,11 +141,32 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --focus: oklch(0.78 0.12 255);
+  /* Status badges, dark theme. */
+  --status-blocking: oklch(0.82 0.10 25);
+  --status-blocking-bg: oklch(0.30 0.08 25);
+  --status-nit: oklch(0.84 0.02 255);
+  --status-nit-bg: oklch(0.30 0.015 255);
+  --status-degraded: oklch(0.86 0.11 80);
+  --status-degraded-bg: oklch(0.31 0.06 70);
+  --status-fallback: oklch(0.83 0.09 295);
+  --status-fallback-bg: oklch(0.30 0.07 295);
+  --status-ok: oklch(0.84 0.11 155);
+  --status-ok-bg: oklch(0.30 0.06 155);
+  --status-running: oklch(0.82 0.09 255);
+  --status-running-bg: oklch(0.30 0.07 255);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  /* A visible focus ring on every keyboard-focusable element, in both themes. */
+  /* --focus, not --ring: the default ring grey is ~2.3:1 on white, under the 3:1
+     WCAG asks of a focus indicator. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
   }
   body {
     @apply bg-background text-foreground;

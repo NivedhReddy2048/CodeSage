@@ -1,0 +1,143 @@
+"use client";
+
+import { FolderGit2, GitPullRequest, LogOut } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+import { NAV_ITEMS } from "@/components/app-sidebar";
+import { useAuth } from "@/components/auth-provider";
+import { THEME_OPTIONS } from "@/components/theme-toggle";
+import {
+  Command,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
+import { api } from "@/lib/api";
+import type { ConnectedRepository, ReviewListItem } from "@/lib/types";
+
+type Data = { repos: ConnectedRepository[]; reviews: ReviewListItem[] };
+
+/**
+ * Ctrl/Cmd+K: jump to any page, repository or recent review, or run an action.
+ * Repositories and reviews load when the palette opens rather than on every page,
+ * and a failure to load them leaves the pages and actions usable.
+ */
+export function CommandPalette({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const router = useRouter();
+  const { setTheme } = useTheme();
+  const { signOut } = useAuth();
+  const [data, setData] = useState<Data | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    Promise.all([api.repositories(), api.reviews({ page_size: 10 })])
+      .then(([repos, reviews]) => {
+        if (active) setData({ repos, reviews: reviews.results });
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [open]);
+
+  function run(action: () => void) {
+    onOpenChange(false);
+    action();
+  }
+
+  return (
+    <CommandDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Command palette"
+      description="Jump to a page, repository or review, or run an action."
+    >
+      {/* This shadcn version leaves the cmdk root to the caller; without it the
+          input and list have no store and the palette crashes on open. */}
+      <Command>
+        <CommandInput placeholder="Search pages, repositories, reviews..." />
+        <CommandList>
+          <CommandEmpty>No matches.</CommandEmpty>
+
+          <CommandGroup heading="Pages">
+            {NAV_ITEMS.map(({ href, label, icon: Icon }) => (
+              <CommandItem key={href} value={`page ${label}`} onSelect={() => run(() => router.push(href))}>
+                <Icon aria-hidden="true" />
+                {label}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+
+          {data && data.repos.length > 0 ? (
+            <CommandGroup heading="Repositories">
+              {data.repos.map((repo) => (
+                <CommandItem
+                  key={repo.id}
+                  value={`repository ${repo.full_name}`}
+                  onSelect={() => run(() => router.push(`/reviews?repository=${repo.id}`))}
+                >
+                  <FolderGit2 aria-hidden="true" />
+                  {repo.full_name}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ) : null}
+
+          {data && data.reviews.length > 0 ? (
+            <CommandGroup heading="Recent reviews">
+              {data.reviews.map((review) => (
+                <CommandItem
+                  key={review.id}
+                  value={`review ${review.repository} ${review.pr_number} ${review.pr_title}`}
+                  onSelect={() => run(() => router.push(`/reviews/${review.id}`))}
+                >
+                  <GitPullRequest aria-hidden="true" />
+                  <span className="truncate">
+                    {review.repository}#{review.pr_number}
+                    <span className="text-muted-foreground"> · {review.pr_title}</span>
+                  </span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ) : null}
+
+          {failed ? (
+            <p className="px-3 py-2 text-xs text-muted-foreground">
+              Repositories and reviews could not be loaded.
+            </p>
+          ) : null}
+
+          <CommandSeparator />
+          <CommandGroup heading="Actions">
+            {THEME_OPTIONS.map(({ value, label, icon: Icon }) => (
+              <CommandItem key={value} value={`theme ${label}`} onSelect={() => run(() => setTheme(value))}>
+                <Icon aria-hidden="true" />
+                Theme: {label}
+              </CommandItem>
+            ))}
+            <CommandItem value="sign out" onSelect={() => run(signOut)}>
+              <LogOut aria-hidden="true" />
+              Sign out
+            </CommandItem>
+          </CommandGroup>
+        </CommandList>
+      </Command>
+    </CommandDialog>
+  );
+}

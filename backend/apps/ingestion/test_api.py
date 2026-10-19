@@ -325,3 +325,73 @@ def test_the_task_tolerates_a_deleted_job():
     from apps.ingestion.tasks import index_repository_task
 
     assert index_repository_task(999999) is None
+
+
+# ------------------------------------------------- raw errors: owner/admin only
+
+
+RAW_EMBEDDING_ERROR = (
+    "Embedding failed after 3 attempts: HTTP 429: RESOURCE_EXHAUSTED quota "
+    "generativelanguage.googleapis.com project 1234567890"
+)
+
+
+def _failed_job_world(db):
+    from apps.accounts.models import Membership
+    from apps.ingestion.models import IngestionJob
+    from tests import factories
+
+    owner, org = factories.user("ingest-owner")
+    member, _ = factories.user("ingest-member")
+    factories.add_member(member, org, Membership.Role.MEMBER)
+    repo = factories.repository(org, "ingest-owner/app")
+    IngestionJob.objects.create(
+        repository=repo, status=IngestionJob.Status.FAILED, error=RAW_EMBEDDING_ERROR
+    )
+    return owner, member, org, repo
+
+
+def test_a_member_sees_a_short_indexing_reason_never_the_raw_error(db):
+    from tests import factories
+
+    owner, member, org, repo = _failed_job_world(db)
+
+    data = factories.client(member, org).get(f"/api/repos/{repo.pk}/ingestion/").data
+
+    assert data["can_manage"] is False
+    assert data["job"]["error"] == ""
+    assert data["job"]["error_summary"] == "The embedding provider was unavailable"
+    assert "1234567890" not in str(data)
+
+
+def test_an_owner_sees_the_raw_indexing_error(db):
+    from tests import factories
+
+    owner, member, org, repo = _failed_job_world(db)
+
+    data = factories.client(owner).get(f"/api/repos/{repo.pk}/ingestion/").data
+
+    assert data["can_manage"] is True
+    assert data["job"]["error"] == RAW_EMBEDDING_ERROR
+
+
+@pytest.mark.parametrize(
+    ("raw", "public"),
+    [
+        ("Could not reach GitHub: timeout", "Could not fetch the repository source from GitHub"),
+        (
+            "This repository has no GitHub App installation, so its source cannot be fetched.",
+            "The GitHub App is not installed for this repository",
+        ),
+        (
+            "Repository archive exceeds the 50 MB limit.",
+            "The repository is larger than the indexing limit",
+        ),
+        ("KeyError: 'x'", "Indexing hit an internal error"),
+        ("", ""),
+    ],
+)
+def test_ingestion_public_reasons(raw, public):
+    from apps.ingestion.serializers import ingestion_public_reason
+
+    assert ingestion_public_reason(raw) == public

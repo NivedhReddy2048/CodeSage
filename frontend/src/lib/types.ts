@@ -72,7 +72,10 @@ export type IngestionJob = {
   chunks_created: number;
   chunks_reused: number;
   embedding_api_calls: number;
+  /** Raw error text: only populated for owners and admins. */
   error: string;
+  /** A short reason safe to show anyone. */
+  error_summary: string;
   started_at: string | null;
   finished_at: string | null;
   created_at: string;
@@ -83,6 +86,7 @@ export type IngestionState = {
   job: IngestionJob | null;
   chunk_count: number;
   indexed_files: number;
+  can_manage: boolean;
 };
 
 export type ReviewStatus = "pending" | "running" | "done" | "failed";
@@ -109,12 +113,16 @@ export type ReviewCall = {
   succeeded: boolean;
   is_fallback: boolean;
   error: string;
+  error_summary: string;
 };
 
 export type AgentRun = {
   id: number;
   name: string;
+  /** The model that actually served the call. */
   model: string;
+  /** The model asked for; differs from `model` only after a failover. */
+  requested_model: string;
   provider: string;
   input_tokens: number;
   output_tokens: number;
@@ -124,13 +132,21 @@ export type AgentRun = {
   findings_count: number;
   skipped_reason: string;
   error: string;
+  error_summary: string;
+  detail: string;
 };
+
+export type AgentState = "pending" | "running" | "ok" | "failed" | "skipped";
 
 export type Review = {
   id: number;
   repository: string;
+  repository_id: number;
   pr_number: number;
   pr_title: string;
+  pr_url: string;
+  /** Owner/admin: may re-run, and sees raw error text. */
+  can_manage: boolean;
   status: ReviewStatus;
   head_sha: string;
   model_used: string;
@@ -144,7 +160,10 @@ export type Review = {
   truncated: boolean;
   skipped_files: string[];
   error: string;
+  error_summary: string;
+  progress: Partial<Record<string, AgentState>>;
   created_at: string;
+  started_at: string | null;
   finished_at: string | null;
   findings: ReviewFinding[];
   calls: ReviewCall[];
@@ -162,5 +181,50 @@ export type ReviewSummary = {
   duration_ms: number;
   estimated_cost_inr: string;
   finding_count: number;
+  created_at: string;
+};
+
+export type Paginated<T> = {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: T[];
+};
+
+export type ReviewListItem = {
+  id: number;
+  repository: string;
+  repository_id: number;
+  pr_number: number;
+  pr_title: string;
+  status: ReviewStatus;
+  degraded: boolean;
+  used_fallback: boolean;
+  head_sha: string;
+  model_used: string;
+  duration_ms: number;
+  estimated_cost_inr: string;
+  finding_count: number;
+  blocking_count: number;
+  nit_count: number;
+  created_at: string;
+};
+
+export type Member = {
+  id: number;
+  user: User;
+  role: OrganizationRole;
+  created_at: string;
+};
+
+export type AuditEntry = {
+  id: number;
+  action: string;
+  action_label: string;
+  actor_login: string;
+  target_type: string;
+  target_id: string;
+  target_label: string;
+  metadata: Record<string, unknown>;
   created_at: string;
 };

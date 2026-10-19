@@ -314,3 +314,10 @@ SPECTACULAR_SETTINGS = {
 }
 
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
+
+# The workspace switcher's header. Not a CORS-safelisted header, so the browser
+# preflights it; without it here every request from a chosen workspace failed before
+# reaching Django (found in a real browser, not by the test suite).
+from corsheaders.defaults import default_headers  # noqa: E402
+
+CORS_ALLOW_HEADERS = (*default_headers, "x-organization-id")
