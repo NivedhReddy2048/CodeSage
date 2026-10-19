@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 import { ApiError, api } from "@/lib/api";
-import { clearTokens, getAccessToken } from "@/lib/tokens";
+import { clearSession, clearTokens, getAccessToken } from "@/lib/tokens";
 import type { User } from "@/lib/types";
 
 type AuthState = {
@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(() => {
-    clearTokens();
+    clearSession();
     setUser(null);
     setError(null);
   }, []);
