@@ -11,17 +11,23 @@ import {
   clearTokens,
   getAccessToken,
   getRefreshToken,
+  getSelectedOrganizationId,
   storeTokens,
 } from "@/lib/tokens";
 import type {
+  AuditEntry,
   ConnectedRepository,
   IngestionJob,
   IngestionState,
   GitHubStartResponse,
   InstallableResponse,
   LoginResponse,
+  Member,
   Organization,
+  OrganizationRole,
+  Paginated,
   Review,
+  ReviewListItem,
   ReviewSummary,
   User,
 } from "@/lib/types";
@@ -117,6 +123,8 @@ async function request<T>(
     if (auth) {
       const token = getAccessToken();
       if (token) headers.Authorization = `Bearer ${token}`;
+      const organization = getSelectedOrganizationId();
+      if (organization) headers["X-Organization-Id"] = String(organization);
     }
 
     return fetch(`${BASE_URL}${path}`, {
@@ -186,4 +194,28 @@ export const api = {
 
   repositoryReviews: (id: number) =>
     request<ReviewSummary[]>(`/api/repos/${id}/reviews/`),
+
+  reviews: (params: Record<string, string | number | undefined> = {}) =>
+    request<Paginated<ReviewListItem>>(`/api/reviews/${query(params)}`),
+
+  members: () => request<Member[]>("/api/orgs/members/"),
+
+  auditLog: (params: Record<string, string | number | undefined> = {}) =>
+    request<Paginated<AuditEntry>>(`/api/audit-log/${query(params)}`),
+
+  updateMemberRole: (membershipId: number, role: OrganizationRole) =>
+    request<Member>(`/api/orgs/members/${membershipId}/`, {
+      method: "PATCH",
+      body: { role },
+    }),
 };
+
+/** `?a=1&b=2`, dropping empty values; "" when nothing is set. */
+export function query(params: Record<string, string | number | undefined>) {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") search.set(key, String(value));
+  }
+  const text = search.toString();
+  return text ? `?${text}` : "";
+}

@@ -15,7 +15,7 @@ pull requests, each closing its own issue. Architecture lives in
 | 3 | Ingestion | `phase-3a` engine, `3b` Celery+API, `3c` UI | **Done** |
 | 4 | Agent pipeline v1 | `phase-4a` agents pkg, `4b` reviews app, `4c` push+page | **Done** |
 | 5 | Full 6-agent pipeline | `phase-5a` retrieval, `5b` graph, `5c` wiring; hardening `5d` honest output, `5e` grounding + inline | **Done** |
-| 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **In progress** (6a done) |
+| 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **In progress** (6a, 6b done) |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Not started |
 | 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
 
@@ -59,7 +59,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **28 merged — bronze (16) reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **29 merged — bronze (16) reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -79,7 +79,68 @@ PR lands rather than one behind forever.
 ## Phase 6 — Realtime and enterprise UI
 
 **Status:** In progress. Four PRs: 6a backend realtime and data (done), 6b app shell
-and design system, 6c review experience, 6d dashboard, notifications and audit pages.
+and design system (done), 6c review experience, 6d dashboard, notifications and audit pages.
+
+### 6b — app shell, design system, frontend tests
+
+**Shell.** Every signed-in page sits in an `(app)` route group whose layout renders
+the shell, which also owns the auth guard the pages used to repeat. It has:
+
+- a persistent sidebar (Dashboard, Repositories, Reviews, Audit log, Settings), which
+  collapses to icons on desktop and becomes a sheet on a phone;
+- an organisation switcher, which sends `X-Organization-Id` and remounts the page on
+  a switch so its data reloads;
+- a user menu, a light/dark/system theme toggle (next-themes, system by default, no
+  flash), and a Ctrl/Cmd+K command palette for pages, repositories, recent reviews and
+  actions.
+
+Settings has member role management (owner only) and appearance. Reviews and Audit log
+pages exist in basic form; 6c and 6d build them out.
+
+**Design system** on shadcn/ui (Base UI flavour):
+- status badges for blocking, nit, degraded, fallback, ok, running, pending, failed
+  and skipped. Each has an icon and a word, so status never rests on colour alone;
+- `PageHeader`, and `EmptyState`, `ErrorState` (with retry) and labelled skeletons,
+  used on every page;
+- a `useResource` hook so loading, error and retry behave identically everywhere.
+
+**Accessibility, measured rather than assumed:**
+- **Contrast.** Badge colours were picked with an OKLCH-to-WCAG contrast script; every
+  badge's text is at least 5.5:1 against both its badge and the card, in both themes.
+- **Focus.** The default focus ring grey was ~2.3:1 on white, under the 3:1 WCAG asks
+  of a focus indicator, so focus uses its own token: 6.1:1 light, 9.9:1 dark.
+- **Navigation.** A skip link, `aria-current` on the active page, a labelled palette
+  dialog, and a spinner that respects reduced motion.
+
+**Tests.** Vitest + Testing Library on jsdom, added to the existing CI frontend job so
+the required check covers them: 49 tests across badges, states, navigation, the org
+switcher, the palette, settings roles, the audit 403 state, indexing errors, the API
+client and `useResource`. `@vitejs/plugin-react` was left out: its Babel 8 peer
+conflicts with the Babel 7 Next pins, and Vite's own JSX transform is enough.
+`@types/node` moved to `^24` to match the Node 24 runtime, which Vitest 5 requires.
+
+**Raw errors in the UI.** The indexing status printed `job.error` to everyone, and that
+text can be a raw Gemini response. The ingestion API now sends `error_summary` to all
+and `error` only to owners and admins, and the UI shows the details behind a toggle
+for them only. The same rule applies to review errors.
+
+**Found by the tests:** the generated command dialog renders without a cmdk root in
+this shadcn version, so the palette crashed the moment it opened; and its title sat
+outside the dialog popup, which left the dialog with no accessible name.
+
+**Found only in a real browser** (Edge driven by playwright-core, screenshots in both
+themes and at phone width):
+- **Users were signed out on every other page load.** The new `X-Organization-Id`
+  header is not CORS-safelisted, the backend did not allow it, and the failed
+  preflight surfaced as a network error, which the auth provider treated as an
+  expired session and cleared the tokens. Two fixes, each with a test: the header is
+  in `CORS_ALLOW_HEADERS`, and only a 401 now ends a session. An unreachable API keeps
+  the session and shows a retry.
+- **Outline-style links rendered with no border.** `buttonVariants()` returned
+  unmerged classes, in which `border-transparent` beat the variant's border colour.
+  It now merges like `<Button>` does.
+- **A wide table widened the whole page on a phone.** It was 73 px too wide, which
+  pushed the theme toggle off-screen. `min-w-0` on the main column fixed it.
 
 ### 6a — realtime, notifications, analytics, audit, re-run
 

@@ -37,18 +37,12 @@ function describe(state: IngestionState): string {
 }
 
 function toneFor(state: IngestionState) {
-  if (state.job?.status === "failed") return "text-destructive";
+  if (state.job?.status === "failed") return "text-status-blocking";
   if (state.job?.is_active) return "text-foreground";
   return "text-muted-foreground";
 }
 
-export function IngestionStatus({
-  repositoryId,
-  canManage,
-}: {
-  repositoryId: number;
-  canManage: boolean;
-}) {
+export function IngestionStatus({ repositoryId }: { repositoryId: number }) {
   const [state, setState] = useState<IngestionState | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [starting, setStarting] = useState(false);
@@ -107,6 +101,9 @@ export function IngestionStatus({
   }
 
   const busy = starting || Boolean(state?.job?.is_active);
+  // From the API, per repository: the role is checked server-side either way.
+  const canManage = Boolean(state?.can_manage);
+  const job = state?.job;
 
   return (
     <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -125,11 +122,24 @@ export function IngestionStatus({
         </Button>
       ) : null}
 
-      {state?.job?.status === "failed" && state.job.error ? (
-        <p className="w-full text-xs text-destructive">{state.job.error}</p>
+      {job?.status === "failed" && job.error_summary ? (
+        <div className="w-full text-xs text-status-blocking">
+          {job.error_summary}.
+          {/* Raw text is only sent to owners and admins; members get the reason. */}
+          {job.error ? (
+            <details className="mt-1">
+              <summary className="cursor-pointer">Details</summary>
+              <code className="mt-1 block break-all text-muted-foreground">{job.error}</code>
+            </details>
+          ) : null}
+        </div>
       ) : null}
 
-      {error ? <p className="w-full text-xs text-destructive">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="w-full text-xs text-status-blocking">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 }

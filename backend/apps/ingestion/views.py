@@ -31,6 +31,11 @@ class RepositoryScopedView(APIView):
         return Repository.objects.filter(pk=pk, organization=organization).first()
 
 
+def _can_manage(user, repository):
+    role = repo_services.role_in(user, repository.organization)
+    return role in repo_services.REPO_MANAGEMENT_ROLES
+
+
 class IngestionStatusView(RepositoryScopedView):
     """Latest indexing job for a repository. Polled by the UI while a job runs."""
 
@@ -51,10 +56,12 @@ class IngestionStatusView(RepositoryScopedView):
 
         job = latest_job(repository)
         chunks = CodeChunk.objects.filter(repository=repository)
+        context = {"show_error_details": _can_manage(request.user, repository)}
 
         return Response(
             {
-                "job": IngestionJobSerializer(job).data if job else None,
+                "job": IngestionJobSerializer(job, context=context).data if job else None,
+                "can_manage": context["show_error_details"],
                 "chunk_count": chunks.count(),
                 "indexed_files": chunks.values("file_path").distinct().count(),
             }

@@ -14,6 +14,7 @@
 const ACCESS_KEY = "codesage.access";
 const REFRESH_KEY = "codesage.refresh";
 const OAUTH_STATE_KEY = "codesage.oauth_state";
+const ORGANIZATION_KEY = "codesage.organization";
 
 function readLocal(key: string): string | null {
   try {
@@ -55,6 +56,20 @@ export function storeTokens(access: string, refresh: string) {
 export function clearTokens() {
   removeLocal(ACCESS_KEY);
   removeLocal(REFRESH_KEY);
+  removeLocal(ORGANIZATION_KEY);
+}
+
+/**
+ * The workspace chosen in the org switcher, sent as X-Organization-Id. Only a
+ * preference: the backend honours it solely for organisations the user belongs to.
+ */
+export function getSelectedOrganizationId(): number | null {
+  const value = Number(readLocal(ORGANIZATION_KEY));
+  return Number.isInteger(value) && value > 0 ? value : null;
+}
+
+export function setSelectedOrganizationId(id: number) {
+  writeLocal(ORGANIZATION_KEY, String(id));
 }
 
 /**
