@@ -54,6 +54,14 @@ const PAIRS: Pair[] = [
   // Primary button, at rest and hovered.
   ["on-brand", ["brand-primary"], 4.5],
   ["on-brand", ["brand-primary-hover"], 4.5],
+  // Text on a tinted fill: diff lines (added / removed) on a card, and callouts
+  // (degraded, failed, fallback) on the canvas.
+  ...["ok", "blocking", "nit", "running"].flatMap((s): Pair[] => [
+    ["text-primary", ["surface-1", `status-${s}-bg`], 4.5],
+    ["text-secondary", ["surface-1", `status-${s}-bg`], 4.5],
+    ["text-primary", ["canvas", `status-${s}-bg`], 4.5],
+    ["text-secondary", ["canvas", `status-${s}-bg`], 4.5],
+  ]),
   // Status badges, on every surface they appear on; status text and icons bare.
   ...STATUSES.flatMap((s): Pair[] => [
     ...["canvas", "surface-1", "surface-2"].map(

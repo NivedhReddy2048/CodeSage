@@ -5,6 +5,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { EmptyState } from "@/components/states";
 import { AGENT_LABELS } from "@/lib/format";
 import type { ReviewFinding } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 function jumpTo(id: number) {
   const target = document.getElementById(findingAnchor(id));
@@ -27,33 +28,42 @@ function Group({
   if (findings.length === 0) return null;
   return (
     <section aria-label={`${title} findings`}>
-      <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-        {title} ({findings.length})
+      <h3 className="mb-2 flex items-center gap-2 text-[0.6875rem] font-medium tracking-[0.06em] text-fg-secondary uppercase">
+        {title}
+        <span className="rounded-full border bg-surface-1 px-1.5 font-mono tabular-nums normal-case">{findings.length}</span>
       </h3>
       <ul className="space-y-2">
         {findings.map((finding) => (
-          <li key={finding.id} className="rounded-md border p-2.5 text-sm">
+          <li
+            key={finding.id}
+            className={cn(
+              "rounded-lg border border-l-[3px] bg-surface-1 p-3 text-sm shadow-card",
+              finding.severity === "blocking" ? "border-l-status-blocking" : "border-l-status-nit",
+            )}
+          >
             <div className="flex flex-wrap items-center gap-2">
               <StatusBadge kind={finding.severity} />
               {anchored.has(finding.id) ? (
                 <button
                   type="button"
                   onClick={() => jumpTo(finding.id)}
-                  className="truncate font-mono text-xs underline-offset-4 hover:underline"
+                  className="truncate rounded-sm font-mono text-xs text-fg underline-offset-4 hover:text-brand hover:underline"
                 >
                   {finding.file_path}:{finding.line}
                 </button>
               ) : (
-                <span className="truncate font-mono text-xs">
+                <span className="truncate font-mono text-xs text-fg-secondary">
                   {finding.file_path}:{finding.line}
                 </span>
               )}
             </div>
-            <p className="mt-1 line-clamp-3">{finding.message}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {AGENT_LABELS[finding.agent] ?? finding.agent}
-              {finding.category ? ` · ${finding.category}` : ""}
-              {!anchored.has(finding.id) ? " · not on a line the diff shows" : ""}
+            <p className="mt-1.5 line-clamp-3 text-fg">{finding.message}</p>
+            <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-secondary">
+              <span className="rounded-md border bg-surface-2 px-1.5 py-0.5 font-medium">
+                {AGENT_LABELS[finding.agent] ?? finding.agent}
+              </span>
+              {finding.category ? <span>{finding.category}</span> : null}
+              {!anchored.has(finding.id) ? <span>· not on a line the diff shows</span> : null}
             </p>
           </li>
         ))}

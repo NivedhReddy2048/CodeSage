@@ -18,7 +18,7 @@ pull requests, each closing its own issue. Architecture lives in
 | 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **Done** |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Next |
 | 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
-| R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | In progress (4 of 6) |
+| R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | In progress (5 of 6) |
 
 Phase 8 depends only on Phase 5, so it can be built before or after Phase 7.
 
@@ -81,6 +81,63 @@ PR lands rather than one behind forever.
 
 **Status:** In progress. Six frontend-only PRs; no backend or API changes. Every
 route, API call, socket stream and sign-in step stays as it was.
+
+### redesign-5 — reviews list and review detail
+
+**/reviews.**
+- One toolbar on the table card: a "Filters" label with an active-filter count,
+  the Repository, Status and Severity selects, Clear filters, and the result count.
+- A set filter is outlined in brand. Each select's label stays for assistive
+  tech; its first option ("All repositories", "Any status") names it on screen.
+- Pagination has mono, tabular page and review counts.
+- The filters still live in the URL.
+
+**/reviews/[id].**
+- **Header:** the repository and PR as a mono badge, the commit reviewed, the
+  slug as the heading, and the PR title beneath it. The status pill, Fallback,
+  Re-run and the GitHub link sit on the right.
+- **While running:**
+  - the live pill gets a soft pulse (still under reduced motion);
+  - a five-segment bar shows each agent's state, in graph order (Diff/Intent,
+    then the four that fan out);
+  - the bar works from the stored progress until the socket or poll updates it;
+  - each segment has the agent's name and state in words, for screen readers on
+    every width and on screen from `sm` up, so it never relies on colour.
+- **Callouts:** one `Callout` (icon, title, body, tone) for each thing a reader
+  must know before trusting the page:
+  - degraded (`role="alert"`, "nothing here is an approval");
+  - failed (`role="alert"`);
+  - answered by the fallback (informational, no alert);
+  - not every line reviewed.
+- **Summary strip:** findings, time, est. cost at paid-tier rates, tokens and
+  models, in mono figures, with dashes while running.
+- **Diff:**
+  - File headers stick under the top bar. The file card moved from
+    `overflow: hidden` to `clip`, which does not make a scroll container, so
+    sticky works.
+  - Added and removed lines take the success and blocking fills, with a coloured
+    sign and the existing screen-reader word.
+  - The line-number gutter is tabular.
+- **Findings panel:** severity-edged cards with an agent chip and a count per
+  group.
+- **Agents table, now a trace matrix:** model and provider as mono chips;
+  right-aligned tokens; and latency with a bar scaled to the slowest agent, so
+  the critical path shows at a glance.
+
+**Contrast:** 32 new pairs. Body and secondary text on every tinted fill (added
+and removed diff lines on a card, callouts on the canvas), in both themes; all
+pass.
+
+**Tests:**
+- the active-filter count and Clear filters;
+- the fallback callout raises no alert;
+- agent progress order and words;
+- latency bars scaled to the slowest agent.
+
+Checked in Edge, light and dark, at 1366 px and 375 px, on the list, a finished
+review with a fallback, and a running review (2/5 agents, polling): no horizontal
+page scroll. On a phone the diff and the agents table scroll inside their own
+containers, and inline findings stay at the visible width.
 
 ### redesign-4 — dashboard
 

@@ -75,6 +75,44 @@ export function ErrorState({
   );
 }
 
+const CALLOUT_TONE = {
+  blocking: "border-status-blocking-border bg-status-blocking-bg [&>svg]:text-status-blocking",
+  nit: "border-status-nit-border bg-status-nit-bg [&>svg]:text-status-nit",
+  info: "border-status-running-border bg-status-running-bg [&>svg]:text-status-running",
+} as const;
+
+/**
+ * A structured notice: an icon in the tone's colour, a title, and a body in
+ * secondary text. Used for what a reader must know before trusting the page - a
+ * degraded or failed run, a fallback, a partial diff. `role="alert"` only for the
+ * serious ones.
+ */
+export function Callout({
+  tone,
+  icon: Icon,
+  title,
+  children,
+  role,
+  className,
+}: {
+  tone: keyof typeof CALLOUT_TONE;
+  icon: LucideIcon;
+  title: string;
+  children?: React.ReactNode;
+  role?: "alert" | "status";
+  className?: string;
+}) {
+  return (
+    <div role={role} className={cn("flex gap-3 rounded-xl border px-4 py-3", CALLOUT_TONE[tone], className)}>
+      <Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+      <div className="min-w-0 text-sm">
+        <p className="font-medium text-fg">{title}</p>
+        {children ? <div className="mt-0.5 text-fg-secondary">{children}</div> : null}
+      </div>
+    </div>
+  );
+}
+
 /** Placeholder rows shaped like the content that is loading. */
 export function ListSkeleton({ rows = 4, label = "Loading" }: { rows?: number; label?: string }) {
   return (

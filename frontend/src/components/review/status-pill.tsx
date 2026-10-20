@@ -25,6 +25,14 @@ export function ReviewStatusPill({
   return (
     <span role="status" aria-live="polite" className="inline-flex items-center gap-2">
       {running ? (
+        // A soft pulse beside the badge while agents work: decorative, and still
+        // under reduced motion.
+        <span aria-hidden="true" className="relative flex size-2">
+          <span className="absolute inline-flex size-full rounded-full bg-status-running opacity-60 motion-safe:animate-ping" />
+          <span className="relative inline-flex size-2 rounded-full bg-status-running" />
+        </span>
+      ) : null}
+      {running ? (
         <StatusBadge
           kind={liveStatus === "pending" ? "pending" : "running"}
           label={
@@ -39,7 +47,7 @@ export function ReviewStatusPill({
         <StatusBadge kind={reviewStatusKind({ status: liveStatus, degraded: progress?.degraded ?? degraded })} />
       )}
       {running && transport === "polling" ? (
-        <span className="text-xs text-muted-foreground">live updates paused, checking every few seconds</span>
+        <span className="text-xs text-fg-secondary">live updates paused, checking every few seconds</span>
       ) : null}
     </span>
   );
