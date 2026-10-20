@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, GitPullRequest } from "lucide-react";
+import { BarChart3, GitPullRequest, IndianRupee, ListChecks, Timer } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
@@ -8,6 +8,7 @@ import { Suspense } from "react";
 import { BarChart } from "@/components/charts/bar-chart";
 import { ChartCard, DataTable, type LegendItem } from "@/components/charts/chart-card";
 import { ColumnChart } from "@/components/charts/column-chart";
+import { BreakdownBar, Sparkline } from "@/components/charts/kpi-parts";
 import { StatTile } from "@/components/charts/stat-tile";
 import { useOrganization } from "@/components/organization-provider";
 import { PageHeader } from "@/components/page-header";
@@ -16,6 +17,7 @@ import { EmptyState, ErrorState, ListSkeleton, TableSkeleton } from "@/component
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/native-select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useResource } from "@/hooks/use-resource";
 import { api, query } from "@/lib/api";
@@ -44,46 +46,65 @@ function Filters({
 }) {
   const repos = useResource(() => api.repositories(), "repositories");
   return (
-    <div className="mb-6 flex flex-wrap items-end gap-4" role="group" aria-label="Dashboard filters">
+    // Part of the page header, above everything it scopes. Labels stay for assistive
+    // tech; visually the options name themselves.
+    <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Dashboard filters">
       <SegmentedControl
         legend="Period"
+        hideLegend
         name="period"
         value={String(days)}
         options={PERIODS.map((period) => ({ value: String(period), label: `Last ${period} days` }))}
         onValueChange={(value) => onChange({ days: Number(value) })}
       />
-      <div className="flex flex-col gap-1">
-        <label htmlFor="dashboard-repository" className="text-micro text-fg-secondary">
-          Repository
-        </label>
-        <NativeSelect
-          id="dashboard-repository"
-          value={repository}
-          onChange={(event) => onChange({ repository: event.target.value })}
-          className="max-w-72"
-        >
-          <option value="">All repositories</option>
-          {(repos.data ?? []).map((repo) => (
-            <option key={repo.id} value={repo.id}>
-              {repo.full_name}
-            </option>
-          ))}
-        </NativeSelect>
-      </div>
+      <label htmlFor="dashboard-repository" className="sr-only">
+        Repository
+      </label>
+      <NativeSelect
+        id="dashboard-repository"
+        value={repository}
+        onChange={(event) => onChange({ repository: event.target.value })}
+        wrapperClassName="w-full sm:w-56"
+        className="h-8"
+      >
+        <option value="">All repositories</option>
+        {(repos.data ?? []).map((repo) => (
+          <option key={repo.id} value={repo.id}>
+            {repo.full_name}
+          </option>
+        ))}
+      </NativeSelect>
     </div>
   );
 }
 
 function Kpis({ data }: { data: AnalyticsOverview }) {
   const s = data.summary;
+  // Done, degraded and failed are disjoint (a degraded review is stored as failed
+  // with the degraded flag; "failed" here excludes it). The rest are still running.
+  const inProgress = Math.max(0, s.reviews - s.completed_reviews - s.degraded_reviews - s.failed_reviews);
+  const latency = data.timeseries.map((day) => day.avg_latency_ms);
+  const costPerReview = data.timeseries.map((day) => (day.reviews ? Number(day.est_cost_inr) / day.reviews : null));
+
   return (
     <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
       <StatTile
+        icon={GitPullRequest}
         label="PRs reviewed"
         value={s.prs_reviewed}
         context={`${s.reviews} review${s.reviews === 1 ? "" : "s"} · ${s.degraded_reviews} degraded · ${s.failed_reviews} failed`}
-      />
+      >
+        <BreakdownBar
+          segments={[
+            { label: "done", value: s.completed_reviews, color: "var(--chart-primary)" },
+            { label: "degraded", value: s.degraded_reviews, color: "var(--chart-nit)" },
+            { label: "failed", value: s.failed_reviews, color: "var(--chart-blocking)" },
+            { label: "in progress", value: inProgress, color: "var(--chart-secondary)" },
+          ]}
+        />
+      </StatTile>
       <StatTile
+        icon={ListChecks}
         label="Avg findings per PR"
         value={s.avg_findings_per_pr ?? "-"}
         context={
@@ -91,17 +112,49 @@ function Kpis({ data }: { data: AnalyticsOverview }) {
             ? `${s.blocking} blocking, ${s.nits} nits (${Math.round((s.blocking_ratio ?? 0) * 100)}% blocking)`
             : "No findings in this period"
         }
-      />
+      >
+        <BreakdownBar
+          segments={[
+            { label: "blocking", value: s.blocking, color: "var(--chart-blocking)" },
+            { label: "nits", value: s.nits, color: "var(--chart-nit)" },
+          ]}
+        />
+      </StatTile>
       <StatTile
+        icon={Timer}
         label="Avg review time"
         value={formatDuration(s.avg_latency_ms)}
-        context="Completed reviews only"
-      />
+        context="Completed reviews only · daily average below"
+      >
+        <Sparkline values={latency} />
+      </StatTile>
       <StatTile
+        icon={IndianRupee}
         label="Est. cost per review"
         value={formatInr(s.est_cost_inr_avg, 2)}
         context={<span title={data.cost_basis}>At paid-tier rates · {formatInr(s.est_cost_inr_total, 2)} total; actual spend ₹0</span>}
-      />
+      >
+        <Sparkline values={costPerReview} color="var(--chart-secondary)" />
+      </StatTile>
+    </div>
+  );
+}
+
+/** Four tile-shaped placeholders, so the page does not jump when the numbers land. */
+function KpiSkeleton() {
+  return (
+    <div role="status" aria-label="Loading analytics" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {Array.from({ length: 4 }, (_, index) => (
+        <Card key={index} size="sm">
+          <CardContent className="space-y-3">
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-8 w-2/5" />
+            <Skeleton className="h-3 w-4/5" />
+            <Skeleton className="h-1.5 w-full rounded-full" />
+          </CardContent>
+        </Card>
+      ))}
+      <span className="sr-only">Loading analytics...</span>
     </div>
   );
 }
@@ -152,7 +205,7 @@ function Charts({ data, stale }: { data: AnalyticsOverview; stale: boolean }) {
         }
       >
         {categories.length ? (
-          <BarChart rows={categories} series={[{ label: "Findings", color: "var(--series-1)" }]} unit="findings" />
+          <BarChart rows={categories} series={[{ label: "Findings", color: "var(--chart-primary)" }]} unit="findings" />
         ) : (
           <EmptyState icon={BarChart3} title="No findings in this period" />
         )}
@@ -205,16 +258,13 @@ function Dashboard() {
       <PageHeader
         title="Dashboard"
         description={current ? `Review activity in ${current.name}.` : undefined}
+        actions={<Filters days={days} repository={repository} onChange={update} />}
       />
-      {/* One filter row, above everything it scopes. */}
-      <Filters days={days} repository={repository} onChange={update} />
 
       {analytics.error ? (
         <ErrorState className="mb-6" message={analytics.error} onRetry={analytics.reload} />
       ) : !analytics.data ? (
-        <div className="mb-6">
-          <ListSkeleton rows={3} label="Loading analytics" />
-        </div>
+        <KpiSkeleton />
       ) : (
         <>
           <Kpis data={analytics.data} />

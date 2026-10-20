@@ -18,7 +18,7 @@ pull requests, each closing its own issue. Architecture lives in
 | 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **Done** |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Next |
 | 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
-| R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | In progress (3 of 6) |
+| R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | In progress (4 of 6) |
 
 Phase 8 depends only on Phase 5, so it can be built before or after Phase 7.
 
@@ -81,6 +81,72 @@ PR lands rather than one behind forever.
 
 **Status:** In progress. Six frontend-only PRs; no backend or API changes. Every
 route, API call, socket stream and sign-in step stays as it was.
+
+### redesign-4 — dashboard
+
+Everything below is computed from what `GET /api/analytics/overview/` and
+`GET /api/reviews/` already return; no backend change.
+
+**Header.** Title and subtitle on the left. The period segmented control and the
+repository select sit on the right, in the page header above everything they
+scope. Their labels stay for assistive tech, and the filters still live in the
+URL.
+
+**KPI cards.** A brand-tinted icon badge, the value in mono tabular figures, one
+line of context, and a small summary mark. The marks are decorative (the numbers
+are in text), so they are hidden from assistive tech:
+- **PRs reviewed:** a proportional bar of done, degraded, failed and in progress.
+  These are disjoint in the API: a degraded review is stored as failed with the
+  degraded flag, and `failed_reviews` excludes it. The remainder is still running.
+- **Avg findings per PR:** blocking vs nits.
+- **Avg review time** and **est. cost per review:** sparklines from the daily
+  series (`avg_latency_ms`, and `est_cost_inr / reviews`).
+  - A day with no value breaks the line rather than dropping to zero.
+  - A sparkline appears only when at least half the days have a value: three
+    review days in thirty drew stray stubs that suggested a trend that is not
+    there.
+- The cost tile keeps "At paid-tier rates · ... total; actual spend ₹0".
+
+**Charts.**
+- **Reviews per day.**
+  - A zero day gets a faint full-height empty slot, so a sparse month reads as a
+    calendar with a few marks rather than a broken chart.
+  - A dashed line marks the daily average, labelled in a gutter right of the plot
+    so it never sits on a column.
+  - Date labels thin out with the plot's width, so a phone gets fewer labels, not
+    overlapping ones.
+- **Show table** is kept on all three charts; the table view has mono, right-aligned
+  numbers.
+
+**Palette, validated with the dataviz validator, not eyeballed.**
+- Light passes every check against `#ffffff` (blocking/nit CVD ΔE 9.4).
+- In dark, the spec's emerald, sky, rose and amber sit above the lightness band
+  for marks on a near-black card (OKLCH L 0.48-0.67) and glare. The dark marks are
+  one step deeper:
+  - primary/secondary `#0d9e6d` / `#1f9bd6`: pass every check, CVD ΔE 15.3;
+  - blocking/nit `#e11d48` / `#c47f0b`: pass, with CVD ΔE 7.8. That is the floor
+    band, legal because every two-series chart also has a legend, 2 px gaps, a
+    per-row readout and a table.
+- All chart marks clear 3:1 on the card, in the contrast test.
+
+**Recent reviews table** (shared with `/reviews`):
+- mono `owner/repo#PR` slugs;
+- status pills;
+- a blocking-count pill with an icon, its count, and "blocking" for screen
+  readers;
+- mono, right-aligned findings, time and cost;
+- mono relative timestamps.
+
+**Tests:**
+- the review-count breakdown (done, degraded, failed; in-progress hidden at zero);
+- zero days, and only zero days, get an empty slot;
+- the average line and its label, and no average for one day or an empty period;
+- the breakdown bar's proportions and text key;
+- sparkline gaps, and no sparkline without a trend.
+
+Checked in Edge with sparse (4 of 30 days) and dense (every day) data, light and
+dark, at 1366 px and 375 px: no horizontal page scroll; the reviews table scrolls
+inside its card on a phone.
 
 ### redesign-3 — landing page at /login, callback restyle
 

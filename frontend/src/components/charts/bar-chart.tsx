@@ -51,7 +51,7 @@ export function BarChart({
             onFocus={() => setActive(row.key)}
             onBlur={() => setActive(null)}
           >
-            <span className="truncate text-muted-foreground" title={row.label}>
+            <span className="truncate text-fg-secondary" title={row.label}>
               {row.label}
             </span>
             <span className="flex items-center gap-2">
@@ -75,7 +75,7 @@ export function BarChart({
                   />
                 ))}
               </span>
-              <span className="shrink-0 text-xs font-medium tabular-nums">{compact(total)}</span>
+              <span className="shrink-0 font-mono text-xs font-medium text-fg tabular-nums">{compact(total)}</span>
             </span>
 
             {active === row.key && series.length > 1 ? (
@@ -83,12 +83,12 @@ export function BarChart({
                 role="status"
                 className="pointer-events-none absolute right-0 bottom-full z-10 mb-1 rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-popover"
               >
-                <span className="mb-0.5 block font-medium text-muted-foreground">{row.label}</span>
+                <span className="mb-0.5 block font-medium text-fg-secondary">{row.label}</span>
                 {series.map((item, index) => (
                   <span key={item.label} className="flex items-center gap-1.5">
                     <span aria-hidden="true" className="h-0.5 w-3 rounded" style={{ background: item.color }} />
-                    <span className="font-semibold tabular-nums">{row.values[index] ?? 0}</span>
-                    <span className="text-muted-foreground">{item.label}</span>
+                    <span className="font-mono font-semibold tabular-nums">{row.values[index] ?? 0}</span>
+                    <span className="text-fg-secondary">{item.label}</span>
                   </span>
                 ))}
               </span>

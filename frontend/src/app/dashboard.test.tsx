@@ -88,6 +88,17 @@ describe("dashboard", () => {
     expect(screen.getByText(/At paid-tier rates/)).toHaveTextContent("actual spend ₹0");
   });
 
+  it("splits the review count into done, degraded, failed and in progress", async () => {
+    render(<DashboardPage />, { wrapper: Providers });
+
+    const tile = (await screen.findByText("PRs reviewed")).closest("[data-slot=card]") as HTMLElement;
+    // 27 reviews: 23 done, 1 degraded, 3 failed - and 0 in progress, so not listed.
+    expect(tile).toHaveTextContent("23 done");
+    expect(tile).toHaveTextContent("1 degraded");
+    expect(tile).toHaveTextContent("3 failed");
+    expect(tile).not.toHaveTextContent("in progress");
+  });
+
   it("draws the three charts, each with its table view", async () => {
     render(<DashboardPage />, { wrapper: Providers });
 
