@@ -181,6 +181,14 @@ describe("notification bell", () => {
     expect(apiMock.markAllNotificationsRead).toHaveBeenCalledOnce();
   });
 
+  it("caps the visible count, and keeps the pill out of the accessible name", async () => {
+    apiMock.notifications.mockResolvedValue({ unread_count: 12, results: notes });
+    render(<NotificationBell />);
+
+    const bell = await screen.findByRole("button", { name: "Notifications, 12 unread" });
+    expect(within(bell).getByText("9+")).toHaveAttribute("aria-hidden", "true");
+  });
+
   it("an empty bell says so", async () => {
     apiMock.notifications.mockResolvedValue({ unread_count: 0, results: [] });
     render(<NotificationBell />);

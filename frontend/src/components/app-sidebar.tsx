@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Building2,
   Check,
   ChevronsUpDown,
   FolderGit2,
@@ -15,6 +14,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/components/auth-provider";
+import { Logo } from "@/components/logo";
 import { useOrganization } from "@/components/organization-provider";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -39,7 +39,9 @@ import {
   SidebarMenuItem,
   SidebarMenuSkeleton,
   SidebarRail,
+  useSidebar,
 } from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 
 export const NAV_ITEMS = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -57,8 +59,30 @@ function initials(name: string) {
   return name.slice(0, 2).toUpperCase();
 }
 
+/** A workspace's badge: its initial on the brand tint, sized for the rail. */
+function WorkspaceBadge({ name, className }: { name: string; className?: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "flex size-8 shrink-0 items-center justify-center rounded-lg border border-border-brand bg-brand-tinted font-mono text-sm font-semibold text-brand uppercase",
+        className,
+      )}
+    >
+      {name.slice(0, 1) || "?"}
+    </span>
+  );
+}
+
+function roleLine(org: { role?: string | null; is_personal: boolean }) {
+  return `${org.role ?? "member"}${org.is_personal ? " · personal" : ""}`;
+}
+
 function OrganizationSwitcher() {
   const { organizations, current, loading, switchTo } = useOrganization();
+  const { state, isMobile } = useSidebar();
+  // From the icon rail there is no room below, so the menu opens beside it.
+  const beside = state === "collapsed" && !isMobile;
 
   if (loading) return <SidebarMenuSkeleton showIcon />;
 
@@ -72,26 +96,35 @@ function OrganizationSwitcher() {
           />
         }
       >
-        <span className="flex size-8 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground">
-          <Building2 aria-hidden="true" className="size-4" />
-        </span>
-        <span className="grid flex-1 text-left leading-tight">
-          <span className="truncate font-medium">{current?.name ?? "No organisation"}</span>
-          <span className="truncate text-xs text-muted-foreground capitalize">
-            {current ? `${current.role ?? "member"}${current.is_personal ? " · personal" : ""}` : ""}
+        <WorkspaceBadge name={current?.name ?? ""} />
+        <span className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+          <span className="truncate font-medium text-fg">{current?.name ?? "No organisation"}</span>
+          <span className="truncate text-xs text-fg-secondary capitalize">
+            {current ? roleLine(current) : ""}
           </span>
         </span>
-        <ChevronsUpDown aria-hidden="true" className="ml-auto size-4" />
+        <ChevronsUpDown aria-hidden="true" className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="min-w-60" align="start">
+      {/* A floating layer: wider than the sidebar so it visibly sits above it, on
+          surface-3 with the popover shadow, rather than a same-coloured panel that
+          read as part of the nav laid over "Dashboard". */}
+      <DropdownMenuContent
+        className="w-64"
+        side={beside ? "right" : "bottom"}
+        align="start"
+        sideOffset={beside ? 10 : 6}
+      >
         <DropdownMenuGroup>
           <DropdownMenuLabel>Organisations</DropdownMenuLabel>
           {organizations.map((org) => (
-            <DropdownMenuItem key={org.id} onClick={() => switchTo(org.id)}>
-              <Building2 aria-hidden="true" />
-              <span className="flex-1 truncate">{org.name}</span>
+            <DropdownMenuItem key={org.id} onClick={() => switchTo(org.id)} className="gap-2.5 py-1.5">
+              <WorkspaceBadge name={org.name} className="size-7 text-xs" />
+              <span className="grid min-w-0 flex-1 leading-tight">
+                <span className="truncate font-medium">{org.name}</span>
+                <span className="truncate text-xs text-fg-secondary capitalize">{roleLine(org)}</span>
+              </span>
               {org.id === current?.id ? (
-                <Check aria-label="Current organisation" className="size-4" />
+                <Check aria-label="Current organisation" className="size-4 text-brand" />
               ) : null}
             </DropdownMenuItem>
           ))}
@@ -115,15 +148,15 @@ function UserMenu() {
           <AvatarImage src={user.avatar_url} alt="" />
           <AvatarFallback>{initials(name)}</AvatarFallback>
         </Avatar>
-        <span className="grid flex-1 text-left leading-tight">
-          <span className="truncate font-medium">{name}</span>
-          <span className="truncate text-xs text-muted-foreground">
+        <span className="grid flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+          <span className="truncate font-medium text-fg">{name}</span>
+          <span className="truncate text-xs text-fg-secondary">
             {user.email || "No public email"}
           </span>
         </span>
-        <ChevronsUpDown aria-hidden="true" className="ml-auto size-4" />
+        <ChevronsUpDown aria-hidden="true" className="ml-auto size-4 group-data-[collapsible=icon]:hidden" />
       </DropdownMenuTrigger>
-      <DropdownMenuContent className="min-w-56" side="top" align="start">
+      <DropdownMenuContent className="w-60" side="top" align="start" sideOffset={6}>
         <DropdownMenuItem render={<Link href="/settings" />}>
           <Settings aria-hidden="true" />
           Settings
@@ -143,7 +176,14 @@ export function AppSidebar() {
 
   return (
     <Sidebar collapsible="icon" aria-label="Main navigation">
-      <SidebarHeader>
+      <SidebarHeader className="gap-3">
+        <Link
+          href="/"
+          aria-label="CodeSage, dashboard"
+          className="flex h-10 items-center rounded-lg px-2 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+        >
+          <Logo size={28} wordmarkClassName="group-data-[collapsible=icon]:hidden" />
+        </Link>
         <SidebarMenu>
           <SidebarMenuItem>
             <OrganizationSwitcher />
@@ -153,7 +193,7 @@ export function AppSidebar() {
 
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>CodeSage</SidebarGroupLabel>
+          <SidebarGroupLabel>Workspace</SidebarGroupLabel>
           <SidebarGroupContent>
             <nav aria-label="Primary">
               <SidebarMenu>

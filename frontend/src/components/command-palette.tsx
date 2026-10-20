@@ -18,6 +18,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
+import { Kbd } from "@/components/ui/kbd";
 import { api } from "@/lib/api";
 import type { ConnectedRepository, ReviewListItem } from "@/lib/types";
 
@@ -93,7 +94,7 @@ export function CommandPalette({
                   onSelect={() => run(() => router.push(`/reviews?repository=${repo.id}`))}
                 >
                   <FolderGit2 aria-hidden="true" />
-                  {repo.full_name}
+                  <span className="truncate font-mono text-[0.8125rem]">{repo.full_name}</span>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -108,9 +109,11 @@ export function CommandPalette({
                   onSelect={() => run(() => router.push(`/reviews/${review.id}`))}
                 >
                   <GitPullRequest aria-hidden="true" />
-                  <span className="truncate">
-                    {review.repository}#{review.pr_number}
-                    <span className="text-muted-foreground"> · {review.pr_title}</span>
+                  <span className="flex min-w-0 items-baseline gap-2">
+                    <span className="shrink-0 font-mono text-[0.8125rem] tabular-nums">
+                      {review.repository}#{review.pr_number}
+                    </span>
+                    <span className="truncate text-fg-secondary">{review.pr_title}</span>
                   </span>
                 </CommandItem>
               ))}
@@ -118,7 +121,7 @@ export function CommandPalette({
           ) : null}
 
           {failed ? (
-            <p className="px-3 py-2 text-xs text-muted-foreground">
+            <p className="px-2.5 py-2 text-xs text-fg-secondary">
               Repositories and reviews could not be loaded.
             </p>
           ) : null}
@@ -137,6 +140,25 @@ export function CommandPalette({
             </CommandItem>
           </CommandGroup>
         </CommandList>
+        {/* How to drive it, for anyone who opened it with the mouse. */}
+        <div
+          aria-hidden="true"
+          className="flex items-center gap-4 border-t bg-surface-2/60 px-4 py-2 text-xs text-fg-secondary"
+        >
+          <span className="flex items-center gap-1.5">
+            <Kbd>↑</Kbd>
+            <Kbd>↓</Kbd>
+            Navigate
+          </span>
+          <span className="flex items-center gap-1.5">
+            <Kbd>↵</Kbd>
+            Open
+          </span>
+          <span className="ml-auto flex items-center gap-1.5">
+            <Kbd>Esc</Kbd>
+            Close
+          </span>
+        </div>
       </Command>
     </CommandDialog>
   );

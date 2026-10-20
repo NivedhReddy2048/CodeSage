@@ -18,7 +18,7 @@ pull requests, each closing its own issue. Architecture lives in
 | 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **Done** |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Next |
 | 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
-| R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | In progress (1 of 6) |
+| R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | In progress (2 of 6) |
 
 Phase 8 depends only on Phase 5, so it can be built before or after Phase 7.
 
@@ -81,6 +81,61 @@ PR lands rather than one behind forever.
 
 **Status:** In progress. Six frontend-only PRs; no backend or API changes. Every
 route, API call, socket stream and sign-in step stays as it was.
+
+### redesign-2 — app shell
+
+**Sidebar.**
+- 248 px wide, collapsing to a 64 px icon rail (Ctrl/Cmd+B or the toggle) over
+  220 ms on the out-expo curve. On a phone it is a drawer.
+- The header carries the logo, linked home.
+- The workspace badge is the organisation's initial on the brand tint, replacing
+  the generic blue square.
+- The active page is a surface-2 pill with a brand icon and a 2 px brand bar, so it
+  is marked by more than colour; `aria-current` is unchanged.
+
+**Organisation switcher.** It used to open as a panel the same colour as the
+sidebar, laid over "Dashboard", so it read as part of the nav. It is now a floating
+layer: surface-3, the popover shadow, wider than the sidebar so it visibly sits
+above it, and a stronger edge in dark (`border-strong`; `border-default` all but
+vanished on the near-black page). From the icon rail it opens beside the rail.
+Each organisation shows its badge and role.
+
+**Top bar.**
+- Sticky glass (`bg-glass`, 12 px blur) at z-20; menus and dialogs portal out above
+  it at z-50.
+- A "Search or jump to..." trigger with a mono `Ctrl K` keycap.
+- The bell's unread count is a solid rose pill with its own text token
+  (`--on-blocking`, in the contrast test: 6.3:1 light, 7.3:1 dark). It stays out of
+  the accessible name, which already says "Notifications, N unread".
+- On a phone, the logo sits beside the drawer toggle.
+
+**Notification popover and command palette.** Both are on surface-3.
+- The popover shows an unread count, brand unread dots (the "(unread)" text for
+  screen readers stays) and mono timestamps.
+- The palette has a flush search row, whose focus indicator is its bottom edge
+  turning brand, and mono `owner/repo#PR` slugs.
+- The selected row in the palette gets a surface lift and a brand edge, and a footer
+  lists the keys (arrows, Enter, Esc).
+
+**Page container:** max width 1380 px, padding 16 / 24 / 32 px.
+
+**Found while building:** the page had two `main` landmarks. shadcn's
+`SidebarInset` renders a `<main>`, and the shell put its own `<main id="content">`
+inside it. The inset is now a `div`, and a test pins exactly one `main`.
+
+**Found in the browser:** in the icon rail, the switcher's and account menu's
+names and chevrons still took space, which squashed the workspace badge and the
+avatar to a sliver. They now hide in the rail.
+
+**Tests:** the logo's alt text, switching organisation from the keyboard, sign-out
+from the account menu, one `main` with a skip link to it, opening the palette from
+the search button and from Ctrl+K, and the bell's capped "9+" count. Verified in
+Edge, light and dark, at 1366 px and 375 px:
+- the switcher opened by keyboard, expanded and from the rail;
+- the bell, the palette and the skip link;
+- the phone drawer.
+
+No horizontal page scroll and no console errors.
 
 ### redesign-1 — tokens, theme, favicon, core primitives
 

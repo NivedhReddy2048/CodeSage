@@ -46,6 +46,8 @@ const PAIRS: Pair[] = [
     ["brand-accent", [bg], 4.5],
   ]),
   ["brand-primary", ["surface-1", "brand-tinted"], 4.5],
+  // The unread count on the bell: text on a solid blocking fill.
+  ["on-blocking", ["status-blocking"], 4.5],
   // Primary button, at rest and hovered.
   ["on-brand", ["brand-primary"], 4.5],
   ["on-brand", ["brand-primary-hover"], 4.5],
