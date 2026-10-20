@@ -5,6 +5,7 @@ import { useResource } from "@/hooks/use-resource";
 import { ApiError, api, query } from "@/lib/api";
 import { formatDuration, formatInr } from "@/lib/format";
 import { clearTokens, setSelectedOrganizationId, storeTokens } from "@/lib/tokens";
+import { cn } from "@/lib/utils";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -118,5 +119,13 @@ describe("format", () => {
     expect(formatInr("0.0648")).toBe("₹0.06");
     expect(formatInr("0.0648", 4)).toBe("₹0.0648");
     expect(formatInr(null)).toBe("-");
+  });
+});
+
+describe("cn", () => {
+  it("keeps a custom font size next to a text colour", () => {
+    expect(cn("text-control text-primary-foreground", "text-fg")).toBe("text-control text-fg");
+    expect(cn("text-sm", "text-h2")).toBe("text-h2");
+    expect(cn("shadow-md", "shadow-popover")).toBe("shadow-popover");
   });
 });

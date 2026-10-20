@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -19,6 +19,14 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "CodeSage",
   description: "Multi-agent code review for GitHub pull requests.",
+};
+
+// The browser chrome (mobile address bar) matches the canvas in each theme.
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f8fafc" },
+    { media: "(prefers-color-scheme: dark)", color: "#060a0f" },
+  ],
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

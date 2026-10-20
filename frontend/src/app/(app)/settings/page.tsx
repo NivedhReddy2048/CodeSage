@@ -3,6 +3,7 @@
 import { Users } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { useAuth } from "@/components/auth-provider";
 import { useOrganization } from "@/components/organization-provider";
@@ -11,6 +12,7 @@ import { THEME_OPTIONS } from "@/components/theme-toggle";
 import { EmptyState, ErrorState, ListSkeleton, errorMessage } from "@/components/states";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { NativeSelect } from "@/components/ui/native-select";
 import { useResource } from "@/hooks/use-resource";
 import { api } from "@/lib/api";
 import type { OrganizationRole } from "@/lib/types";
@@ -26,12 +28,13 @@ function Members() {
   const [error, setError] = useState<string | null>(null);
   const isOwner = current?.role === "owner";
 
-  async function changeRole(membershipId: number, role: OrganizationRole) {
+  async function changeRole(membershipId: number, name: string, role: OrganizationRole) {
     setSaving(membershipId);
     setError(null);
     try {
       await api.updateMemberRole(membershipId, role);
       members.reload();
+      toast.success(`${name} is now ${role === "admin" ? "an" : "a"} ${role}`);
     } catch (err) {
       setError(errorMessage(err, "Could not change the role."));
     } finally {
@@ -71,21 +74,21 @@ function Members() {
                     ) : null}
                   </span>
                   {isOwner ? (
-                    <select
+                    <NativeSelect
                       aria-label={`Role for ${name}`}
                       value={member.role}
                       disabled={saving === member.id}
                       onChange={(event) =>
-                        void changeRole(member.id, event.target.value as OrganizationRole)
+                        void changeRole(member.id, name, event.target.value as OrganizationRole)
                       }
-                      className="h-8 rounded-md border bg-background px-2 text-sm capitalize"
+                      className="capitalize"
                     >
                       {ROLES.map((role) => (
                         <option key={role} value={role}>
                           {role}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   ) : (
                     <span className="text-sm capitalize text-muted-foreground">{member.role}</span>
                   )}

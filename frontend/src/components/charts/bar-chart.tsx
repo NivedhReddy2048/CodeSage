@@ -81,7 +81,7 @@ export function BarChart({
             {active === row.key && series.length > 1 ? (
               <span
                 role="status"
-                className="pointer-events-none absolute right-0 bottom-full z-10 mb-1 rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-md"
+                className="pointer-events-none absolute right-0 bottom-full z-10 mb-1 rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-popover"
               >
                 <span className="mb-0.5 block font-medium text-muted-foreground">{row.label}</span>
                 {series.map((item, index) => (

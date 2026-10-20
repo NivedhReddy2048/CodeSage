@@ -8,6 +8,8 @@ import { PageHeader } from "@/components/page-header";
 import { EmptyState, ErrorState, TableSkeleton } from "@/components/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import {
   Table,
   TableBody,
@@ -40,7 +42,6 @@ function details(entry: AuditEntry) {
   return parts.join(" · ");
 }
 
-const fieldClass = "h-8 min-w-0 rounded-md border bg-background px-2 text-sm";
 
 function FilterForm({ initial, onApply }: { initial: Filters; onApply: (filters: Filters) => void }) {
   // A draft, applied together: typing in "actor" does not refetch per keystroke.
@@ -58,31 +59,31 @@ function FilterForm({ initial, onApply }: { initial: Filters; onApply: (filters:
         onApply(draft);
       }}
     >
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+      <label className="flex flex-col gap-1 text-micro text-fg-secondary">
         Action
-        <select value={draft.action} onChange={set("action")} className={fieldClass}>
+        <NativeSelect value={draft.action} onChange={set("action")}>
           {AUDIT_ACTIONS.map((action) => (
             <option key={action.value} value={action.value}>
               {action.label}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+      <label className="flex flex-col gap-1 text-micro text-fg-secondary">
         Actor
-        <input value={draft.actor} onChange={set("actor")} placeholder="GitHub login" className={fieldClass} />
+        <Input value={draft.actor} onChange={set("actor")} placeholder="GitHub login" />
       </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+      <label className="flex flex-col gap-1 text-micro text-fg-secondary">
         Target contains
-        <input value={draft.q} onChange={set("q")} placeholder="e.g. codesage-testbed" className={fieldClass} />
+        <Input value={draft.q} onChange={set("q")} placeholder="e.g. codesage-testbed" />
       </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+      <label className="flex flex-col gap-1 text-micro text-fg-secondary">
         From
-        <input type="date" value={draft.since} onChange={set("since")} className={fieldClass} />
+        <Input type="date" value={draft.since} onChange={set("since")} />
       </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+      <label className="flex flex-col gap-1 text-micro text-fg-secondary">
         To
-        <input type="date" value={draft.until} onChange={set("until")} className={fieldClass} />
+        <Input type="date" value={draft.until} onChange={set("until")} />
       </label>
       <div className="flex gap-2">
         <Button type="submit" size="sm">

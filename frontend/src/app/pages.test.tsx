@@ -32,6 +32,7 @@ import AuditLogPage from "@/app/(app)/audit/page";
 import SettingsPage from "@/app/(app)/settings/page";
 import { IngestionStatus } from "@/components/ingestion-status";
 import { OrganizationProvider } from "@/components/organization-provider";
+import { Toaster } from "@/components/ui/sonner";
 import { ApiError } from "@/lib/api";
 
 function Providers({ children }: { children: React.ReactNode }) {
@@ -63,6 +64,21 @@ describe("settings", () => {
 
     expect(apiMock.updateMemberRole).toHaveBeenCalledWith(2, "admin");
     await waitFor(() => expect(apiMock.members).toHaveBeenCalledTimes(2));
+  });
+
+  it("confirms a role change with a toast", async () => {
+    apiMock.updateMemberRole.mockResolvedValue({});
+    render(
+      <>
+        <SettingsPage />
+        <Toaster />
+      </>,
+      { wrapper: Providers },
+    );
+
+    await userEvent.selectOptions(await screen.findByRole("combobox", { name: "Role for carol" }), "admin");
+
+    expect(await screen.findByText("carol is now an admin")).toBeInTheDocument();
   });
 
   it("a member sees roles but cannot change them", async () => {
