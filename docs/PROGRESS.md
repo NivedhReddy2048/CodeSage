@@ -18,6 +18,7 @@ pull requests, each closing its own issue. Architecture lives in
 | 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **Done** |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Next |
 | 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
+| R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | In progress (1 of 6) |
 
 Phase 8 depends only on Phase 5, so it can be built before or after Phase 7.
 
@@ -73,6 +74,74 @@ once, listed "claude" as a repository contributor.
 **Update the merged-PR count in this table in each phase's last PR.** The figure
 counts merged PRs *including* the one making the edit, so it is correct the moment that
 PR lands rather than one behind forever.
+
+---
+
+## Frontend redesign — "Abyssal Navy & Sage Mint"
+
+**Status:** In progress. Six frontend-only PRs; no backend or API changes. Every
+route, API call, socket stream and sign-in step stays as it was.
+
+### redesign-1 — tokens, theme, favicon, core primitives
+
+**Tokens.** One set per theme in `globals.css`: canvas and three surface levels, a
+glass layer for the top bar, three border steps, three text steps, brand
+(emerald fills, teal accents and focus), four status families plus a neutral, chart
+colours, card and popover elevation, radii, a type scale and motion timings. The
+shadcn variables point at these tokens, so the generated components pick up the
+palette without being rewritten. Dark is the hero theme. Primary buttons there use
+dark text on emerald, because white on `#10b981` is only 2.5:1.
+
+**Contrast is a test, not a note.** `src/app/theme-contrast.test.ts` parses
+`globals.css`, composites translucent fills over the surface beneath them, and
+checks every pair the UI draws against WCAG AA in both themes. That is 125 pairs:
+text on each surface, button text on its fill, badge text on its badge, and the
+focus ring, control borders and chart marks at 3:1. It runs in CI with the rest of
+the suite, and `npm run contrast` prints every ratio. Two spec values failed and
+got their own tokens:
+- **Control borders.** `border-strong` is 2.6:1 on white and 1.9:1 on the dark
+  card, under the 3:1 a control boundary needs. Inputs, selects and the segmented
+  control use `--control-border`: 3.2-3.5:1 light, 3.1-3.6:1 dark.
+- **Placeholders.** Light `text-muted` is 4.3:1 on the surface-2 input fill. It is
+  kept for the canvas and cards, where it passes, and placeholders get their own
+  step (5.0:1).
+
+Card edges, table dividers and badge outlines are decorative. WCAG 1.4.11 does not
+cover them, so they are not checked.
+
+**Primitives.**
+- Buttons, cards, inputs, selects, badges, tooltips, skeletons, menus and dialogs
+  all use the tokens. Focus is one 2 px ring with a 2 px offset everywhere,
+  replacing shadcn's soft ring.
+- A `NativeSelect` for the Repository, Status, Severity, Role and Action filters.
+  It is still a real `<select>`, so roles, labels and the mobile picker are
+  unchanged.
+- A `SegmentedControl` built from real radio inputs, now used for the dashboard
+  period.
+- The "Est. cost" header's dotted underline sat on the baseline and cut through the
+  text. It now sits 0.3 em below.
+- Toasts did not exist. sonner is added (no dependencies; mounted only in the
+  signed-in shell, so `/login` does not load it) and first confirms a role change.
+  Errors stay inline, where they do not vanish on a timer.
+- Reduced motion turns every transition and animation into an instant change.
+
+**Favicon.** The default Next.js favicon is replaced by the CodeSage logo:
+`favicon.ico` (16/32/48), `icon.png` and `apple-icon.png`, generated from
+`docs/assets/codesage-logo.png`. The five unused Next.js starter SVGs are removed.
+
+**Found by a test:** the class merger (`cn`) read the new `text-control` size as a
+text colour, so `text-control text-fg` silently dropped the size. `cn` is now
+configured with the design system's type scale and shadows, and the shadcn
+components import it from `@/lib/utils` rather than from the package directly.
+
+**Found in the browser:** cards moved from `overflow: hidden` to `overflow: clip`,
+so sticky headers inside them can stick to the page later. That stopped them being
+scroll containers, so as grid items they grew to fit a wide chart, and the
+dashboard was 315 px too wide on a phone. `min-w-0` on the card fixed it.
+
+Checked in Edge in light and dark, at 1366 px and 375 px, on the dashboard,
+reviews, audit log, settings, repositories and login: no horizontal page scroll and
+no console errors.
 
 ---
 

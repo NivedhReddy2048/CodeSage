@@ -27,60 +27,61 @@ export type StatusKind =
 
 type Style = { label: string; icon: LucideIcon; tone: string; spin?: boolean };
 
-// Each tone is a token pair from globals.css whose text clears 5.5:1 against both
-// the badge and the card behind it, in light and dark. Every badge also carries an
-// icon and a word, so the status never rests on colour alone.
+// Each tone is a token triple from globals.css (text, fill, outline). The text clears
+// 4.5:1 on its fill over the canvas, a card and surface-2, in light and dark - the
+// contrast test checks every one. Nit, degraded and fallback share amber, and every
+// badge carries an icon and a word, so the status never rests on colour alone.
 const STYLES: Record<StatusKind, Style> = {
   blocking: {
     label: "Blocking",
     icon: OctagonAlert,
-    tone: "bg-status-blocking-bg text-status-blocking border-status-blocking/25",
+    tone: "bg-status-blocking-bg text-status-blocking border-status-blocking-border",
   },
   nit: {
     label: "Nit",
     icon: CircleDot,
-    tone: "bg-status-nit-bg text-status-nit border-status-nit/25",
+    tone: "bg-status-nit-bg text-status-nit border-status-nit-border",
   },
   degraded: {
     label: "Degraded",
     icon: TriangleAlert,
-    tone: "bg-status-degraded-bg text-status-degraded border-status-degraded/25",
+    tone: "bg-status-degraded-bg text-status-degraded border-status-degraded-border",
   },
   fallback: {
     label: "Fallback",
     icon: Shuffle,
-    tone: "bg-status-fallback-bg text-status-fallback border-status-fallback/25",
+    tone: "bg-status-fallback-bg text-status-fallback border-status-fallback-border",
   },
   ok: {
     label: "OK",
     icon: CircleCheck,
-    tone: "bg-status-ok-bg text-status-ok border-status-ok/25",
+    tone: "bg-status-ok-bg text-status-ok border-status-ok-border",
   },
   done: {
     label: "Done",
     icon: CircleCheck,
-    tone: "bg-status-ok-bg text-status-ok border-status-ok/25",
+    tone: "bg-status-ok-bg text-status-ok border-status-ok-border",
   },
   running: {
     label: "Running",
     icon: LoaderCircle,
-    tone: "bg-status-running-bg text-status-running border-status-running/25",
+    tone: "bg-status-running-bg text-status-running border-status-running-border",
     spin: true,
   },
   pending: {
     label: "Pending",
     icon: Clock,
-    tone: "bg-status-nit-bg text-status-nit border-status-nit/25",
+    tone: "bg-status-neutral-bg text-status-neutral border-status-neutral-border",
   },
   failed: {
     label: "Failed",
     icon: CircleX,
-    tone: "bg-status-blocking-bg text-status-blocking border-status-blocking/25",
+    tone: "bg-status-blocking-bg text-status-blocking border-status-blocking-border",
   },
   skipped: {
     label: "Skipped",
     icon: CircleMinus,
-    tone: "bg-status-nit-bg text-status-nit border-status-nit/25",
+    tone: "bg-status-neutral-bg text-status-neutral border-status-neutral-border",
   },
 };
 
@@ -100,7 +101,7 @@ export function StatusBadge({
     <span
       data-status={kind}
       className={cn(
-        "inline-flex h-6 shrink-0 items-center gap-1 rounded-full border px-2 text-xs font-medium whitespace-nowrap",
+        "inline-flex h-6 shrink-0 items-center gap-1 rounded-full border px-2 text-micro whitespace-nowrap",
         style.tone,
         className,
       )}

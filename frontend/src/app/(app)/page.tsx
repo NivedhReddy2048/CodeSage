@@ -15,17 +15,18 @@ import { ReviewTable } from "@/components/review-table";
 import { EmptyState, ErrorState, ListSkeleton, TableSkeleton } from "@/components/states";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { NativeSelect } from "@/components/ui/native-select";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useResource } from "@/hooks/use-resource";
 import { api, query } from "@/lib/api";
 import { AGENT_LABELS, formatDuration, formatInr } from "@/lib/format";
 import type { AnalyticsOverview } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 const PERIODS = [7, 30, 90] as const;
 
 const SEVERITY_SERIES: LegendItem[] = [
-  { label: "Blocking", color: "var(--series-1)" },
-  { label: "Nits", color: "var(--series-2)" },
+  { label: "Blocking", color: "var(--chart-blocking)" },
+  { label: "Nits", color: "var(--chart-nit)" },
 ];
 
 function shortDate(iso: string) {
@@ -44,38 +45,22 @@ function Filters({
   const repos = useResource(() => api.repositories(), "repositories");
   return (
     <div className="mb-6 flex flex-wrap items-end gap-4" role="group" aria-label="Dashboard filters">
-      <fieldset>
-        <legend className="mb-1 text-xs font-medium text-muted-foreground">Period</legend>
-        <div className="inline-flex rounded-lg border p-0.5">
-          {PERIODS.map((period) => (
-            <label
-              key={period}
-              className={cn(
-                "cursor-pointer rounded-md px-3 py-1 text-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2",
-                days === period ? "bg-muted font-medium" : "text-muted-foreground",
-              )}
-            >
-              <input
-                type="radio"
-                name="period"
-                className="sr-only"
-                checked={days === period}
-                onChange={() => onChange({ days: period })}
-              />
-              Last {period} days
-            </label>
-          ))}
-        </div>
-      </fieldset>
+      <SegmentedControl
+        legend="Period"
+        name="period"
+        value={String(days)}
+        options={PERIODS.map((period) => ({ value: String(period), label: `Last ${period} days` }))}
+        onValueChange={(value) => onChange({ days: Number(value) })}
+      />
       <div className="flex flex-col gap-1">
-        <label htmlFor="dashboard-repository" className="text-xs font-medium text-muted-foreground">
+        <label htmlFor="dashboard-repository" className="text-micro text-fg-secondary">
           Repository
         </label>
-        <select
+        <NativeSelect
           id="dashboard-repository"
           value={repository}
           onChange={(event) => onChange({ repository: event.target.value })}
-          className="h-8 rounded-md border bg-background px-2 text-sm"
+          className="max-w-72"
         >
           <option value="">All repositories</option>
           {(repos.data ?? []).map((repo) => (
@@ -83,7 +68,7 @@ function Filters({
               {repo.full_name}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
     </div>
   );

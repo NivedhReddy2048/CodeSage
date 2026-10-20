@@ -14,6 +14,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { Toaster } from "@/components/ui/sonner";
 
 /** True for Ctrl+K, and Cmd+K on macOS. */
 export function isPaletteShortcut(event: KeyboardEvent) {
@@ -114,6 +115,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </main>
         </SidebarInset>
         <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+        <Toaster position="bottom-right" />
       </SidebarProvider>
     </OrganizationProvider>
   );

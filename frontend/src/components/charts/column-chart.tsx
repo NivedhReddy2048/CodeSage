@@ -133,7 +133,7 @@ export function ColumnChart({
       {current ? (
         <div
           role="status"
-          className="pointer-events-none absolute z-10 rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-md"
+          className="pointer-events-none absolute z-10 rounded-md border bg-popover px-2.5 py-1.5 text-xs shadow-popover"
           style={{
             left: Math.min(Math.max(LEFT + (active ?? 0) * band + band / 2 - 60, 0), width - 120),
             top: 0,
