@@ -12,6 +12,7 @@ const apiMock = vi.hoisted(() => ({
   repositories: vi.fn(),
   reviews: vi.fn(),
   currentUser: vi.fn(),
+  notifications: vi.fn(),
 }));
 vi.mock("@/lib/api", async (original) => ({
   ...(await original<typeof import("@/lib/api")>()),
@@ -20,11 +21,12 @@ vi.mock("@/lib/api", async (original) => ({
 
 const auth = vi.hoisted(() => ({ signOut: vi.fn() }));
 vi.mock("@/components/auth-provider", () => ({
-  useAuth: () => ({ user, loading: false, signOut: auth.signOut, reload: vi.fn() }),
+  useAuth: () => ({ user, loading: false, error: null, signOut: auth.signOut, reload: vi.fn() }),
 }));
 
 import { AppSidebar, isActivePath } from "@/components/app-sidebar";
-import { isPaletteShortcut } from "@/components/app-shell";
+import { AppShell, isPaletteShortcut } from "@/components/app-shell";
+import { Logo } from "@/components/logo";
 import { CommandPalette } from "@/components/command-palette";
 import { OrganizationProvider, useOrganization } from "@/components/organization-provider";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -44,6 +46,7 @@ function Providers({ children }: { children: React.ReactNode }) {
 
 beforeEach(() => {
   resetNavigation();
+  apiMock.notifications.mockResolvedValue({ unread_count: 0, results: [] });
   apiMock.organizations.mockResolvedValue(organizations);
   apiMock.repositories.mockResolvedValue([
     { id: 7, full_name: "alice/app", private: false, default_branch: "main" },
@@ -173,5 +176,96 @@ describe("command palette", () => {
 
     expect(await screen.findByText(/could not be loaded/)).toBeInTheDocument();
     expect(screen.getByText("Dashboard")).toBeInTheDocument();
+  });
+});
+
+describe("logo", () => {
+  it("is named once: by its wordmark, or by alt text when it stands alone", () => {
+    const { rerender } = render(<Logo />);
+    expect(screen.getByText("CodeSage")).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "CodeSage" })).not.toBeInTheDocument();
+
+    rerender(<Logo markOnly />);
+    expect(screen.getByRole("img", { name: "CodeSage" })).toBeInTheDocument();
+  });
+});
+
+describe("sidebar header and menus", () => {
+  it("links the logo home and badges the workspace with its initial", async () => {
+    render(<AppSidebar />, { wrapper: Providers });
+
+    expect(screen.getByRole("link", { name: "CodeSage, dashboard" })).toHaveAttribute("href", "/");
+    const switcher = await screen.findByRole("button", { name: /Organisation: alice/ });
+    expect(switcher).toHaveTextContent(/^aalice/i);
+  });
+
+  it("switches organisation from the keyboard alone", async () => {
+    function Current() {
+      return <span data-testid="current">{useOrganization().current?.name}</span>;
+    }
+    render(
+      <>
+        <AppSidebar />
+        <Current />
+      </>,
+      { wrapper: Providers },
+    );
+
+    const switcher = await screen.findByRole("button", { name: /Organisation: alice/ });
+    switcher.focus();
+    await userEvent.keyboard("{Enter}");
+    const menu = await screen.findByRole("menu");
+    expect(within(menu).getByRole("menuitem", { name: /alice/ })).toContainElement(
+      within(menu).getByLabelText("Current organisation"),
+    );
+
+    await userEvent.click(within(menu).getByRole("menuitem", { name: /acme/ }));
+    expect(screen.getByTestId("current")).toHaveTextContent("acme");
+  });
+
+  it("signs out from the account menu", async () => {
+    render(<AppSidebar />, { wrapper: Providers });
+
+    screen.getByRole("button", { name: "Account: alice" }).focus();
+    await userEvent.keyboard("{Enter}");
+    await userEvent.click(await screen.findByRole("menuitem", { name: "Sign out" }));
+
+    expect(auth.signOut).toHaveBeenCalledOnce();
+  });
+});
+
+describe("app shell", () => {
+  function renderShell() {
+    return render(
+      <ThemeProvider attribute="class">
+        <TooltipProvider>
+          <AppShell>
+            <p>page body</p>
+          </AppShell>
+        </TooltipProvider>
+      </ThemeProvider>,
+    );
+  }
+
+  it("has exactly one main landmark, holding the page, and a skip link to it", async () => {
+    renderShell();
+
+    expect(await screen.findByText("page body")).toBeInTheDocument();
+    const mains = screen.getAllByRole("main");
+    expect(mains).toHaveLength(1);
+    expect(mains[0]).toHaveAttribute("id", "content");
+    expect(screen.getByRole("link", { name: "Skip to content" })).toHaveAttribute("href", "#content");
+  });
+
+  it("opens the palette from the search button and from Ctrl+K", async () => {
+    renderShell();
+
+    await userEvent.click(await screen.findByRole("button", { name: /Search or jump to/ }));
+    expect(await screen.findByRole("dialog", { name: "Command palette" })).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await userEvent.keyboard("{Control>}k{/Control}");
+    expect(await screen.findByRole("dialog", { name: "Command palette" })).toBeInTheDocument();
   });
 });

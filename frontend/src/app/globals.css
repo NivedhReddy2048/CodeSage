@@ -76,6 +76,7 @@
   --color-brand-deep: var(--brand-deep);
   --color-brand-tinted: var(--brand-tinted);
   --color-on-brand: var(--on-brand);
+  --color-on-blocking: var(--on-blocking);
   --color-focus: var(--focus);
 
   /* Status: four colour families plus a neutral, always paired with an icon or a word. */
@@ -202,6 +203,8 @@
   --status-blocking: #be123c;
   --status-blocking-bg: #fff1f2;
   --status-blocking-border: #fecdd3;
+  /* Text on a solid blocking fill: the unread count on the bell. */
+  --on-blocking: #ffffff;
   --status-nit: #b45309;
   --status-nit-bg: #fffbeb;
   --status-nit-border: #fde68a;
@@ -260,6 +263,7 @@
   --status-blocking: #fb7185;
   --status-blocking-bg: rgba(244, 63, 94, 0.14);
   --status-blocking-border: rgba(251, 113, 133, 0.3);
+  --on-blocking: #060a0f;
   --status-nit: #fbbf24;
   --status-nit-bg: rgba(245, 158, 11, 0.14);
   --status-nit-border: rgba(251, 191, 36, 0.3);
@@ -277,7 +281,9 @@
   --chart-empty: rgba(148, 163, 184, 0.08);
 
   --elevation-card: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 20px -2px rgba(0, 0, 0, 0.45);
-  --elevation-popover: 0 20px 45px -10px rgba(0, 0, 0, 0.65), 0 0 0 1px var(--border-default);
+  /* border-strong, not border-default: against a near-black page the default edge
+     all but vanished, and a menu over the sidebar read as part of it. */
+  --elevation-popover: 0 20px 45px -10px rgba(0, 0, 0, 0.65), 0 0 0 1px var(--border-strong);
 }
 
 /* The shadcn names, mapped onto the tokens above. Same in both themes, because the

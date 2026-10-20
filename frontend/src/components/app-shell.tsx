@@ -7,11 +7,13 @@ import { useEffect, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/components/auth-provider";
 import { CommandPalette } from "@/components/command-palette";
+import { Logo } from "@/components/logo";
 import { OrganizationProvider, useOrganization } from "@/components/organization-provider";
 import { NotificationBell } from "@/components/notification-bell";
 import { ErrorState, ListSkeleton } from "@/components/states";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
+import { Kbd } from "@/components/ui/kbd";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Toaster } from "@/components/ui/sonner";
@@ -78,28 +80,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <SidebarProvider>
         <a
           href="#content"
-          className="sr-only z-50 rounded-md bg-background px-3 py-2 focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
+          className="sr-only z-50 rounded-lg bg-surface-3 px-3 py-2 font-medium text-fg shadow-popover focus:not-sr-only focus:fixed focus:top-2 focus:left-2"
         >
           Skip to content
         </a>
         <AppSidebar />
         <SidebarInset>
-          <header className="sticky top-0 z-10 flex h-14 items-center gap-2 border-b bg-background/95 px-4 backdrop-blur">
+          {/* Glass over the page as it scrolls under. z-20 keeps it above page
+              content; menus and dialogs portal out at z-50. */}
+          <header className="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-border-subtle bg-glass px-3 backdrop-blur-md sm:px-4">
             <SidebarTrigger aria-label="Toggle sidebar" />
-            <Separator orientation="vertical" className="mr-1 h-4" />
+            {/* On a phone the sidebar is a drawer, so the mark lives up here. */}
+            <Logo markOnly size={24} className="md:hidden" />
+            <Separator orientation="vertical" className="mx-1 hidden h-4 md:block" />
             <Button
               variant="outline"
-              className="h-8 min-w-0 max-w-sm flex-1 justify-start gap-2 text-muted-foreground"
+              className="h-8 min-w-0 max-w-md flex-1 justify-start gap-2 bg-surface-1 font-normal text-fg-secondary hover:text-fg dark:bg-surface-1"
               onClick={() => setPaletteOpen(true)}
               aria-keyshortcuts="Control+K Meta+K"
             >
               <Search aria-hidden="true" className="size-4" />
               <span className="flex-1 truncate text-left">Search or jump to...</span>
-              <kbd className="hidden rounded border bg-muted px-1.5 font-mono text-[10px] sm:inline">
-                Ctrl K
-              </kbd>
+              <Kbd className="hidden sm:inline-flex">Ctrl K</Kbd>
             </Button>
-            <div className="ml-auto flex items-center gap-1">
+            <div className="ml-auto flex items-center gap-0.5">
               <NotificationBell />
               <ThemeToggle />
             </div>
@@ -109,7 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <main
             id="content"
             tabIndex={-1}
-            className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 py-8 outline-none sm:px-6"
+            className="mx-auto w-full min-w-0 max-w-[1380px] flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8"
           >
             <Content>{children}</Content>
           </main>
