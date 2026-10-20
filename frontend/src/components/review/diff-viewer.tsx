@@ -1,6 +1,8 @@
-"use client";
+// No "use client": it holds no state and only memoises, so the landing page renders
+// its example on the server with nothing to hydrate. The review page, a client
+// component, still bundles it as client code.
 
-import { FileCode2 } from "lucide-react";
+import { BookOpenCheck, FileCode2 } from "lucide-react";
 import { useMemo } from "react";
 
 import { StatusBadge } from "@/components/status-badge";
@@ -35,21 +37,28 @@ function InlineFinding({ finding }: { finding: ReviewFinding }) {
   return (
     <div
       id={findingAnchor(finding.id)}
-      className="mx-2 my-1.5 scroll-mt-24 rounded-md border bg-card px-3 py-2 font-sans text-sm shadow-xs"
+      className={cn(
+        "sticky left-2 my-1.5 w-[calc(100cqw-1rem)] scroll-mt-24 rounded-lg border border-l-[3px] bg-surface-1 px-3 py-2 font-sans text-sm whitespace-normal shadow-card",
+        finding.severity === "blocking" ? "border-l-status-blocking" : "border-l-status-nit",
+      )}
     >
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge kind={finding.severity} />
-        {finding.category ? (
-          <span className="text-xs text-muted-foreground">{finding.category}</span>
-        ) : null}
-        <span className="text-xs text-muted-foreground">
-          &middot; {AGENT_LABELS[finding.agent] ?? finding.agent}
+        <span className="rounded-md border bg-surface-2 px-1.5 py-0.5 text-xs font-medium text-fg-secondary">
+          {AGENT_LABELS[finding.agent] ?? finding.agent}
         </span>
+        {finding.category ? (
+          <span className="text-xs text-fg-secondary">{finding.category}</span>
+        ) : null}
       </div>
-      <p className="mt-1 whitespace-pre-wrap">{finding.message}</p>
+      <p className="mt-1.5 whitespace-pre-wrap text-fg">{finding.message}</p>
       {finding.citation ? (
-        <p className="mt-1 text-xs text-muted-foreground">
-          Grounded in <code>{finding.citation}</code>
+        <p className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-fg-secondary">
+          <BookOpenCheck aria-hidden="true" className="size-3.5 text-brand" />
+          Grounded in
+          <code className="rounded-md border border-border-brand bg-brand-tinted px-1.5 py-0.5 font-mono text-[0.6875rem] text-brand">
+            {finding.citation}
+          </code>
         </p>
       ) : null}
     </div>
@@ -86,7 +95,9 @@ function FileDiff({
       {file.hunks.length === 0 ? (
         <p className="px-3 py-2 text-sm text-muted-foreground">No textual changes to show.</p>
       ) : (
-        <div className="overflow-x-auto">
+        // A size container: an inline finding takes the visible width (100cqw) and
+        // stays put while long code lines scroll sideways beneath it.
+        <div className="@container overflow-x-auto">
           <table className="w-full border-collapse font-mono text-xs leading-5">
             <caption className="sr-only">
               Changes to {file.path}, with old and new line numbers

@@ -1,8 +1,9 @@
 "use client";
 
-import { Monitor, Moon, Sun } from "lucide-react";
+import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 
+import { THEME_OPTIONS } from "@/components/theme-toggle-options";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,11 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-export const THEME_OPTIONS = [
-  { value: "light", label: "Light", icon: Sun },
-  { value: "dark", label: "Dark", icon: Moon },
-  { value: "system", label: "System", icon: Monitor },
-] as const;
+export { THEME_OPTIONS };
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();

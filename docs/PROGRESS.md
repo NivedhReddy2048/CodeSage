@@ -18,7 +18,7 @@ pull requests, each closing its own issue. Architecture lives in
 | 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **Done** |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Next |
 | 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
-| R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | In progress (2 of 6) |
+| R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | In progress (3 of 6) |
 
 Phase 8 depends only on Phase 5, so it can be built before or after Phase 7.
 
@@ -81,6 +81,93 @@ PR lands rather than one behind forever.
 
 **Status:** In progress. Six frontend-only PRs; no backend or API changes. Every
 route, API call, socket stream and sign-in step stays as it was.
+
+### redesign-3 — landing page at /login, callback restyle
+
+`/login` is still the sign-in page, at the same path, with the same redirect when
+already signed in. It is now also the page that explains the product.
+
+**Sections:**
+- A sticky glass header: logo, jump links (How it works, Architecture, Example
+  review), View on GitHub, a theme switch and a compact "Continue with GitHub".
+- A split hero: the "Multi-agent PR review" eyebrow, a display headline, the
+  one-line pitch, the three feature cards, and the sign-in card with a mint glow.
+  On a phone the sign-in card comes before the feature cards, so signing in is one
+  screen down.
+- "How it works": the pipeline as an SVG at desktop width, with data pulses that
+  are hidden under reduced motion. Below that width, and for screen readers at
+  every width, it is an ordered list.
+- "Architecture": six tiles, one per real component.
+- An example review, a closing call to action, and a footer.
+
+**The diagram follows the code, not the brief.**
+- The brief said "5 parallel agents". `graph.py` runs Diff/Intent first and alone,
+  then the other four in parallel, so the diagram shows that.
+- The brief put the citation check in synthesis. It lives in the grounding agent
+  (`citations.validate`), so it is on that node.
+- A test pins the order and checks that the page never mentions tree-sitter or
+  ESLint, neither of which the code uses.
+
+**Example review.**
+- Drawn by the real `DiffViewer` and `StatusBadge` from fixed sample data, badged
+  "Example".
+- One blocking off-by-one (`range(len(users) + 1)`), shaped like a real grounding
+  finding: it names `export_rows`, and its citation uses the checker's
+  `path:start-end` form.
+- Per-agent timings, and "est. ₹0.07 at paid-tier rates · actual spend ₹0".
+- A test stubs `fetch`, `WebSocket` and `XMLHttpRequest` and asserts none is
+  called, and that it renders no image, script or other fetched resource.
+- No testimonials, logos, user counts or invented metrics; a test checks for the
+  usual phrases.
+
+**Inline findings, on the review page too.** A severity-coloured left edge, an
+agent chip, and the citation as a brand chip. On a phone the finding card takes
+the diff scroller's visible width (a size container, `100cqw`), so it reads
+without scrolling sideways while long code lines still scroll under it.
+
+**/auth/callback.** The loading and error states sit in a card with the logo.
+Only JSX changed: the effect, state, timing and routing lines are untouched, and
+all 10 callback tests pass unchanged.
+
+**Lighthouse, production build (`next build && next start`), Edge headless.**
+
+| | Performance | Accessibility | Best practices | SEO |
+|---|---|---|---|---|
+| Mobile, final build, 3 runs | 93, 94, 94 | 100 | 100 | 100 |
+| Mobile, previous build, 5 runs | 96 (all five) | 100 | 100 | 100 |
+| Desktop | 100 | 100 | 100 | 100 |
+
+The two builds differ only in the header's jump-link breakpoint; the spread is
+machine load.
+
+**Getting mobile from 81 to the 90s, measured one step at a time:**
+- **The example review renders on the server.** `DiffViewer` holds no state and
+  only memoises, so it lost `"use client"`. The landing page ships no diff code
+  and has nothing of it to hydrate; the review page, a client component, still
+  bundles it.
+- **The landing islands carry no component library.** The sign-in button is a
+  plain `<button>` whose classes the server page computes with `buttonVariants`.
+  The header uses a three-radio theme switch rather than the menu.
+  `TooltipProvider` moved from the root layout into the app shell, its only user.
+  Together: 81 → 87-90.
+- **Below-the-fold sections sit in a Suspense boundary**, so React hydrates them
+  as a separate unit instead of in the same long task.
+- **The ₹ sign is set in the system UI font on this page.** Geist has ₹ only in
+  its latin-ext subset, so one ₹ fetched two more font files (31 KB) at very high
+  priority, competing with first paint. The same build without them went from
+  87-93 to 95-96. `<Inr />` keeps the glyph and drops the fetch.
+
+**Tests:** 275 pass. New tests cover:
+- the section links;
+- a failure reported next to the button that was pressed, once;
+- the pipeline order and its copy;
+- no social proof;
+- the cost wording;
+- the example's badge, finding and citation;
+- the example making no network requests.
+
+Checked in Edge, light and dark, at 1366, 1024, 768 and 375 px: no horizontal page
+scroll, no console errors, and no API request from the landing page.
 
 ### redesign-2 — app shell
 

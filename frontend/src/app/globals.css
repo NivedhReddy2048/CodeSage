@@ -375,6 +375,13 @@
   }
 }
 
+/* In-page jumps (the landing page's section links) glide, unless motion is reduced. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 /* Reduced motion: state changes are instant, and nothing loops or travels. */
 @media (prefers-reduced-motion: reduce) {
   *,
