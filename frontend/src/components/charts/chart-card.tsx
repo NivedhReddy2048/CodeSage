@@ -54,7 +54,7 @@ export function ChartCard({
       </CardHeader>
       <CardContent>
         {legend && legend.length > 1 && !showTable ? (
-          <ul aria-label="Legend" className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <ul aria-label="Legend" className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-secondary">
             {legend.map((item) => (
               <li key={item.label} className="flex items-center gap-1.5">
                 <span aria-hidden="true" className="size-2.5 rounded-[2px]" style={{ background: item.color }} />
@@ -84,15 +84,15 @@ export function DataTable({
   rows: (string | number)[][];
 }) {
   return (
-    <div className="max-h-72 overflow-auto">
-      <table className="w-full text-sm">
-        <thead className="sticky top-0 bg-card">
+    <div className="max-h-72 overflow-auto rounded-lg border">
+      <table className="w-full text-control">
+        <thead className="sticky top-0 bg-surface-2">
           <tr className="border-b">
             {columns.map((column) => (
               <th
                 key={column.label}
                 scope="col"
-                className={cn("py-1.5 pr-3 font-medium text-muted-foreground", column.numeric ? "text-right" : "text-left")}
+                className={cn("px-3 py-2 text-micro text-fg-secondary", column.numeric ? "text-right" : "text-left")}
               >
                 {column.label}
               </th>
@@ -105,7 +105,7 @@ export function DataTable({
               {row.map((cell, cellIndex) => (
                 <td
                   key={cellIndex}
-                  className={cn("py-1.5 pr-3", columns[cellIndex]?.numeric && "text-right tabular-nums")}
+                  className={cn("px-3 py-1.5", columns[cellIndex]?.numeric && "text-right font-mono tabular-nums")}
                 >
                   {cell}
                 </td>

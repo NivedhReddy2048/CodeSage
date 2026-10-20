@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { BarChart } from "@/components/charts/bar-chart";
 import { ChartCard, DataTable } from "@/components/charts/chart-card";
 import { ColumnChart } from "@/components/charts/column-chart";
+import { BreakdownBar, Sparkline } from "@/components/charts/kpi-parts";
 import { barPath, columnPath, compact, niceScale } from "@/components/charts/scale";
 
 describe("scale", () => {
@@ -44,6 +45,29 @@ describe("ColumnChart", () => {
     expect(valueLabels).toEqual(["7"]);
     // Zero draws nothing rather than a sliver.
     expect([...container.querySelectorAll("path")].filter((p) => p.getAttribute("d"))).toHaveLength(2);
+  });
+
+  it("gives a zero day a faint empty slot, and only zero days", () => {
+    const { container } = render(<ColumnChart points={days} unit="reviews" />);
+
+    expect(container.querySelectorAll("rect[data-empty-slot]")).toHaveLength(1);
+    expect(container.querySelector("rect[data-empty-slot]")).toHaveAttribute("fill", "var(--chart-empty)");
+  });
+
+  it("marks the daily average with a dashed line and its value", () => {
+    const { container } = render(<ColumnChart points={days} unit="reviews" />);
+
+    const average = container.querySelector("[data-average]");
+    expect(average?.querySelector("line")).toHaveAttribute("stroke-dasharray", "4 4");
+    expect(average).toHaveTextContent(/avg\s*3\/day/);
+  });
+
+  it("draws no average for a single day or an empty period", () => {
+    const { container, rerender } = render(<ColumnChart points={[days[0]]} unit="reviews" />);
+    expect(container.querySelector("[data-average]")).toBeNull();
+
+    rerender(<ColumnChart points={days.map((d) => ({ ...d, value: 0 }))} unit="reviews" />);
+    expect(container.querySelector("[data-average]")).toBeNull();
   });
 
   it("reads each day with the arrow keys, the same readout as hover", () => {
@@ -142,5 +166,44 @@ describe("ChartCard", () => {
       </ChartCard>,
     );
     expect(screen.getByRole("figure")).toHaveAttribute("aria-busy", "true");
+  });
+});
+
+describe("KPI parts", () => {
+  it("splits a total proportionally and keys every drawn segment in text", () => {
+    const { container } = render(
+      <BreakdownBar
+        segments={[
+          { label: "done", value: 23, color: "green" },
+          { label: "degraded", value: 1, color: "amber" },
+          { label: "failed", value: 0, color: "red" },
+        ]}
+      />,
+    );
+
+    const bars = container.querySelectorAll<HTMLElement>("[style*='flex-grow']");
+    expect([...bars].map((bar) => bar.style.flexGrow)).toEqual(["23", "1"]);
+    expect(container).toHaveTextContent("23 done");
+    expect(container).toHaveTextContent("1 degraded");
+    // Zero is neither drawn nor listed.
+    expect(container).not.toHaveTextContent("failed");
+    // A summary of numbers the tile states in text: hidden from assistive tech.
+    expect(container.firstElementChild).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("draws nothing for an empty breakdown", () => {
+    const { container } = render(<BreakdownBar segments={[{ label: "done", value: 0, color: "g" }]} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("breaks the sparkline at days with no value instead of dropping to zero", () => {
+    const { container } = render(<Sparkline values={[4000, 5000, null, 4500, 4800]} />);
+
+    expect(container.querySelectorAll("polyline")).toHaveLength(2);
+  });
+
+  it("needs two values to draw a trend", () => {
+    const { container } = render(<Sparkline values={[null, 4000, null]} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

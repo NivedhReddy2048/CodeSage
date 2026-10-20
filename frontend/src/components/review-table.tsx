@@ -1,5 +1,6 @@
 "use client";
 
+import { OctagonAlert } from "lucide-react";
 import Link from "next/link";
 
 import { StatusBadge, reviewStatusKind } from "@/components/status-badge";
@@ -14,7 +15,11 @@ import {
 import { formatDuration, formatInr, formatRelative } from "@/lib/format";
 import type { ReviewListItem } from "@/lib/types";
 
-/** The reviews table shared by the dashboard and the reviews page. */
+/**
+ * The reviews table shared by the dashboard and the reviews page. Slugs, PR numbers
+ * and every number are mono with tabular figures, so a column of costs or times
+ * lines up digit for digit; numbers are right-aligned.
+ */
 export function ReviewTable({
   reviews,
   compact = false,
@@ -41,14 +46,14 @@ export function ReviewTable({
       <TableBody>
         {reviews.map((review) => (
           <TableRow key={review.id}>
-            <TableCell className="max-w-72">
+            <TableCell className="max-w-80 py-2.5">
               <Link
                 href={`/reviews/${review.id}`}
-                className="block truncate font-medium underline-offset-4 hover:underline"
+                className="block truncate font-mono text-[0.8125rem] font-medium text-fg underline-offset-4 hover:text-brand hover:underline"
               >
                 {review.repository}#{review.pr_number}
               </Link>
-              <span className="block truncate text-xs text-muted-foreground">
+              <span className="block truncate text-xs text-fg-secondary">
                 {review.pr_title || "Untitled"}
               </span>
             </TableCell>
@@ -59,21 +64,30 @@ export function ReviewTable({
               </div>
             </TableCell>
             <TableCell className="text-right">
-              <span className="tabular-nums">{review.finding_count}</span>
-              {review.blocking_count ? (
-                <span className="ml-1 text-xs text-status-blocking">
-                  ({review.blocking_count} blocking)
-                </span>
-              ) : null}
+              <span className="inline-flex items-center justify-end gap-1.5">
+                {review.blocking_count ? (
+                  <span
+                    className="inline-flex h-5 items-center gap-1 rounded-full border border-status-blocking-border bg-status-blocking-bg px-1.5 text-[0.6875rem] font-medium text-status-blocking"
+                    title={`${review.blocking_count} blocking`}
+                  >
+                    <OctagonAlert aria-hidden="true" className="size-3" />
+                    <span className="font-mono tabular-nums">{review.blocking_count}</span>
+                    <span className="sr-only"> blocking</span>
+                  </span>
+                ) : null}
+                <span className="font-mono tabular-nums">{review.finding_count}</span>
+              </span>
             </TableCell>
-            <TableCell className={`${wide} text-right tabular-nums`}>
+            <TableCell className={`${wide} text-right font-mono tabular-nums`}>
               {review.status === "done" ? formatDuration(review.duration_ms) : "-"}
             </TableCell>
-            <TableCell className={`${wide} text-right tabular-nums`}>
+            <TableCell className={`${wide} text-right font-mono tabular-nums`}>
               {formatInr(review.estimated_cost_inr)}
             </TableCell>
-            <TableCell className="hidden text-right text-muted-foreground sm:table-cell">
-              <time dateTime={review.created_at}>{formatRelative(review.created_at)}</time>
+            <TableCell className="hidden text-right text-fg-secondary sm:table-cell">
+              <time dateTime={review.created_at} className="font-mono text-xs tabular-nums">
+                {formatRelative(review.created_at)}
+              </time>
             </TableCell>
           </TableRow>
         ))}

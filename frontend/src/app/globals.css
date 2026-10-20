@@ -215,6 +215,8 @@
   --status-neutral-bg: #f1f5f9;
   --status-neutral-border: #cbd5e1;
 
+  /* Validated against #ffffff: primary/secondary and blocking/nit both pass every
+     check (blocking/nit CVD dE 9.4). */
   --chart-primary: #059669;
   --chart-secondary: #0284c7;
   --chart-blocking: #e11d48;
@@ -274,10 +276,16 @@
   --status-neutral-bg: rgba(148, 163, 184, 0.12);
   --status-neutral-border: rgba(148, 163, 184, 0.28);
 
-  --chart-primary: #10b981;
-  --chart-secondary: #38bdf8;
-  --chart-blocking: #f43f5e;
-  --chart-nit: #f59e0b;
+  /* Chart marks, run through the dataviz validator against this card (#0b121b).
+     The brand emerald/sky/rose/amber steps sit above the dark lightness band
+     (OKLCH L 0.48-0.67) and glare on near-black, so marks use one step deeper:
+     primary/secondary pass every check (CVD dE 15.3); blocking/nit pass with CVD
+     dE 7.8, the floor band that is legal with secondary encoding - which every
+     two-series chart here has (legend, 2px gaps, per-row readout, table view). */
+  --chart-primary: #0d9e6d;
+  --chart-secondary: #1f9bd6;
+  --chart-blocking: #e11d48;
+  --chart-nit: #c47f0b;
   --chart-empty: rgba(148, 163, 184, 0.08);
 
   --elevation-card: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 4px 20px -2px rgba(0, 0, 0, 0.45);
