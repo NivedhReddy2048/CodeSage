@@ -1,6 +1,6 @@
 "use client";
 
-import { GitPullRequest } from "lucide-react";
+import { ChevronLeft, ChevronRight, GitPullRequest, ListFilter, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
@@ -44,11 +44,18 @@ function FilterSelect({
   onChange: (value: string) => void;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1">
-      <label htmlFor={id} className="text-micro text-fg-secondary">
+    // The label is for assistive tech; each select's first option names it visually
+    // ("All repositories", "Any status"), and a set filter is outlined in brand.
+    <div className="min-w-0 sm:w-52">
+      <label htmlFor={id} className="sr-only">
         {label}
       </label>
-      <NativeSelect id={id} value={value} onChange={(event) => onChange(event.target.value)}>
+      <NativeSelect
+        id={id}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={value ? "border-brand bg-brand-tinted" : undefined}
+      >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -81,55 +88,73 @@ function ReviewsList() {
 
   const total = reviews.data?.count ?? 0;
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const filtered = Boolean(filters.repository || filters.status || filters.severity);
+  const active = [filters.repository, filters.status, filters.severity].filter(Boolean).length;
+  const filtered = active > 0;
 
   return (
     <>
       <PageHeader title="Reviews" description="Every pull request review in this organisation, newest first." />
 
-      <Card>
-        <CardContent>
-          <form
-            aria-label="Filter reviews"
-            className="mb-4 grid gap-3 sm:grid-cols-[repeat(3,minmax(0,14rem))_auto] sm:items-end"
-            onSubmit={(event) => event.preventDefault()}
-          >
-            <FilterSelect
-              id="filter-repository"
-              label="Repository"
-              value={filters.repository}
-              onChange={(repository) => update({ repository })}
-              options={[
-                { value: "", label: "All repositories" },
-                ...(repos.data ?? []).map((repo) => ({ value: String(repo.id), label: repo.full_name })),
-              ]}
-            />
-            <FilterSelect
-              id="filter-status"
-              label="Status"
-              value={filters.status}
-              options={STATUSES}
-              onChange={(status) => update({ status })}
-            />
-            <FilterSelect
-              id="filter-severity"
-              label="Severity"
-              value={filters.severity}
-              options={SEVERITIES}
-              onChange={(severity) => update({ severity })}
-            />
-            {filtered ? (
-              <Button
-                variant="ghost"
-                size="sm"
-                type="button"
-                onClick={() => update({ repository: "", status: "", severity: "" })}
-              >
-                Clear filters
-              </Button>
+      <Card className="gap-0 py-0">
+        {/* One toolbar on the table it filters. */}
+        <form
+          aria-label="Filter reviews"
+          className="flex flex-col gap-2 border-b bg-surface-2/40 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-center"
+          onSubmit={(event) => event.preventDefault()}
+        >
+          <p className="flex items-center gap-2 text-sm font-medium text-fg sm:mr-1">
+            <ListFilter aria-hidden="true" className="size-4 text-fg-secondary" />
+            Filters
+            {active ? (
+              <span className="rounded-full border border-border-brand bg-brand-tinted px-1.5 font-mono text-xs text-brand tabular-nums">
+                {active} active
+              </span>
             ) : null}
-          </form>
+          </p>
+          <FilterSelect
+            id="filter-repository"
+            label="Repository"
+            value={filters.repository}
+            onChange={(repository) => update({ repository })}
+            options={[
+              { value: "", label: "All repositories" },
+              ...(repos.data ?? []).map((repo) => ({ value: String(repo.id), label: repo.full_name })),
+            ]}
+          />
+          <FilterSelect
+            id="filter-status"
+            label="Status"
+            value={filters.status}
+            options={STATUSES}
+            onChange={(status) => update({ status })}
+          />
+          <FilterSelect
+            id="filter-severity"
+            label="Severity"
+            value={filters.severity}
+            options={SEVERITIES}
+            onChange={(severity) => update({ severity })}
+          />
+          {filtered ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              type="button"
+              className="self-start sm:self-auto"
+              onClick={() => update({ repository: "", status: "", severity: "" })}
+            >
+              <X aria-hidden="true" className="size-3.5" />
+              Clear filters
+            </Button>
+          ) : null}
+          {reviews.data ? (
+            <span className="text-xs text-fg-secondary sm:ml-auto">
+              <span className="font-mono tabular-nums">{total}</span> review{total === 1 ? "" : "s"}
+            </span>
+          ) : null}
+        </form>
 
+        <CardContent className="py-3">
           {reviews.loading ? (
             <TableSkeleton rows={8} columns={5} label="Loading reviews" />
           ) : reviews.error ? (
@@ -139,17 +164,21 @@ function ReviewsList() {
               <ReviewTable reviews={reviews.data.results} />
               <nav
                 aria-label="Pagination"
-                className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground"
+                className="mt-3 flex items-center justify-between gap-2 border-t pt-3 text-sm text-fg-secondary"
               >
                 <span>
-                  Page {page} of {pages} &middot; {total} review{total === 1 ? "" : "s"}
+                  Page <span className="font-mono text-fg tabular-nums">{page}</span> of{" "}
+                  <span className="font-mono tabular-nums">{pages}</span> &middot;{" "}
+                  <span className="font-mono tabular-nums">{total}</span> review{total === 1 ? "" : "s"}
                 </span>
                 <span className="flex gap-2">
                   <Button variant="outline" size="sm" disabled={!reviews.data.previous} onClick={() => update({ page: page - 1 })}>
+                    <ChevronLeft aria-hidden="true" className="size-3.5" />
                     Previous
                   </Button>
                   <Button variant="outline" size="sm" disabled={!reviews.data.next} onClick={() => update({ page: page + 1 })}>
                     Next
+                    <ChevronRight aria-hidden="true" className="size-3.5" />
                   </Button>
                 </span>
               </nav>

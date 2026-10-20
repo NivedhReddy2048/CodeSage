@@ -19,11 +19,21 @@ export function findingAnchor(id: number) {
   return `finding-${id}`;
 }
 
+// Added and removed lines are tinted with the success and blocking fills, whose
+// text pairs are in the contrast test, and also carry a coloured sign and a
+// screen-reader word - never colour alone.
 const LINE_TONE: Record<DiffLine["kind"], string> = {
-  add: "bg-status-ok-bg/70",
-  del: "bg-status-blocking-bg/70",
+  add: "bg-status-ok-bg",
+  del: "bg-status-blocking-bg",
   context: "",
-  note: "text-muted-foreground italic",
+  note: "text-fg-secondary italic",
+};
+
+const SIGN_TONE: Record<DiffLine["kind"], string> = {
+  add: "text-status-ok",
+  del: "text-status-blocking",
+  context: "text-fg-secondary",
+  note: "text-fg-secondary",
 };
 
 const LINE_SIGN: Record<DiffLine["kind"], string> = {
@@ -75,25 +85,27 @@ function FileDiff({
   const count = [...findingsByLine.values()].reduce((sum, list) => sum + list.length, 0);
 
   return (
-    <section aria-label={`Diff of ${file.path}`} className="overflow-hidden rounded-lg border">
-      <header className="flex flex-wrap items-center gap-2 border-b bg-muted/50 px-3 py-2 text-sm">
-        <FileCode2 aria-hidden="true" className="size-4 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate font-mono font-medium">
+    // overflow-clip, not hidden: clip does not make a scroll container, so the file
+    // header can stick to the page (under the 56px top bar) while its file scrolls by.
+    <section aria-label={`Diff of ${file.path}`} className="overflow-clip rounded-xl border bg-surface-1 shadow-card">
+      <header className="sticky top-14 z-10 flex flex-wrap items-center gap-2 border-b bg-surface-2 px-3 py-2 text-sm">
+        <FileCode2 aria-hidden="true" className="size-4 text-fg-secondary" />
+        <span className="min-w-0 flex-1 truncate font-mono text-[0.8125rem] font-medium text-fg">
           {file.status === "renamed" ? `${file.oldPath} → ${file.path}` : file.path}
         </span>
         {file.status !== "modified" ? (
-          <span className="text-xs text-muted-foreground capitalize">{file.status}</span>
+          <span className="rounded-md border bg-surface-1 px-1.5 py-0.5 text-[0.6875rem] text-fg-secondary capitalize">{file.status}</span>
         ) : null}
-        <span className="text-xs tabular-nums text-status-ok">+{file.additions}</span>
-        <span className="text-xs tabular-nums text-status-blocking">-{file.deletions}</span>
+        <span className="font-mono text-xs tabular-nums text-status-ok">+{file.additions}</span>
+        <span className="font-mono text-xs tabular-nums text-status-blocking">-{file.deletions}</span>
         {count ? (
-          <span className="text-xs text-muted-foreground">
+          <span className="text-xs text-fg-secondary">
             {count} finding{count === 1 ? "" : "s"}
           </span>
         ) : null}
       </header>
       {file.hunks.length === 0 ? (
-        <p className="px-3 py-2 text-sm text-muted-foreground">No textual changes to show.</p>
+        <p className="px-3 py-2 text-sm text-fg-secondary">No textual changes to show.</p>
       ) : (
         // A size container: an inline finding takes the visible width (100cqw) and
         // stays put while long code lines scroll sideways beneath it.
@@ -104,8 +116,8 @@ function FileDiff({
             </caption>
             {file.hunks.map((hunk, hunkIndex) => (
               <tbody key={hunkIndex}>
-                <tr className="bg-status-running-bg/50 text-muted-foreground">
-                  <td colSpan={3} className="px-3 py-0.5">
+                <tr className="bg-surface-2/70 text-fg-secondary">
+                  <td colSpan={3} className="px-3 py-1">
                     {hunk.header}
                   </td>
                 </tr>
@@ -118,17 +130,17 @@ function FileDiff({
                       className={cn(
                         "scroll-mt-24",
                         LINE_TONE[line.kind],
-                        here && "outline outline-1 -outline-offset-1 outline-status-blocking/40",
+                        here && "outline outline-1 -outline-offset-1 outline-status-blocking-border",
                       )}
                     >
-                      <td className="w-12 border-r px-2 text-right text-muted-foreground select-none">
+                      <td className="w-12 border-r px-2 text-right text-fg-secondary tabular-nums select-none">
                         {line.oldNumber ?? ""}
                       </td>
-                      <td className="w-12 border-r px-2 text-right text-muted-foreground select-none">
+                      <td className="w-12 border-r px-2 text-right text-fg-secondary tabular-nums select-none">
                         {line.newNumber ?? ""}
                       </td>
-                      <td className="px-2 whitespace-pre">
-                        <span aria-hidden="true" className="select-none text-muted-foreground">
+                      <td className="px-2 whitespace-pre text-fg">
+                        <span aria-hidden="true" className={cn("mr-1 select-none font-semibold", SIGN_TONE[line.kind])}>
                           {LINE_SIGN[line.kind]}
                         </span>
                         <span className="sr-only">
@@ -139,7 +151,7 @@ function FileDiff({
                     </tr>,
                     here ? (
                       <tr key={`${hunkIndex}-${lineIndex}-findings`}>
-                        <td colSpan={3} className="bg-muted/30 py-0.5">
+                        <td colSpan={3} className="bg-surface-2/50 py-0.5">
                           {here.map((finding) => (
                             <InlineFinding key={finding.id} finding={finding} />
                           ))}
@@ -190,7 +202,7 @@ export function DiffViewer({
   );
 
   if (files.length === 0) {
-    return <p className="text-sm text-muted-foreground">This diff has no file changes to show.</p>;
+    return <p className="text-sm text-fg-secondary">This diff has no file changes to show.</p>;
   }
 
   return (

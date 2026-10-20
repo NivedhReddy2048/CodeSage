@@ -12,6 +12,7 @@ vi.mock("@/lib/api", async (original) => ({
   api: apiMock,
 }));
 
+import { AgentProgress } from "@/components/review/agent-progress";
 import { AgentsTable } from "@/components/review/agents-table";
 import { DiffViewer, unanchoredFindings } from "@/components/review/diff-viewer";
 import { FindingsPanel } from "@/components/review/findings-panel";
@@ -148,6 +149,14 @@ describe("agents table", () => {
     expect(screen.getByText("AI providers unavailable")).toBeInTheDocument();
   });
 
+  it("scales each latency bar to the slowest agent", () => {
+    const { container } = render(
+      <AgentsTable runs={[run({ id: 1, latency_ms: 2000 }), run({ id: 2, name: "security", latency_ms: 500 })]} />,
+    );
+    const bars = [...container.querySelectorAll<HTMLElement>("[style*='width']")].map((bar) => bar.style.width);
+    expect(bars).toEqual(["100%", "25%"]);
+  });
+
   it("shows tokens and latency", () => {
     render(<AgentsTable runs={[run({})]} />);
     expect(screen.getByText("600 / 250")).toBeInTheDocument();
@@ -227,5 +236,20 @@ describe("while a review runs", () => {
 
     expect(screen.getByText("Review in progress")).toBeInTheDocument();
     expect(screen.queryByText(/No issues found|No findings/)).not.toBeInTheDocument();
+  });
+});
+
+describe("agent progress", () => {
+  it("has one step per agent, in graph order, each state in words", () => {
+    render(<AgentProgress agents={{ diff_intent: "ok", security: "running", grounding: "failed" }} />);
+
+    const steps = within(screen.getByRole("list", { name: "Agent progress" })).getAllByRole("listitem");
+    expect(steps.map((step) => step.querySelector(".sr-only")?.textContent)).toEqual([
+      "Diff/Intent: done",
+      "Static analysis: waiting",
+      "Security: running",
+      "Codebase grounding: failed",
+      "Test coverage: waiting",
+    ]);
   });
 });

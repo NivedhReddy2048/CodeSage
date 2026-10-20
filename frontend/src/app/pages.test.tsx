@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ThemeProvider } from "next-themes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -207,6 +207,21 @@ describe("reviews list filters", () => {
     );
     expect(await screen.findByText("No reviews match these filters")).toBeInTheDocument();
   });
+
+  it("counts the active filters and clears them all at once", async () => {
+    const { navigation } = await import("@/test/mocks");
+    const { default: ReviewsPage } = await import("@/app/(app)/reviews/page");
+    apiMock.reviews.mockResolvedValue({ count: 0, next: null, previous: null, results: [] });
+    apiMock.repositories.mockResolvedValue([{ id: 7, full_name: "alice/app" }]);
+    navigation.search = new URLSearchParams("repository=7&severity=blocking");
+    render(<ReviewsPage />, { wrapper: Providers });
+
+    const toolbar = await screen.findByRole("form", { name: "Filter reviews" });
+    expect(within(toolbar).getByText("2 active")).toBeInTheDocument();
+
+    await userEvent.click(within(toolbar).getByRole("button", { name: "Clear filters" }));
+    expect(navigation.push).toHaveBeenLastCalledWith("/reviews");
+  });
 });
 
 describe("review detail", () => {
@@ -274,6 +289,12 @@ describe("review detail", () => {
     });
     expect(screen.getByRole("alert")).toHaveTextContent("AI providers unavailable");
     expect(screen.queryByText(/Error details/)).not.toBeInTheDocument();
+  });
+
+  it("explains a fallback in a callout, without alarming", async () => {
+    await renderReview({ used_fallback: true });
+    expect(screen.getByText("Answered by the fallback provider")).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("labels the cost as an estimate", async () => {
