@@ -1,15 +1,23 @@
-"use client";
+import { BookOpenCheck, Boxes, Database, MessageSquareCode, Network, Radio, Server } from "lucide-react";
+import type { Metadata } from "next";
+import { Suspense } from "react";
 
-import { BookOpenCheck, MessageSquareCode, Network } from "lucide-react";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { ExampleReview } from "@/components/landing/example-review";
+import { Inr } from "@/components/inr";
+import { GitHubMark } from "@/components/landing/github-mark";
+import { PipelineDiagram } from "@/components/landing/pipeline-diagram";
+import { RedirectIfSignedIn } from "@/components/landing/redirect-if-signed-in";
+import { SignInButton } from "@/components/landing/sign-in-button";
+import { Logo } from "@/components/logo";
+import { ThemeSwitch } from "@/components/theme-switch";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
-import { useAuth } from "@/components/auth-provider";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { Button, buttonVariants } from "@/components/ui/button";
-import { ApiError, api } from "@/lib/api";
-import { storeOAuthState } from "@/lib/tokens";
+export const metadata: Metadata = {
+  title: "CodeSage - AI code review that knows your codebase",
+  description:
+    "AI code review for GitHub pull requests that knows your codebase, not just the diff.",
+};
 
 export const REPOSITORY_URL = "https://github.com/NivedhReddy2048/CodeSage";
 
@@ -31,122 +39,272 @@ const FEATURES = [
   },
 ];
 
-/** The GitHub mark (Octicons, MIT). Lucide no longer ships brand icons. */
-function GitHubMark({ className }: { className?: string }) {
+/* Each tile is a component the code actually has. */
+const ARCHITECTURE = [
+  {
+    icon: Server,
+    title: "Django + DRF + Channels",
+    body: "The API, the GitHub webhook receiver and the live-progress WebSocket, served by Daphne.",
+  },
+  {
+    icon: Radio,
+    title: "Webhook in under 10 s",
+    body: "A signed delivery is verified, stored and queued, and answered 202. The review runs in a Celery worker.",
+  },
+  {
+    icon: Network,
+    title: "LangGraph pipeline",
+    body: "An in-process agents package with no ORM imports. Groq first, Gemini on failure, a labelled degraded mode if neither answers.",
+  },
+  {
+    icon: Database,
+    title: "Postgres + pgvector",
+    body: "Code split into chunks (Python by its AST), embedded at 1536 dimensions, and searched with full-text alongside.",
+  },
+  {
+    icon: Boxes,
+    title: "GitHub App",
+    body: "Repository access per repository, through short-lived installation tokens. Sign-in is a separate OAuth app.",
+  },
+  {
+    icon: BookOpenCheck,
+    title: "Cost on every review",
+    body: (
+      <>
+        Tokens and latency per call, with the cost estimated at paid-tier rates. It runs on
+        free tiers, so actual spend is <Inr />0.
+      </>
+    ),
+  },
+];
+
+// Finished class strings for the sign-in islands, computed here on the server so the
+// client bundle carries no class merger (see SignInButton).
+const SIGN_IN_LARGE = buttonVariants({ size: "lg", className: "h-10 gap-2 px-4 text-sm" });
+const SIGN_IN_SMALL = buttonVariants({ size: "sm", className: "ml-1 hidden gap-1.5 sm:inline-flex" });
+
+const NAV = [
+  { href: "#how-it-works", label: "How it works" },
+  { href: "#architecture", label: "Architecture" },
+  { href: "#example", label: "Example review" },
+];
+
+function GitHubLink({ className, label = "View on GitHub" }: { className?: string; label?: string }) {
   return (
-    <svg viewBox="0 0 16 16" aria-hidden="true" className={className} fill="currentColor">
-      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-    </svg>
+    <a
+      href={REPOSITORY_URL}
+      target="_blank"
+      rel="noreferrer"
+      className={cn(buttonVariants({ variant: "ghost", size: "sm" }), className)}
+    >
+      <GitHubMark className="size-4" />
+      {label}
+    </a>
+  );
+}
+
+function SectionHeading({ id, eyebrow, title, children }: { id: string; eyebrow: string; title: string; children: React.ReactNode }) {
+  return (
+    <div className="mb-8 max-w-2xl">
+      <p className="text-xs font-semibold tracking-[0.08em] text-brand uppercase">{eyebrow}</p>
+      <h2 id={id} className="mt-2 text-2xl font-semibold tracking-[-0.02em] text-fg sm:text-[1.75rem]">
+        {title}
+      </h2>
+      <p className="mt-3 text-fg-secondary">{children}</p>
+    </div>
   );
 }
 
 export default function LoginPage() {
-  const router = useRouter();
-  const { user, loading } = useAuth();
-  const [starting, setStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Already signed in: don't show a login page behind a valid session.
-  useEffect(() => {
-    if (!loading && user) router.replace("/");
-  }, [loading, user, router]);
-
-  async function signIn() {
-    setStarting(true);
-    setError(null);
-    try {
-      const { authorize_url, state } = await api.startGitHubLogin();
-      // Stored before navigating away, so the callback can verify GitHub echoed
-      // back the same state we sent.
-      storeOAuthState(state);
-      window.location.href = authorize_url;
-    } catch (err) {
-      setError(
-        err instanceof ApiError && err.status === 0
-          ? "Could not reach CodeSage. Check your connection and try again."
-          : "Could not start sign-in. Please try again.",
-      );
-      setStarting(false);
-    }
-  }
-
   return (
-    <div className="relative flex flex-1 flex-col bg-gradient-to-b from-muted/60 to-background">
-      <header className="flex items-center justify-end gap-1 px-4 py-3">
-        <a
-          href={REPOSITORY_URL}
-          target="_blank"
-          rel="noreferrer"
-          className={buttonVariants({ variant: "ghost", size: "sm" })}
-        >
-          <GitHubMark className="size-4" />
-          View on GitHub
-        </a>
-        <ThemeToggle />
+    <div className="relative flex flex-1 flex-col bg-canvas">
+      <RedirectIfSignedIn />
+
+      <header className="sticky top-0 z-20 border-b border-border-subtle bg-glass backdrop-blur-md">
+        <div className="mx-auto flex h-14 max-w-[1200px] items-center gap-2 px-4 sm:px-6">
+          <Logo size={26} priority className="shrink-0" />
+          <nav aria-label="Page sections" className="ml-6 hidden items-center gap-1 lg:flex">
+            {NAV.map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="rounded-md px-2.5 py-1.5 text-sm whitespace-nowrap text-fg-secondary transition-colors hover:bg-surface-2 hover:text-fg"
+              >
+                {item.label}
+              </a>
+            ))}
+          </nav>
+          <div className="ml-auto flex items-center gap-1">
+            <GitHubLink className="hidden sm:inline-flex" />
+            <ThemeSwitch className="mx-1" />
+            <SignInButton
+              buttonClassName={SIGN_IN_SMALL}
+              iconClassName="size-3.5"
+              // Floats under the header, so a failure here is still seen.
+              alertClassName="absolute top-full right-4 w-72 max-w-[calc(100vw-2rem)] shadow-popover sm:right-6"
+            />
+          </div>
+        </div>
       </header>
 
-      <main className="flex flex-1 items-center justify-center px-4 pb-16">
-        <div className="grid w-full max-w-4xl items-center gap-10 md:grid-cols-[1.1fr_1fr] md:gap-14">
-          <section aria-labelledby="product" className="text-center md:text-left">
-            <Image
-              src="/codesage-logo.png"
-              alt="CodeSage logo"
-              width={64}
-              height={64}
-              priority
-              className="mx-auto rounded-2xl shadow-sm ring-1 ring-foreground/10 md:mx-0"
-            />
-            <h1 id="product" className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">
-              CodeSage
-            </h1>
-            <p className="mt-3 text-lg text-muted-foreground">
-              AI code review for GitHub pull requests that knows your codebase, not just the diff.
-            </p>
-            <ul className="mt-8 space-y-5 text-left">
-              {FEATURES.map(({ icon: Icon, title, body }) => (
-                <li key={title} className="flex gap-3">
-                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-status-ok-bg text-status-ok">
-                    <Icon aria-hidden="true" className="size-4.5" />
-                  </span>
-                  <span>
-                    <span className="block font-medium">{title}</span>
-                    <span className="block text-sm text-muted-foreground">{body}</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </section>
-
-          <section
-            aria-label="Sign in"
-            className="rounded-2xl border bg-card p-6 shadow-sm sm:p-8"
-          >
-            <h2 className="text-lg font-semibold">Sign in</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Use your GitHub account. There is nothing else to set up to look around.
-            </p>
-
-            <Button className="mt-6 h-10 w-full gap-2" onClick={signIn} disabled={starting || loading}>
-              <GitHubMark className="size-4" />
-              {starting ? "Redirecting to GitHub..." : "Continue with GitHub"}
-            </Button>
-
-            {error ? (
-              <p
-                role="alert"
-                className="mt-4 rounded-md border border-status-blocking/30 bg-status-blocking-bg px-3 py-2 text-sm text-status-blocking"
-              >
-                {error}
+      <main className="flex-1">
+        {/* Hero */}
+        <section className="relative overflow-clip">
+          {/* A faint grid and a mint glow, both decorative. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 [background-image:linear-gradient(var(--border-subtle)_1px,transparent_1px),linear-gradient(90deg,var(--border-subtle)_1px,transparent_1px)] [background-size:48px_48px] [mask-image:radial-gradient(ellipse_at_top,black_20%,transparent_70%)] opacity-60"
+          />
+          {/* Three cells: the pitch, the sign-in card, the features. On a phone they
+              stack in that order, so signing in is one screen down, not three; on
+              desktop the card spans both rows on the right. */}
+          <div className="relative mx-auto grid max-w-[1200px] gap-10 px-4 pt-12 pb-16 sm:px-6 lg:grid-cols-[1.25fr_1fr] lg:gap-x-16 lg:gap-y-8 lg:pt-20 lg:pb-24">
+            <div className="lg:col-start-1 lg:row-start-1">
+              <p className="inline-flex items-center gap-2 rounded-full border border-border-brand bg-brand-tinted px-3 py-1 text-xs font-medium text-brand">
+                <span aria-hidden="true" className="size-1.5 rounded-full bg-brand-accent" />
+                Multi-agent PR review
               </p>
-            ) : null}
+              <h1 className="mt-5 text-display text-fg">
+                Every pull request, reviewed against{" "}
+                <span className="bg-gradient-to-r from-brand to-brand-accent bg-clip-text text-transparent">
+                  the code it lands in
+                </span>
+                .
+              </h1>
+              <p className="mt-5 max-w-xl text-lg text-fg-secondary">
+                AI code review for GitHub pull requests that knows your codebase, not just the diff.
+              </p>
+            </div>
 
-            <p className="mt-6 text-xs text-muted-foreground">
-              CodeSage reads your GitHub profile to create your account. Repository access is
-              granted separately, per repository, through the CodeSage GitHub App.
-            </p>
+            <div className="relative lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:self-center">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute -inset-10 rounded-full bg-[radial-gradient(closest-side,color-mix(in_srgb,var(--brand-accent)_22%,transparent),transparent)] blur-2xl"
+              />
+              <section
+                aria-label="Sign in"
+                className="relative rounded-2xl border bg-surface-1 p-6 shadow-popover sm:p-8"
+              >
+                <h2 className="text-lg font-semibold text-fg">Sign in</h2>
+                <p className="mt-1 text-sm text-fg-secondary">
+                  Use your GitHub account. There is nothing else to set up to look around.
+                </p>
+
+                <div className="mt-6">
+                  <SignInButton buttonClassName={cn(SIGN_IN_LARGE, "w-full")} />
+                </div>
+
+                <p className="mt-6 border-t pt-4 text-xs leading-[1.55] text-fg-secondary">
+                  CodeSage reads your GitHub profile to create your account. Repository access is
+                  granted separately, per repository, through the CodeSage GitHub App.
+                </p>
+              </section>
+            </div>
+
+            <div className="lg:col-start-1 lg:row-start-2">
+              <ul className="grid gap-3 sm:grid-cols-3">
+                {FEATURES.map(({ icon: Icon, title, body }) => (
+                  <li key={title} className="rounded-xl border bg-surface-1 p-4 shadow-card">
+                    <span className="flex size-8 items-center justify-center rounded-lg border border-border-brand bg-brand-tinted text-brand">
+                      <Icon aria-hidden="true" className="size-4" />
+                    </span>
+                    <span className="mt-3 block text-sm font-semibold text-fg">{title}</span>
+                    <span className="mt-1 block text-[0.8125rem] leading-[1.5] text-fg-secondary">{body}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* Below the fold. Each Suspense boundary is hydrated as its own unit of
+            work, so React yields between them instead of hydrating the whole page in
+            one long task - measurably lower blocking time on a throttled phone. */}
+        <Suspense>
+          {/* How it works */}
+          <section aria-labelledby="how-it-works-title" id="how-it-works" className="scroll-mt-20 border-t bg-surface-1/40">
+            <div className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 lg:py-20">
+              <SectionHeading id="how-it-works-title" eyebrow="How it works" title="One diff in, one review out">
+                Diff/Intent reads the change first. Four agents then run in parallel, and
+                synthesis merges what they found into a single comment on the pull request.
+              </SectionHeading>
+              <PipelineDiagram />
+            </div>
           </section>
-        </div>
+
+          {/* Architecture */}
+          <section aria-labelledby="architecture-title" id="architecture" className="scroll-mt-20 border-t">
+            <div className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 lg:py-20">
+              <SectionHeading id="architecture-title" eyebrow="Architecture" title="What it is built from">
+                A Django backend and a Next.js frontend, with the review pipeline as a plain
+                Python package inside the backend.
+              </SectionHeading>
+              <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {ARCHITECTURE.map(({ icon: Icon, title, body }) => (
+                  <li key={title} className="rounded-xl border bg-surface-1 p-5 shadow-card">
+                    <Icon aria-hidden="true" className="size-5 text-brand" />
+                    <h3 className="mt-3 text-h2 text-fg">{title}</h3>
+                    <p className="mt-1.5 text-sm text-fg-secondary">{body}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </section>
+
+          {/* Example review */}
+          <section aria-labelledby="example-title" id="example" className="scroll-mt-20 border-t bg-surface-1/40">
+            <div className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 lg:py-20">
+              <SectionHeading id="example-title" eyebrow="Example review" title="What a finding looks like">
+                Sample data, drawn by the same components as the review page. The blocking
+                finding cites the existing code it compares against.
+              </SectionHeading>
+              <ExampleReview />
+            </div>
+          </section>
+
+          {/* Closing call to action */}
+          <section aria-labelledby="cta-title" className="border-t">
+            <div className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6">
+              <div className="relative overflow-clip rounded-2xl border border-border-brand bg-brand-deep px-6 py-10 text-center sm:px-10">
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 -top-24 mx-auto h-48 max-w-lg rounded-full bg-[radial-gradient(closest-side,color-mix(in_srgb,var(--brand-accent)_25%,transparent),transparent)] blur-2xl"
+                />
+                <h2 id="cta-title" className="relative text-2xl font-semibold tracking-[-0.02em] text-fg">
+                  Try it on your next pull request
+                </h2>
+                <p className="relative mx-auto mt-2 max-w-md text-fg-secondary">
+                  Sign in with GitHub, connect a repository, and open a pull request.
+                </p>
+                <div className="relative mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+                  <div className="flex flex-col items-center">
+                    <SignInButton buttonClassName={SIGN_IN_LARGE} />
+                  </div>
+                  <a
+                    href={REPOSITORY_URL}
+                    target="_blank"
+                    rel="noreferrer"
+                    className={buttonVariants({ variant: "outline", size: "lg", className: "h-10 gap-2 px-4" })}
+                  >
+                    <GitHubMark className="size-4" />
+                    View on GitHub
+                  </a>
+                </div>
+              </div>
+            </div>
+          </section>
+        </Suspense>
       </main>
+
+      <footer className="border-t">
+        <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-4 py-8 sm:flex-row sm:items-center sm:px-6">
+          <Logo size={22} />
+          <p className="text-sm text-fg-secondary sm:ml-4">Multi-agent code review for GitHub pull requests.</p>
+          <div className="flex items-center gap-1 sm:ml-auto">
+            <GitHubLink />
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

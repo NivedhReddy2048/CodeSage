@@ -6,15 +6,34 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 
 import { useAuth } from "@/components/auth-provider";
+import { Logo } from "@/components/logo";
 import { buttonVariants } from "@/components/ui/button";
 import { completeSignIn, signInMessage } from "@/lib/oauth";
 
+/** The card both states sit in: the mark, then the content. Presentation only. */
+function CallbackCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative w-full max-w-sm">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -inset-8 rounded-full bg-[radial-gradient(closest-side,color-mix(in_srgb,var(--brand-accent)_18%,transparent),transparent)] blur-2xl"
+      />
+      <div className="relative rounded-2xl border bg-surface-1 px-6 py-8 text-center shadow-popover">
+        <Logo markOnly size={40} className="justify-center" />
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function Completing() {
   return (
-    <div role="status" className="flex flex-col items-center gap-3 text-center">
-      <LoaderCircle aria-hidden="true" className="size-6 animate-spin text-muted-foreground motion-reduce:animate-none" />
-      <p className="text-sm text-muted-foreground">Completing sign-in...</p>
-    </div>
+    <CallbackCard>
+      <div role="status" className="mt-5 flex flex-col items-center gap-3">
+        <LoaderCircle aria-hidden="true" className="size-5 animate-spin text-brand motion-reduce:animate-none" />
+        <p className="text-sm text-fg-secondary">Completing sign-in...</p>
+      </div>
+    </CallbackCard>
   );
 }
 
@@ -45,16 +64,21 @@ function CallbackHandler() {
 
   if (error) {
     return (
-      <div className="w-full max-w-sm text-center">
-        <CircleAlert aria-hidden="true" className="mx-auto size-8 text-status-blocking" />
-        <h1 className="mt-3 text-lg font-semibold">Sign-in failed</h1>
-        <p role="alert" className="mt-2 text-sm text-muted-foreground">
+      <CallbackCard>
+        <h1 className="mt-5 flex items-center justify-center gap-2 text-lg font-semibold text-fg">
+          <CircleAlert aria-hidden="true" className="size-5 text-status-blocking" />
+          Sign-in failed
+        </h1>
+        <p
+          role="alert"
+          className="mt-3 rounded-lg border border-status-blocking-border bg-status-blocking-bg px-3 py-2 text-sm text-status-blocking"
+        >
           {error}
         </p>
-        <Link href="/login" className={buttonVariants({ className: "mt-6 w-full" })}>
+        <Link href="/login" className={buttonVariants({ className: "mt-6 h-10 w-full" })}>
           Try again
         </Link>
-      </div>
+      </CallbackCard>
     );
   }
 
@@ -63,7 +87,7 @@ function CallbackHandler() {
 
 export default function AuthCallbackPage() {
   return (
-    <div className="flex flex-1 items-center justify-center px-4 py-16">
+    <div className="flex flex-1 items-center justify-center bg-canvas px-4 py-16">
       {/* useSearchParams needs a Suspense boundary to keep this route prerenderable. */}
       <Suspense fallback={<Completing />}>
         <CallbackHandler />
