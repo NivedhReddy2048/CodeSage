@@ -1,6 +1,17 @@
 "use client";
 
-import { Lock, ScrollText } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Lock,
+  PlugZap,
+  RefreshCw,
+  RotateCw,
+  ScrollText,
+  Unplug,
+  UserCog,
+  type LucideIcon,
+} from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
@@ -22,6 +33,7 @@ import { useResource } from "@/hooks/use-resource";
 import { api, query } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 import type { AuditEntry } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 25;
 
@@ -36,6 +48,58 @@ export const AUDIT_ACTIONS = [
 
 type Filters = { action: string; actor: string; q: string; since: string; until: string };
 const EMPTY: Filters = { action: "", actor: "", q: "", since: "", until: "" };
+
+// Each action's pill: a status tone, an icon and its label, so the colour is never
+// the only cue. Additions read green, removals rose, re-runs blue, role changes amber.
+const ACTION_STYLE: Record<string, { icon: LucideIcon; tone: string }> = {
+  "repo.connected": { icon: PlugZap, tone: "border-status-ok-border bg-status-ok-bg text-status-ok" },
+  "repo.disconnected": { icon: Unplug, tone: "border-status-blocking-border bg-status-blocking-bg text-status-blocking" },
+  "repo.reindexed": { icon: RefreshCw, tone: "border-status-running-border bg-status-running-bg text-status-running" },
+  "review.rerun": { icon: RotateCw, tone: "border-status-running-border bg-status-running-bg text-status-running" },
+  "member.role_changed": { icon: UserCog, tone: "border-status-nit-border bg-status-nit-bg text-status-nit" },
+};
+const NEUTRAL_ACTION = {
+  icon: ScrollText,
+  tone: "border-status-neutral-border bg-status-neutral-bg text-status-neutral",
+};
+
+function ActionPill({ entry }: { entry: AuditEntry }) {
+  const { icon: Icon, tone } = ACTION_STYLE[entry.action] ?? NEUTRAL_ACTION;
+  return (
+    <span className={cn("inline-flex h-6 items-center gap-1 rounded-full border px-2 text-micro whitespace-nowrap", tone)}>
+      <Icon aria-hidden="true" className="size-3.5" />
+      {entry.action_label}
+    </span>
+  );
+}
+
+/** What the current filters cover, in words - or that nothing narrows it. */
+function Scope({ filters, total }: { filters: Filters; total: number | null }) {
+  const action = AUDIT_ACTIONS.find((a) => a.value === filters.action && a.value);
+  const parts = [
+    action ? `action: ${action.label.toLowerCase()}` : "",
+    filters.actor ? `actor: ${filters.actor}` : "",
+    filters.q ? `target contains "${filters.q}"` : "",
+    filters.since ? `from ${filters.since}` : "",
+    filters.until ? `to ${filters.until}` : "",
+  ].filter(Boolean);
+  return (
+    <div className="mb-4 flex flex-col gap-2 rounded-lg border bg-surface-2/50 px-3 py-2 text-xs text-fg-secondary sm:flex-row sm:items-center sm:justify-between">
+      <p>
+        {total !== null ? (
+          <>
+            <span className="font-mono text-fg tabular-nums">{total}</span> entr{total === 1 ? "y" : "ies"} ·{" "}
+          </>
+        ) : null}
+        {parts.length ? parts.join(" · ") : "All activity in this organisation"}
+      </p>
+      <p className="flex items-center gap-1.5">
+        <Lock aria-hidden="true" className="size-3.5 text-brand" />
+        Append-only: entries cannot be edited or deleted
+      </p>
+    </div>
+  );
+}
 
 function details(entry: AuditEntry) {
   const parts = Object.entries(entry.metadata ?? {}).map(([key, value]) => `${key.replace(/_/g, " ")}: ${String(value)}`);
@@ -133,7 +197,7 @@ function AuditLog() {
     <>
       <PageHeader
         title="Audit log"
-        description="Who connected, disconnected, re-indexed, re-ran or changed what. Entries cannot be edited or deleted."
+        description="Who connected, disconnected, re-indexed, re-ran or changed what, and when."
       />
       <Card>
         <CardContent>
@@ -146,6 +210,7 @@ function AuditLog() {
           ) : (
             <>
               <FilterForm key={query(filters)} initial={filters} onApply={(next) => go(next)} />
+              <Scope filters={filters} total={entries.data ? total : null} />
               {entries.loading && !entries.data ? (
                 <TableSkeleton rows={8} columns={4} label="Loading the audit log" />
               ) : entries.error ? (
@@ -166,15 +231,31 @@ function AuditLog() {
                       <TableBody>
                         {entries.data.results.map((entry) => (
                           <TableRow key={entry.id}>
-                            <TableCell className="whitespace-nowrap text-muted-foreground">
-                              <time dateTime={entry.created_at}>{formatDateTime(entry.created_at)}</time>
+                            <TableCell className="whitespace-nowrap text-fg-secondary">
+                              <time dateTime={entry.created_at} className="font-mono text-xs tabular-nums">
+                                {formatDateTime(entry.created_at)}
+                              </time>
                             </TableCell>
-                            <TableCell>{entry.actor_login || "system"}</TableCell>
-                            <TableCell>{entry.action_label}</TableCell>
-                            <TableCell className="max-w-64 truncate" title={entry.target_label}>
-                              {entry.target_label}
+                            <TableCell>
+                              <span className="inline-flex items-center gap-1.5 rounded-md border bg-surface-2 px-1.5 py-0.5 font-mono text-xs text-fg">
+                                <span
+                                  aria-hidden="true"
+                                  className="flex size-4 items-center justify-center rounded-sm bg-brand-tinted text-[0.625rem] font-semibold text-brand uppercase"
+                                >
+                                  {(entry.actor_login || "s").slice(0, 1)}
+                                </span>
+                                {entry.actor_login || "system"}
+                              </span>
                             </TableCell>
-                            <TableCell className="hidden max-w-80 truncate text-xs text-muted-foreground lg:table-cell" title={details(entry)}>
+                            <TableCell>
+                              <ActionPill entry={entry} />
+                            </TableCell>
+                            <TableCell className="max-w-64" title={entry.target_label}>
+                              <span className="inline-block max-w-full truncate rounded-md border bg-surface-1 px-1.5 py-0.5 align-middle font-mono text-xs text-fg">
+                                {entry.target_label}
+                              </span>
+                            </TableCell>
+                            <TableCell className="hidden max-w-80 truncate text-xs text-fg-secondary lg:table-cell" title={details(entry)}>
                               {details(entry)}
                             </TableCell>
                           </TableRow>
@@ -184,17 +265,20 @@ function AuditLog() {
                   </div>
                   <nav
                     aria-label="Pagination"
-                    className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground"
+                    className="mt-3 flex items-center justify-between gap-2 border-t pt-3 text-sm text-fg-secondary"
                   >
                     <span>
-                      Page {page} of {pages} &middot; {total} entr{total === 1 ? "y" : "ies"}
+                      Page <span className="font-mono text-fg tabular-nums">{page}</span> of{" "}
+                      <span className="font-mono tabular-nums">{pages}</span>
                     </span>
                     <span className="flex gap-2">
                       <Button variant="outline" size="sm" disabled={!entries.data.previous} onClick={() => go(filters, page - 1)}>
+                        <ChevronLeft aria-hidden="true" className="size-3.5" />
                         Previous
                       </Button>
                       <Button variant="outline" size="sm" disabled={!entries.data.next} onClick={() => go(filters, page + 1)}>
                         Next
+                        <ChevronRight aria-hidden="true" className="size-3.5" />
                       </Button>
                     </span>
                   </nav>

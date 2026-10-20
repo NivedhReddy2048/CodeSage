@@ -1,4 +1,4 @@
-import { CircleAlert, Inbox, type LucideIcon } from "lucide-react";
+import { CircleAlert, Inbox, RotateCw, type LucideIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,6 +9,26 @@ import { cn } from "@/lib/utils";
  * text, so a reader always gets the same cue for "still loading", "nothing here
  * yet" and "something went wrong, here is what you can do".
  */
+
+/**
+ * A small drawing for an empty state: two stacked cards with the state's icon on a
+ * brand badge. Decorative; the title says what is (not) there.
+ */
+function EmptyIllustration({ icon: Icon }: { icon: LucideIcon }) {
+  return (
+    <div aria-hidden="true" className="relative mb-1 h-[72px] w-[120px]">
+      <svg viewBox="0 0 120 72" className="absolute inset-0 size-full">
+        <rect x="22" y="2" width="76" height="46" rx="10" className="fill-surface-2 stroke-[color:var(--border-default)]" />
+        <rect x="10" y="14" width="100" height="56" rx="11" className="fill-surface-1 stroke-[color:var(--border-default)]" />
+        <rect x="24" y="48" width="44" height="4" rx="2" className="fill-[color:var(--border-default)]" />
+        <rect x="24" y="58" width="68" height="4" rx="2" className="fill-[color:var(--border-subtle)]" />
+      </svg>
+      <span className="absolute top-[20px] left-1/2 flex size-8 -translate-x-1/2 items-center justify-center rounded-lg border border-border-brand bg-brand-tinted text-brand">
+        <Icon className="size-4" />
+      </span>
+    </div>
+  );
+}
 
 export function EmptyState({
   title,
@@ -26,16 +46,14 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border-strong/60 bg-surface-2/40 px-6 py-10 text-center",
+        "flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border-strong/60 bg-surface-2/40 px-6 py-8 text-center",
         className,
       )}
     >
-      <span aria-hidden="true" className="mb-1 flex size-10 items-center justify-center rounded-lg border border-border-brand bg-brand-tinted text-brand">
-        <Icon className="size-5" />
-      </span>
+      <EmptyIllustration icon={Icon} />
       <p className="font-medium text-fg">{title}</p>
       {description ? (
-        <p className="max-w-sm text-sm text-muted-foreground">{description}</p>
+        <p className="max-w-sm text-sm text-fg-secondary">{description}</p>
       ) : null}
       {action ? <div className="mt-2">{action}</div> : null}
     </div>
@@ -57,20 +75,21 @@ export function ErrorState({
     <div
       role="alert"
       className={cn(
-        "flex flex-col items-start gap-2 rounded-xl border border-status-blocking-border bg-status-blocking-bg px-4 py-3 text-status-blocking",
+        "flex gap-3 rounded-xl border border-status-blocking-border bg-status-blocking-bg px-4 py-3",
         className,
       )}
     >
-      <p className="flex items-center gap-2 font-medium">
-        <CircleAlert aria-hidden="true" className="size-4" />
-        {title}
-      </p>
-      <p className="text-sm">{message}</p>
-      {onRetry ? (
-        <Button variant="outline" size="sm" onClick={onRetry} className="mt-1">
-          Try again
-        </Button>
-      ) : null}
+      <CircleAlert aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-status-blocking" />
+      <div className="min-w-0 text-sm">
+        <p className="font-medium text-fg">{title}</p>
+        <p className="mt-0.5 text-fg-secondary">{message}</p>
+        {onRetry ? (
+          <Button variant="outline" size="sm" onClick={onRetry} className="mt-2.5">
+            <RotateCw aria-hidden="true" className="size-3.5" />
+            Try again
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { errorMessage } from "@/components/states";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ export function RerunButton({ reviewId, pullRequest }: { reviewId: number; pullR
     try {
       const { review_id } = await api.rerunReview(reviewId);
       setOpen(false);
+      toast.success(`Re-running the review of ${pullRequest}`);
       router.push(`/reviews/${review_id}`);
     } catch (err) {
       setError(errorMessage(err, "Could not start the review."));
