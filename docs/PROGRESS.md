@@ -18,7 +18,7 @@ pull requests, each closing its own issue. Architecture lives in
 | 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **Done** |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Next |
 | 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
-| R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | In progress (5 of 6) |
+| R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | **Done** |
 
 Phase 8 depends only on Phase 5, so it can be built before or after Phase 7.
 
@@ -60,7 +60,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **32 merged — bronze (16) reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **38 merged — bronze (16) reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -79,8 +79,116 @@ PR lands rather than one behind forever.
 
 ## Frontend redesign — "Abyssal Navy & Sage Mint"
 
-**Status:** In progress. Six frontend-only PRs; no backend or API changes. Every
-route, API call, socket stream and sign-in step stays as it was.
+**Status:** Done. Six frontend-only PRs (#68, #70, #72, #74, #76, #78), each with
+its own issue; no backend or API changes. Every route, API call, socket stream and
+sign-in step stays as it was, `/login` stays at `/login`, and `/` stays protected.
+
+### What the redesign amounts to
+
+- **One token system**, light and dark, in `globals.css`. The shadcn variables
+  point at it. Every text, icon, control-border, focus and chart pair that the UI
+  draws is checked against WCAG AA by a test in CI: 163 pairs in both themes, all
+  passing (`npm run contrast` prints them). Spec values that failed got their own
+  tokens rather than a quiet exception:
+  - control borders;
+  - placeholders;
+  - the unread pill's text;
+  - dark chart marks (validated with the dataviz validator).
+- **An app shell built for keyboard and phone:**
+  - a 248/64 px sidebar and a phone drawer;
+  - a floating organisation switcher and a glass top bar;
+  - a Ctrl+K palette;
+  - one `main` landmark and a skip link.
+- **A landing page at `/login`** whose every technical claim matches the code, an
+  example review drawn by the real components from static data (tested to make no
+  network request), and Lighthouse mobile 93-96 / desktop 100, Accessibility 100.
+- **Pages that read well at any size of data:**
+  - charts with empty slots and an average line for sparse months;
+  - KPI breakdowns that match the API's definitions;
+  - a review page with live agent progress, sticky diff headers and a trace matrix;
+  - repository cards with index health;
+  - an append-only audit log;
+  - a role permissions table taken from the backend's checks.
+- **One dependency added**, sonner, for toasts: no dependencies of its own, and
+  mounted only in the signed-in shell.
+- **Tests: 121 → 327.** Every pre-existing test still passes. Where markup
+  legitimately changed (the landing page's headline and its several sign-in
+  buttons), queries were scoped to the right region rather than accessible names
+  being renamed.
+
+### redesign-6 — repositories, audit log, settings, system states
+
+**/repos.**
+- **Connected repositories as cards:**
+  - a repository icon, then `owner/` in secondary text with the name in mono;
+  - visibility and default-branch pills;
+  - Disconnect;
+  - an index health block. It has a state badge (Indexed, Indexing n/m files,
+    Queued, Indexing failed, Not indexed yet), mono chunk, file and commit
+    figures, a files-indexed meter while a job runs, and after a run a reuse
+    meter: "Last run reused 80 of 120 chunk embeddings; 3 embedding calls".
+  - `chunks_created` counts every chunk stored, and `chunks_reused` the ones
+    whose embedding was not paid for again, so the meter is exactly
+    reused ÷ created.
+- **A lone repository spans the row** rather than half of it.
+- **"How indexing works"**: four steps, each checked against
+  `backend/apps/ingestion`:
+  - the default branch, skipping generated, vendored, binary, oversized and
+    `.gitignore`d files;
+  - Python split by its AST into functions, classes and their methods; other
+    languages split at declarations found by pattern;
+  - `gemini-embedding-001` at 1536 dimensions into pgvector, with a Postgres
+    full-text vector (filled by a trigger) alongside;
+  - reuse when a chunk's path-and-content hash is unchanged.
+
+  A test checks it never mentions tree-sitter.
+
+**/audit.**
+- **A scope strip** saying what the filters cover ("All activity in this
+  organisation", or each active filter in words) with the entry count, and an
+  "Append-only: entries cannot be edited or deleted" notice.
+- **Rows:**
+  - actor badges in mono;
+  - action pills coloured by kind (connected green, disconnected rose, re-index and
+    re-run blue, role change amber), each with an icon and its label;
+  - target chips;
+  - mono timestamps;
+  - pagination with chevrons.
+
+**/settings.**
+- **Members:** rows with a mono name, a "you" pill, the role underneath, and the
+  role select for owners. The cards align to the top, so one member does not
+  leave a stretched, empty card.
+- **Role permissions:** a table of what each role may do, taken from the backend's
+  checks (`REPO_MANAGEMENT_ROLES` for connect, disconnect, re-index, re-run, the
+  audit log and raw errors; owner-only role changes; the last owner cannot be
+  demoted). It carries "Allowed" / "Not allowed" for screen readers.
+- **Appearance:** three preview cards, each a miniature of the app in that theme
+  (System split down the middle). They are the same native radios, named Light,
+  Dark and System.
+
+**System states, everywhere.**
+- Empty states carry a small layered-card illustration (decorative, hidden from
+  assistive tech).
+- Error cards share the callout layout, with a retry where one makes sense.
+- KPI and table skeletons keep the page from jumping.
+- Success toasts for connecting, disconnecting, starting a re-index, starting a
+  re-run and changing a role. Errors stay inline, where they do not vanish on a
+  timer.
+
+**Tests:** a new `workspace-pages.test.tsx` covers:
+- repository cards and index health;
+- the indexing explainer;
+- the connect toast;
+- running-job progress;
+- the audit scope, the append-only notice and action pills;
+- the permissions table;
+- the "you" pill;
+- the empty-state illustration being hidden from assistive tech.
+
+Checked in Edge with one repository and one member, light and dark, at 1366 px and
+375 px: no horizontal page scroll.
+
 
 ### redesign-5 — reviews list and review detail
 
