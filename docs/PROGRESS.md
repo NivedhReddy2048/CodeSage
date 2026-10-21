@@ -60,7 +60,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **40 merged — bronze (16) reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **41 merged — bronze (16) reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -74,6 +74,50 @@ once, listed "claude" as a repository contributor.
 **Update the merged-PR count in this table in each phase's last PR.** The figure
 counts merged PRs *including* the one making the edit, so it is correct the moment that
 PR lands rather than one behind forever.
+
+---
+
+## Tooling — a Windows-safe dev runner replaces honcho
+
+**Status:** Done. One PR, closes #83.
+
+**Why.** On Windows, `honcho start -f Procfile.dev` cannot stop its children. On
+Ctrl+C it loops "sending SIGKILL to backend.1 ..." without effect, then crashes with
+`InterruptedError`, leaving the backend, worker, frontend and smee relay running.
+Those orphans were the root cause of the incident below: six stale workers on one
+queue, and a runserver holding :8000.
+
+**What.** `python scripts/dev.py` starts the four processes, and
+`python scripts/dev.py stop` is the emergency cleanup. Its only dependency is
+psutil, which replaces honcho in `requirements-dev.txt`. `Procfile.dev` is gone.
+
+- Each child gets its own process group (Windows) or session (Unix). Node tools run
+  as `node <script>`, never through `npm`/`npx`: those are batch files on Windows,
+  and cmd.exe answers Ctrl+Break with "Terminate batch job (Y/N)?" instead of exiting.
+- Stopping is graceful first (CTRL_BREAK_EVENT, or SIGTERM). After 8 s each tree is
+  force-killed (`taskkill /T /F`, or SIGKILL), plus every descendant seen before
+  shutdown: a tree kill cannot reach a grandchild whose parent already exited. The
+  runner names whatever needed force.
+- The runner joins a kill-on-close Windows job object, so a crashed or hard-killed
+  runner still takes everything down with it.
+- Preflight refuses to start if :8000 or :3000 is busy, if a Celery worker answers a
+  ping on the broker, or if leftover dev processes exist. It says what to run instead.
+
+**Found by verifying it, not by the tests.**
+
+- Each venv `python.exe` on Windows is a launcher that starts the real interpreter as
+  its child. runserver with its autoreloader is four processes deep, which is why the
+  runner snapshots whole trees rather than tracking pids.
+- Windows children inherit "Ctrl+C disabled" from whatever started them (an IDE task
+  runner, an agent's shell), even across a new console. Started that way, the first
+  version ignored Ctrl+C entirely. The runner now re-enables Ctrl+C for itself.
+
+**Verified on Windows**, two full cycles of start → all four ready → Ctrl+C:
+everything ready in about 8 s, a graceful stop in 0.3 s, no process from the run
+left, ports 8000 and 3000 free. Separately: hard-killing only the runner left 0 of
+its 11 processes alive after 3 s (the job object), and killing the worker stopped the
+other three with exit code 1. The Unix paths (SIGTERM, then SIGKILL of the group) are
+covered by the shutdown tests that CI runs on Linux.
 
 ---
 
@@ -100,9 +144,9 @@ a review had been requested.
   "Queued" pulse that never ends.
 
 **Operational lesson.** Celery workers never reload code, and every dev worker here
-shares one nodename and one queue. Before trusting a local review, check that
-`celery -A core inspect stats` lists exactly one pid, and that the process listening on
-:8000 belongs to the current honcho run.
+shares one nodename and one queue. The orphans came from honcho, which cannot stop
+its children on Windows; `scripts/dev.py` (below) replaced it and refuses to start
+while another worker answers on the broker.
 
 ---
 
@@ -1067,9 +1111,11 @@ project's centrepiece and parallel fan-out is verified working (three 0.4s nodes
 
 ### Local development
 
-`honcho start -f Procfile.dev` runs all four processes — backend, Celery worker
+`python scripts/dev.py` runs all four processes — backend, Celery worker
 (`--pool=solo`, required on Windows), smee relay and frontend. Forgetting the worker
-is the usual cause of "the webhook arrived but no comment appeared".
+is the usual cause of "the webhook arrived but no comment appeared". (This was
+`honcho start -f Procfile.dev` until #83 replaced it; honcho cannot stop its
+children on Windows.)
 
 ---
 

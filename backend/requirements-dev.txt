@@ -1,7 +1,8 @@
 -r requirements.txt
 
-# Runs every local dev process from one Procfile (see Procfile.dev at the repo root).
-honcho==2.0.0
+# scripts/dev.py: finds, signals and kills whole process trees on Windows, Linux and
+# macOS. It replaced honcho, which cannot stop its children on Windows.
+psutil==7.2.2
 pytest==9.1.1
 pytest-cov==7.1.0
 pytest-django==4.14.0

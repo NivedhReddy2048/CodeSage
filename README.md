@@ -134,23 +134,13 @@ cd backend
 
 GitHub cannot reach `localhost`, so deliveries are relayed through
 [smee.io](https://smee.io). Create a channel at https://smee.io/new, use it as the
-App's webhook URL, and run the relay in its own terminal:
-
-```bash
-cd frontend
-npm run webhooks
-```
+App's webhook URL. The dev runner below starts the relay for you.
 
 `smee-client` is pinned as a devDependency and the channel URL lives in the
-`webhooks` script in `frontend/package.json`. It sits in the frontend package only
-because that is where npm already is — it relays to the *backend*. Change the channel
-there if you create a new one, or run it directly:
-
-```bash
-npx --yes smee-client --url https://smee.io/YOUR_CHANNEL --target http://localhost:8000/api/webhooks/github/
-```
-
-Three terminals are needed locally: backend, frontend, relay.
+`webhooks` script in `frontend/package.json`, which the dev runner reads too. It
+sits in the frontend package only because that is where npm already is — it relays
+to the *backend*. Change the channel there if you create a new one. To run the relay
+on its own: `npm --prefix frontend run webhooks`.
 
 ## Running everything at once
 
@@ -159,19 +149,41 @@ the Celery worker runs the pipeline, the smee relay forwards GitHub's delivery t
 localhost, and the frontend serves the UI. Forgetting the worker is the usual cause
 of "the webhook arrived but no comment appeared".
 
+Start Postgres and Redis, then the whole stack, from the repository root:
+
 ```bash
-backend\.venv\Scripts\activate        # Windows
-source backend/.venv/bin/activate     # macOS / Linux
-
-# Windows only: honcho relays child output through its own stdout, and Next.js
-# prints a non-ASCII glyph that kills it under the default cp1252 codepage.
-set PYTHONIOENCODING=utf-8
-
-honcho start -f Procfile.dev
+docker compose up -d
+python scripts/dev.py          # Ctrl+C stops all four processes
 ```
 
-The virtualenv must be activated first: honcho spawns each command through the
-system shell, which does not inherit the venv's `Scripts/` or `bin/` directory.
+Any Python 3 works for `python`: the script re-runs itself under
+`backend/.venv` (it needs `psutil` from `requirements-dev.txt`), so no virtualenv
+activation is needed. It starts the backend on :8000, the Celery worker
+(`--pool=solo`), the frontend on :3000 and the smee relay. Each output line is
+prefixed with its process name, and it says when all four are ready.
+
+**It refuses to start** while anything could compete with it, and says what to do:
+
+- port 8000 or 3000 is already in use;
+- a Celery worker already answers on the broker. A second worker takes review tasks
+  too, possibly running stale code (that is how testbed PR #4's review vanished, #79);
+- CodeSage dev processes from an earlier run are still alive.
+
+**Stopping.** Ctrl+C, or any one of the four exiting, stops all of them. First each
+process gets a graceful stop (Ctrl+Break on Windows, SIGTERM elsewhere). Whatever is
+still running after 8 seconds has its whole process tree force-killed, and the runner
+prints which processes needed that. On Windows the runner also sits in a
+kill-on-close job object, so even if it is killed outright, nothing it started
+outlives it.
+
+If something is left over anyway (a crashed terminal, an old honcho session):
+
+```bash
+python scripts/dev.py stop     # kills this checkout's dev processes and anything on :8000/:3000
+```
+
+This replaced honcho, which cannot stop its children on Windows: on Ctrl+C it loops
+"sending SIGKILL" without effect, then crashes and leaves all four running.
 
 ## Operator commands
 
@@ -207,6 +219,6 @@ spends one Gemini embedding call.
 ## Checks
 
 ```bash
-cd backend  && ruff check . && python manage.py check && pytest
+cd backend  && ruff check . ../scripts && python manage.py check && pytest
 cd frontend && npm run lint && npm run build
 ```
