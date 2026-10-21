@@ -1,6 +1,14 @@
+from datetime import timedelta
+
 from django.db import models
+from django.utils import timezone
 
 from apps.repos.models import Repository
+
+# A review pending or running for longer than this is presumed dead: no worker picked
+# it up, or the one that did crashed or was restarted mid-job. Such a review is shown
+# as stalled, and no longer blocks a re-run.
+STALE_AFTER = timedelta(minutes=15)
 
 
 class PullRequest(models.Model):
@@ -98,6 +106,15 @@ class Review(models.Model):
     @property
     def duration_seconds(self):
         return self.duration_ms / 1000 if self.duration_ms else 0
+
+    @property
+    def stalled(self):
+        """Still pending or running long after any real review would have finished."""
+        return (
+            self.status in {self.Status.PENDING, self.Status.RUNNING}
+            and self.created_at is not None
+            and self.created_at < timezone.now() - STALE_AFTER
+        )
 
 
 class ReviewFinding(models.Model):

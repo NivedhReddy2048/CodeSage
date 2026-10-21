@@ -87,6 +87,7 @@ class ReviewSerializer(ErrorDetailMixin, serializers.ModelSerializer):
     repository_id = serializers.IntegerField(source="pull_request.repository_id", read_only=True)
     pr_number = serializers.IntegerField(source="pull_request.number", read_only=True)
     pr_title = serializers.CharField(source="pull_request.title", read_only=True)
+    stalled = serializers.BooleanField(read_only=True)
     pr_url = serializers.SerializerMethodField()
     can_manage = serializers.SerializerMethodField()
 
@@ -101,6 +102,7 @@ class ReviewSerializer(ErrorDetailMixin, serializers.ModelSerializer):
             "pr_url",
             "can_manage",
             "status",
+            "stalled",
             "head_sha",
             "model_used",
             "used_fallback",
@@ -139,6 +141,7 @@ class ReviewListSerializer(serializers.ModelSerializer):
     repository_id = serializers.IntegerField(source="pull_request.repository_id", read_only=True)
     pr_number = serializers.IntegerField(source="pull_request.number", read_only=True)
     pr_title = serializers.CharField(source="pull_request.title", read_only=True)
+    stalled = serializers.BooleanField(read_only=True)
     finding_count = serializers.IntegerField(read_only=True)
     blocking_count = serializers.IntegerField(read_only=True)
     nit_count = serializers.IntegerField(read_only=True)
@@ -152,6 +155,7 @@ class ReviewListSerializer(serializers.ModelSerializer):
             "pr_number",
             "pr_title",
             "status",
+            "stalled",
             "degraded",
             "used_fallback",
             "head_sha",
@@ -171,6 +175,7 @@ class ReviewSummarySerializer(serializers.ModelSerializer):
 
     pr_number = serializers.IntegerField(source="pull_request.number", read_only=True)
     pr_title = serializers.CharField(source="pull_request.title", read_only=True)
+    stalled = serializers.BooleanField(read_only=True)
     finding_count = serializers.IntegerField(read_only=True)
 
     class Meta:
@@ -180,6 +185,7 @@ class ReviewSummarySerializer(serializers.ModelSerializer):
             "pr_number",
             "pr_title",
             "status",
+            "stalled",
             "head_sha",
             "model_used",
             "used_fallback",

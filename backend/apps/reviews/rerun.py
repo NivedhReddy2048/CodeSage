@@ -5,19 +5,13 @@ WebhookEvent. They share the refresh step, so a re-run always reviews the PR's
 current head rather than whatever commit the last webhook named.
 """
 
-from datetime import timedelta
-
 from django.utils import timezone
 
 from apps.audit.services import Action
 from apps.audit.services import record as audit
 from apps.repos import github_app
 from apps.repos.github_app import GitHubAppError
-from apps.reviews.models import PullRequest, Review
-
-# A review pending or running for longer than this is presumed dead (a worker that
-# crashed or was restarted mid-job), so it no longer blocks a re-run.
-STALE_AFTER = timedelta(minutes=15)
+from apps.reviews.models import STALE_AFTER, PullRequest, Review
 
 
 class RerunRefused(Exception):
