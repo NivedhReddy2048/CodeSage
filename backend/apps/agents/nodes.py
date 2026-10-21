@@ -14,6 +14,7 @@ import time
 
 from apps.agents import agent_prompts as prompts
 from apps.agents import citations
+from apps.agents.anchoring import anchor_all, new_file_lines
 from apps.agents.budget import estimate_tokens
 from apps.agents.diffs import reconstruct_new_file
 from apps.agents.providers import ProviderError
@@ -25,7 +26,7 @@ from apps.agents.schema import (
     parse_findings,
 )
 from apps.agents.static_analysis import run_analysis
-from apps.agents.types import AgentRun, Category, Finding, ReviewConfig, Severity
+from apps.agents.types import AgentRun, Category, Finding, Placement, ReviewConfig, Severity
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +95,7 @@ def _parse(raw, run, max_findings, agent):
             category=f.category,
             message=f.message,
             agent=agent,
+            evidence=f.evidence,
         )
         for f in findings
     ]
@@ -175,6 +177,10 @@ def static_analysis(state):
     run.succeeded = True
 
     added = {entry.path: entry.added_lines for entry in prepared.files}
+    texts = {
+        entry.path: {n: line.text for n, line in new_file_lines(entry).items()}
+        for entry in prepared.files
+    }
     findings = []
     for item in report.findings:
         # Only lines the PR added. A linter over whole files otherwise flags
@@ -190,6 +196,9 @@ def static_analysis(state):
                 category=_tool_category(item),
                 message=f"{item.message} ({item.tool} {item.code})".strip(),
                 agent="static_analysis",
+                evidence=texts.get(item.file, {}).get(item.line, ""),
+                placement=Placement.INLINE,
+                anchored_by="tool",
             )
         )
 
@@ -258,7 +267,7 @@ def security(state):
         return {"findings": [], "runs": [run]}
 
     findings = _parse(raw, run, runtime.config.max_findings, "security")
-    return {"findings": _within_diff(findings, prepared), "runs": [run]}
+    return {"findings": anchor_all(findings, prepared), "runs": [run]}
 
 
 # ----------------------------------------------------------------------- grounding
@@ -326,9 +335,11 @@ def grounding(state):
             message=f"{f.message} (see {citation})",
             agent="grounding",
             cited=citation,
+            evidence=f.evidence,
         )
         for f, citation in kept
     ]
+    findings = anchor_all(findings, prepared)
     call_run.findings_count = len(findings)
 
     return {"findings": findings, "runs": [call_run], "retrieved": retrieved}
@@ -391,9 +402,4 @@ def test_coverage(state):
         return {"findings": [], "runs": [run]}
 
     findings = _parse(raw, run, runtime.config.max_findings, "test_coverage")
-    return {"findings": _within_diff(findings, prepared), "runs": [run]}
-
-
-def _within_diff(findings, prepared):
-    """Drop findings pointing at lines the diff does not contain."""
-    return [f for f in findings if prepared.allows(f.file, f.line)]
+    return {"findings": anchor_all(findings, prepared), "runs": [run]}

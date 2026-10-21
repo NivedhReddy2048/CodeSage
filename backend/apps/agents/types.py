@@ -34,6 +34,14 @@ class Category(StrEnum):
     OTHER = "other"
 
 
+class Placement(StrEnum):
+    """Where a finding is shown, decided by `anchoring` rather than by the model."""
+
+    INLINE = "inline"  # on a line the PR added: summary and an inline comment
+    EXISTING = "existing"  # about code the PR did not change: summary only, collapsed
+    GENERAL = "general"  # no line it can honestly be pinned to: summary only
+
+
 @dataclass(frozen=True)
 class Finding:
     file: str
@@ -45,6 +53,13 @@ class Finding:
     # Grounding only: the verified `path:start-end` of the existing code this
     # finding rests on. Stored on ReviewFinding.citation.
     cited: str = ""
+    # The changed line(s) the agent quotes as the defect, verbatim.
+    evidence: str = ""
+    placement: Placement = Placement.INLINE
+    # How `line` was chosen: "evidence" (the quote was found on that line), "cited"
+    # (the model's own number, which was an added line), "snapped" (moved onto a
+    # nearby added line), "tool" (a linter's exact line), or "" for general ones.
+    anchored_by: str = ""
 
     @property
     def citation(self):
@@ -94,10 +109,18 @@ class PreparedDiff:
     included_bytes: int = 0
 
     def allows(self, path, line):
+        """May a comment be anchored here? Only on a line the PR added.
+
+        Context lines are shown for reading, not for comments: a comment on one is
+        either about code the author did not write or about the wrong line.
+        """
         for entry in self.files:
             if entry.path == path:
-                return line in entry.changed_lines
+                return line in entry.added_lines
         return False
+
+    def entry(self, path):
+        return next((entry for entry in self.files if entry.path == path), None)
 
 
 @dataclass(frozen=True)

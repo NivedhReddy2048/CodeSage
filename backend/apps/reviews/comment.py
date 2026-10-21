@@ -104,20 +104,28 @@ def render(
             "",
         ]
     else:
-        blocking = [f for f in findings if f.severity == "blocking"]
-        nits = [f for f in findings if f.severity != "blocking"]
+        existing = [f for f in findings if _placement(f) == "existing"]
+        general = [f for f in findings if _placement(f) == "general"]
+        anchored = [f for f in findings if _placement(f) == "inline"]
+        counted = anchored + general
+        blocking = [f for f in anchored if f.severity == "blocking"]
+        nits = [f for f in anchored if f.severity != "blocking"]
 
+        total_blocking = sum(1 for f in counted if f.severity == "blocking")
+        total_nits = len(counted) - total_blocking
         summary = []
-        if blocking:
-            summary.append(f"**{len(blocking)} blocking**")
-        if nits:
-            summary.append(f"{len(nits)} nit{'s' if len(nits) != 1 else ''}")
+        if total_blocking:
+            summary.append(f"**{total_blocking} blocking**")
+        if total_nits:
+            summary.append(f"{total_nits} nit{'s' if total_nits != 1 else ''}")
+        if existing:
+            summary.append(f"{len(existing)} about existing code")
         lines += [
             f"Reviewed `{_short(review.head_sha)}` — {', '.join(summary)}.",
             "",
         ]
 
-        for group, heading in ((blocking, "Blocking"), (nits, "Nits")):
+        for group, heading in ((blocking, "Blocking"), (nits, "Nits"), (general, "General")):
             if not group:
                 continue
             lines.append(f"### {heading}")
@@ -125,6 +133,18 @@ def render(
             for finding in group:
                 lines.append(_render_finding(finding))
                 lines.append("")
+
+        if existing:
+            # Collapsed: worth knowing, but the author did not write these lines.
+            lines += [
+                "<details>",
+                f"<summary>Existing code (not introduced by this PR) · {len(existing)}</summary>",
+                "",
+            ]
+            for finding in existing:
+                lines.append(_render_finding(finding))
+                lines.append("")
+            lines += ["</details>", ""]
 
         inline_note = _render_inline_note(inline)
         if inline_note:
@@ -163,10 +183,22 @@ def _render_inline_note(inline):
     return f"_Inline on the changed lines: {', '.join(parts)}._"
 
 
+def _placement(finding):
+    placement = getattr(finding, "placement", "inline")
+    return placement if placement in {"inline", "existing", "general"} else "inline"
+
+
 def _render_finding(finding):
+    """One bullet. An inline finding names exactly the line its inline comment is on;
+    a general one has no honest line, so it names only the file."""
     label = SEVERITY_LABEL.get(finding.severity, finding.severity)
     category = f" · {finding.category}" if finding.category else ""
-    return f"- **`{finding.file_path}:{finding.line}`** — {label}{category}\n  {finding.message}"
+    where = (
+        finding.file_path
+        if _placement(finding) == "general"
+        else f"{finding.file_path}:{finding.line}"
+    )
+    return f"- **`{where}`** — {label}{category}\n  {finding.message}"
 
 
 def _render_disclosure(review):

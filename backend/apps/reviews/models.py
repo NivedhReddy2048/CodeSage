@@ -124,6 +124,12 @@ class ReviewFinding(models.Model):
         BLOCKING = "blocking", "Blocking"
         NIT = "nit", "Nit"
 
+    class Placement(models.TextChoices):
+        # Mirrors apps.agents.types.Placement; decided by the anchoring step.
+        INLINE = "inline", "On an added line"
+        EXISTING = "existing", "Existing code"
+        GENERAL = "general", "General"
+
     review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name="findings")
     # Named so phase 5 can attribute a finding to one of the six agents; v1 only
     # ever writes "review".
@@ -131,7 +137,11 @@ class ReviewFinding(models.Model):
     severity = models.CharField(max_length=20, choices=Severity.choices)
     category = models.CharField(max_length=40, blank=True)
     file_path = models.CharField(max_length=1024)
+    # For an inline finding this is the added line its comment is posted on, and the
+    # summary shows the same number. For "existing" it is the unchanged line the
+    # evidence matched; for "general" it is the model's guess, never shown.
     line = models.IntegerField()
+    placement = models.CharField(max_length=16, choices=Placement.choices, default=Placement.INLINE)
     message = models.TextField()
     # Phase 5's grounding agent fills this with a (file, line_range) from a
     # retrieved chunk. Blank in v1, which reviews the diff alone.

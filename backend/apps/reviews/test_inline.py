@@ -13,7 +13,13 @@ from apps.reviews.test_degraded import pull_request, run  # noqa: F401 - fixture
 HEAD = "abc1234def"
 
 
-def finding(path="app/users.py", line=13, severity="blocking", message="SQL built from input."):
+def finding(
+    path="app/users.py",
+    line=13,
+    severity="blocking",
+    message="SQL built from input.",
+    placement="inline",
+):
     return SimpleNamespace(
         file_path=path,
         line=line,
@@ -21,6 +27,7 @@ def finding(path="app/users.py", line=13, severity="blocking", message="SQL buil
         category="security",
         message=message,
         agent="security",
+        placement=placement,
     )
 
 
@@ -95,19 +102,36 @@ def test_dedupe_ignores_reworded_findings_on_the_same_line():
     assert second.posted == 0
 
 
-def test_a_rerun_that_anchors_the_same_defect_nearby_posts_nothing():
-    """Seen live on testbed PR #1: run one anchored the defect at line 3, the rerun
-    at line 1. Synthesis treats findings within NEARBY_LINES as one defect, and so
-    does dedupe."""
+def test_dedupe_is_by_exact_line_now_that_anchors_are_exact():
+    """Anchors come from quoted evidence, so a rerun lands on the same line.
+
+    Dedupe used to treat anything within two lines as the same comment, to absorb a
+    model's line jitter between runs (testbed PR #1: :3, then :1). That jitter is
+    gone, and the window had a cost: a different finding on the next line was
+    silently never posted.
+    """
     github = FakeGitHub()
     post_inline_comments(github, 1, pr(), HEAD, [finding(line=3)], 15)
 
-    second = post_inline_comments(github, 1, pr(), HEAD, [finding(line=1)], 15)
-    far = post_inline_comments(github, 1, pr(), HEAD, [finding(line=9)], 15)
+    rerun = post_inline_comments(github, 1, pr(), HEAD, [finding(line=3)], 15)
+    neighbour = post_inline_comments(github, 1, pr(), HEAD, [finding(line=4)], 15)
 
-    assert second.posted == 0
-    assert second.duplicates == 1
-    assert far.posted == 1
+    assert (rerun.posted, rerun.duplicates) == (0, 1)
+    assert neighbour.posted == 1
+
+
+def test_only_findings_on_added_lines_are_posted_inline():
+    github = FakeGitHub()
+    findings = [
+        finding(line=3),
+        finding(line=7, placement="existing"),
+        finding(line=9, placement="general"),
+    ]
+
+    outcome = post_inline_comments(github, 1, pr(), HEAD, findings, 15)
+
+    assert outcome.posted == 1
+    assert [c["line"] for c in github.reviews[0]["comments"]] == [3]
 
 
 def test_an_outdated_comment_does_not_block_a_fresh_one():

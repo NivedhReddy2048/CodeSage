@@ -13,6 +13,7 @@ Two jobs that both protect the review:
 """
 
 import re
+from dataclasses import dataclass
 
 from apps.agents.types import DiffFile, PreparedDiff
 
@@ -178,6 +179,69 @@ def changed_lines(section_text):
             line_number += 1
 
     return numbers
+
+
+@dataclass(frozen=True)
+class DiffLine:
+    """One line of a diff section. `number` is its new-file line; None if removed."""
+
+    number: int | None
+    text: str
+    kind: str  # "+" added, " " context, "-" removed
+    hunk: int
+
+
+def diff_lines(section_text):
+    """Every body line of a section, in order, with its new-file number and hunk."""
+    result = []
+    line_number = None
+    hunk = -1
+
+    for raw in section_text.splitlines():
+        header = HUNK_HEADER.match(raw)
+        if header:
+            line_number = int(header.group(1))
+            hunk += 1
+            continue
+        if line_number is None or raw.startswith("\\"):
+            continue
+        if raw.startswith("-"):
+            result.append(DiffLine(None, raw[1:], "-", hunk))
+            continue
+        kind = "+" if raw.startswith("+") else " "
+        result.append(DiffLine(line_number, raw[1:] if raw[:1] in "+ " else raw, kind, hunk))
+        line_number += 1
+
+    return result
+
+
+def numbered_diff(prepared):
+    """The diff as the LLM agents see it: each line carries its new-file number.
+
+    Models asked to count lines in a unified diff are off by one or two - on testbed
+    PR #7 every finding landed on a blank line beside the change. Printing the number
+    removes the counting, and the `+` marker shows which lines the PR wrote:
+
+        === app/reports.py ===
+        @@ -1,6 +1,6 @@
+            1 + | import os
+            2   | import sqlite3
+              - | API_KEY = "sk-live-..."
+            3 + | API_KEY = os.environ.get("REPORTS_API_KEY", "")
+    """
+    blocks = []
+    for entry in prepared.files:
+        out = [f"=== {entry.path} ==="]
+        current = None
+        headers = [raw for raw in entry.text.splitlines() if HUNK_HEADER.match(raw)]
+        for line in diff_lines(entry.text):
+            if line.hunk != current:
+                current = line.hunk
+                out.append(headers[current] if current < len(headers) else "@@")
+            number = "" if line.number is None else str(line.number)
+            out.append(f"{number:>5} {line.kind} | {line.text}")
+        blocks.append("\n".join(out))
+    return "\n\n".join(blocks)
 
 
 def added_lines(section_text):

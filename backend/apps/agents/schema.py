@@ -10,6 +10,7 @@ import json
 from apps.agents.types import Category, Finding, Severity
 
 MAX_MESSAGE_CHARS = 1200
+MAX_EVIDENCE_CHARS = 600
 
 # Sent to providers that support structured output. The same shape is described in
 # the prompt for those that do not.
@@ -29,8 +30,11 @@ RESPONSE_SCHEMA = {
                         "enum": [c.value for c in Category],
                     },
                     "message": {"type": "string"},
+                    # The changed line(s) the finding is about, copied verbatim. The
+                    # anchor is wherever this text is, not the model's line number.
+                    "evidence": {"type": "string"},
                 },
-                "required": ["file", "line", "severity", "category", "message"],
+                "required": ["file", "line", "severity", "category", "message", "evidence"],
                 "additionalProperties": False,
             },
         }
@@ -185,6 +189,7 @@ def _coerce(entry):
         severity=severity,
         category=category,
         message=message[:MAX_MESSAGE_CHARS],
+        evidence=str(entry.get("evidence") or "")[:MAX_EVIDENCE_CHARS],
     )
 
 

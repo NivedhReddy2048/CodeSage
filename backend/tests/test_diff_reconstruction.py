@@ -120,13 +120,17 @@ def test_a_line_sits_at_its_line_number_in_the_new_file():
     assert lines[:50] == [""] * 50  # the untouched head of the file, padded
 
 
-def test_every_reconstructed_line_is_one_the_diff_allows():
-    """The two must agree, or static analysis silently drops its own findings."""
+def test_every_reconstructed_line_is_one_the_diff_shows():
+    """The two must agree, or a linter's line numbers would not be the diff's."""
     prepared, entry = section(LATE_HUNK)
 
     for number, line in enumerate(reconstruct_new_file(entry.text).splitlines(), start=1):
         if line.strip():
-            assert prepared.allows(entry.path, number), f"line {number} not allowed"
+            assert number in entry.changed_lines, f"line {number} not in the diff"
+    # ...but only the added ones take a comment.
+    assert {n for n in entry.changed_lines if prepared.allows(entry.path, n)} == (
+        entry.added_lines
+    )
 
 
 def test_separate_hunks_each_land_at_their_own_numbers():

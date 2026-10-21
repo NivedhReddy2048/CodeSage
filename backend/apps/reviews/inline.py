@@ -3,16 +3,19 @@
 The summary comment says what was found; an inline comment puts each finding next to
 the code it is about, which is where a reviewer actually reads. Two rules:
 
-1. **Never post the same comment twice.** A PR is reviewed on every push, and a
+1. **Only on a line the PR added.** Findings anchored to existing code or to no
+   line at all ("general") are summarised, never posted inline, and an inline
+   comment sits on exactly the line the summary names.
+
+2. **Never post the same comment twice.** A PR is reviewed on every push, and a
    rerun of the same commit must not stack a second copy of every comment. Each
    comment carries a hidden marker, and a finding is skipped when a live CodeSage
-   comment already sits on the same file within synthesis' NEARBY_LINES of it - the
-   same window synthesis uses to call two findings one defect, because a rerun
-   routinely anchors the same defect a line or two away. GitHub nulls `line` on a comment
-   whose code has since changed ("outdated"), so an outdated comment does not block
-   a fresh one on the new code.
+   comment already sits on the same file and line. Anchors come from the quoted
+   evidence rather than a model's count, so a rerun lands on the same line. GitHub
+   nulls `line` on a comment whose code has since changed ("outdated"), so an
+   outdated comment does not block a fresh one on the new code.
 
-2. **Never fail the review over it.** The findings are already stored and summarised;
+3. **Never fail the review over it.** The findings are already stored and summarised;
    a rejected inline comment costs that comment and nothing else.
 
 The GitHub client is passed in rather than imported, so the caller's module (and the
@@ -21,8 +24,6 @@ tests that patch it) decide which client is used.
 
 import logging
 from dataclasses import dataclass, field
-
-from apps.agents.synthesis import NEARBY_LINES
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +50,8 @@ def existing_locations(comments):
 
 
 def already_covered(locations, path, line):
-    """Is there a CodeSage comment on this file close enough to be the same defect?"""
-    return any(p == path and abs(existing - line) <= NEARBY_LINES for p, existing in locations)
+    """Is there already a CodeSage comment on this exact line?"""
+    return (path, line) in locations
 
 
 def render_comment(finding):
@@ -80,6 +81,8 @@ def post_inline_comments(github, installation_id, pull_request, head_sha, findin
     pending = []
     seen = set(existing)
     for finding in findings:
+        if getattr(finding, "placement", "inline") in {"existing", "general"}:
+            continue
         key = (finding.file_path, finding.line)
         if already_covered(seen, *key):
             outcome.duplicates += 1

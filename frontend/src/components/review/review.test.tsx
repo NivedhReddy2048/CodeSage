@@ -39,6 +39,7 @@ const finding = (overrides: Partial<ReviewFinding>): ReviewFinding => ({
   category: "security",
   file_path: "app/users.py",
   line: 12,
+  placement: "inline",
   message: "SQL built from user input.",
   citation: "",
   dismissed: false,
@@ -101,6 +102,17 @@ describe("findings panel", () => {
   it("says plainly when there is nothing to report", () => {
     render(<FindingsPanel findings={[]} unanchored={[]} status="done" />);
     expect(screen.getByText("No issues found")).toBeInTheDocument();
+  });
+
+  it("names no line for a general finding, and tags existing-code ones", () => {
+    const general = finding({ id: 7, line: 9999, placement: "general", file_path: "app/x.py" });
+    const existing = finding({ id: 8, line: 3, placement: "existing" });
+    render(<FindingsPanel findings={[general, existing]} unanchored={[general]} status="done" />);
+
+    expect(screen.getByText("app/x.py")).toBeInTheDocument();
+    expect(screen.queryByText(/:9999/)).not.toBeInTheDocument();
+    expect(screen.getByText("General")).toBeInTheDocument();
+    expect(screen.getByText("Existing code")).toBeInTheDocument();
   });
 });
 

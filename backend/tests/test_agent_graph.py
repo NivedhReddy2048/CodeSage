@@ -535,6 +535,9 @@ def test_grounding_cites_a_retrieved_chunk():
                             finding_entry(
                                 line=10,
                                 severity="nit",
+                                # Quotes the unchanged `def` line: existing code,
+                                # so it is neither moved nor merged with ruff's :13.
+                                evidence="def paginate_users(users, page, per_page=10):",
                                 cited_file="app/users.py",
                                 cited_line=16,
                             )
