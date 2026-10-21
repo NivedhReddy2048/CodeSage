@@ -64,9 +64,13 @@ class Runtime:
     a global and two concurrent reviews cannot interfere.
     """
 
-    def __init__(self, config, retrieve=None, on_progress=None):
+    def __init__(self, config, retrieve=None, on_progress=None, fetch_source=None):
         self.config = config
         self.retrieve = retrieve
+        # `path -> str | None`: a changed file's full content at the PR head, for
+        # static analysis. Injected like `retrieve`, so this package never talks to
+        # GitHub itself.
+        self.fetch_source = fetch_source
         self.budget = TokenBudget(config.token_budget)
         self.on_progress = on_progress
 
@@ -217,11 +221,13 @@ def _synthesis_node(state):
     return {"findings": [], "runs": [], "synthesised": merged}
 
 
-def run_pipeline(diff, context, config=None, retrieve=None, on_progress=None):
+def run_pipeline(diff, context, config=None, retrieve=None, on_progress=None, fetch_source=None):
     """Run the six-agent pipeline. The phase 5 entry point.
 
     `on_progress(agent, state, status)` is called as each agent starts
     (`state="started"`) and finishes (`state="finished"`, status ok/failed/skipped).
+    `fetch_source(path)` returns a changed file's full content at the PR head, or
+    None; without it static analysis lints the diff's hunks alone.
     """
     config = config or ReviewConfig()
     started = time.perf_counter()
@@ -236,7 +242,7 @@ def run_pipeline(diff, context, config=None, retrieve=None, on_progress=None):
         result.duration_ms = int((time.perf_counter() - started) * 1000)
         return result
 
-    runtime = Runtime(config, retrieve=retrieve, on_progress=on_progress)
+    runtime = Runtime(config, retrieve=retrieve, on_progress=on_progress, fetch_source=fetch_source)
 
     try:
         final = build_graph().invoke(

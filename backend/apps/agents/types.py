@@ -72,6 +72,9 @@ class DiffFile:
     # finding may cite: a comment on a line not in the diff would render detached
     # from the change on GitHub.
     changed_lines: set[int] = field(default_factory=set)
+    # The subset of changed_lines the PR added or modified ("+" lines), as opposed to
+    # context shown around them. Only these are the author's change.
+    added_lines: set[int] = field(default_factory=set)
     text: str = ""
     # True when the diff added the file, which means its hunks are the complete new
     # content. Static analysis needs the distinction: only then is a syntax error in
@@ -176,6 +179,9 @@ class ReviewConfig:
     max_findings: int = 25
     breaker_failure_threshold: int = 3
     breaker_reset_seconds: float = 300.0
+    # Static analysis lints a modified file's full content when the caller can fetch
+    # it; anything larger than this is linted from the diff's hunks instead.
+    max_source_bytes: int = 256 * 1024
 
 
 @dataclass
