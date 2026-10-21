@@ -39,6 +39,22 @@ function Figure({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
+/**
+ * The commit the index holds. During a re-index that is still the last finished
+ * run's - the new job has no commit until it completes - so it stays on screen.
+ */
+function IndexedCommit({ state }: { state: IngestionState }) {
+  const sha = state.last_indexed_commit || state.job?.commit_sha || "";
+  if (!sha) return <>-</>;
+  const refreshing = Boolean(state.job?.is_active);
+  return (
+    <span title={refreshing ? `${sha} (indexed; re-indexing now)` : sha}>
+      {sha.slice(0, 7)}
+      {refreshing ? <span className="ml-1 font-sans text-[0.6875rem] font-normal text-fg-secondary">re-indexing</span> : null}
+    </span>
+  );
+}
+
 /** A thin bar with its meaning in words beside it. */
 function Meter({ value, max, label }: { value: number; max: number; label: React.ReactNode }) {
   const share = max > 0 ? Math.min(1, value / max) : 0;
@@ -138,7 +154,7 @@ export function IngestionStatus({ repositoryId }: { repositoryId: number }) {
         <dl className="mt-3 grid grid-cols-3 gap-3">
           <Figure label="Chunks" value={state.chunk_count} />
           <Figure label="Files" value={state.indexed_files} />
-          <Figure label="Commit" value={job?.commit_sha ? job.commit_sha.slice(0, 7) : "-"} />
+          <Figure label="Commit" value={<IndexedCommit state={state} />} />
         </dl>
       ) : null}
 

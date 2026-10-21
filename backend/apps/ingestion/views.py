@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 
 from apps.ingestion.models import CodeChunk
 from apps.ingestion.serializers import IngestionJobSerializer, IngestionStatusSerializer
-from apps.ingestion.services import active_job, latest_job, start_ingestion
+from apps.ingestion.services import active_job, last_indexed_job, latest_job, start_ingestion
 from apps.repos import services as repo_services
 from apps.repos.models import Repository
 
@@ -55,6 +55,7 @@ class IngestionStatusView(RepositoryScopedView):
             return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
         job = latest_job(repository)
+        indexed = last_indexed_job(repository)
         chunks = CodeChunk.objects.filter(repository=repository)
         context = {"show_error_details": _can_manage(request.user, repository)}
 
@@ -64,6 +65,8 @@ class IngestionStatusView(RepositoryScopedView):
                 "can_manage": context["show_error_details"],
                 "chunk_count": chunks.count(),
                 "indexed_files": chunks.values("file_path").distinct().count(),
+                "last_indexed_commit": indexed.commit_sha if indexed else "",
+                "last_indexed_at": indexed.finished_at if indexed else None,
             }
         )
 

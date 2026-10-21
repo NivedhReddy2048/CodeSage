@@ -87,6 +87,9 @@ export type IngestionState = {
   chunk_count: number;
   indexed_files: number;
   can_manage: boolean;
+  /** What the index holds now: the last finished job's commit, even while another runs. */
+  last_indexed_commit: string;
+  last_indexed_at: string | null;
 };
 
 export type ReviewStatus = "pending" | "running" | "done" | "failed";
@@ -280,6 +283,9 @@ export type AnalyticsOverview = {
     nits: number;
     blocking_ratio: number | null;
     avg_findings_per_pr: number | null;
+    /** Same scope as avg_findings_per_pr: each PR's latest completed review. */
+    latest_review_blocking: number;
+    latest_review_nits: number;
     avg_latency_ms: number | null;
     est_cost_inr_total: string;
     est_cost_inr_avg: string | null;

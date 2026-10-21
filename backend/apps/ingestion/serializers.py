@@ -70,3 +70,6 @@ class IngestionStatusSerializer(serializers.Serializer):
     chunk_count = serializers.IntegerField(read_only=True)
     indexed_files = serializers.IntegerField(read_only=True)
     can_manage = serializers.BooleanField(read_only=True)
+    # What the index holds now: the last job that finished, even while another runs.
+    last_indexed_commit = serializers.CharField(read_only=True)
+    last_indexed_at = serializers.DateTimeField(read_only=True, allow_null=True)

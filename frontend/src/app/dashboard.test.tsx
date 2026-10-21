@@ -55,6 +55,9 @@ const overview: AnalyticsOverview = {
     nits: 11,
     blocking_ratio: 0.686,
     avg_findings_per_pr: 1.67,
+    // 1.67 x 3 PRs: the latest review of each PR holds 5 findings.
+    latest_review_blocking: 2,
+    latest_review_nits: 3,
     avg_latency_ms: 4623,
     est_cost_inr_total: "1.7506",
     est_cost_inr_avg: "0.0648",
@@ -86,6 +89,15 @@ describe("dashboard", () => {
     expect(screen.getByText("4.6 s")).toBeInTheDocument();
     expect(screen.getByText("Est. cost per review")).toBeInTheDocument();
     expect(screen.getByText(/At paid-tier rates/)).toHaveTextContent("actual spend ₹0");
+  });
+
+  it("the findings card counts the same reviews as its average, and says which", async () => {
+    render(<DashboardPage />, { wrapper: Providers });
+
+    // Not the all-reviews 24 blocking / 11 nits: that scope counts re-reviews again.
+    expect(
+      await screen.findByText("Latest review of each PR: 2 blocking, 3 nits (40% blocking)"),
+    ).toBeInTheDocument();
   });
 
   it("splits the review count into done, degraded, failed and in progress", async () => {

@@ -74,6 +74,9 @@ def test_summary_kpis(world):
     assert summary["blocking_ratio"] == round(4 / 9, 3)
     # Per PR uses each PR's latest completed review: PR1 -> 2, PR2 -> 4.
     assert summary["avg_findings_per_pr"] == 3.0
+    # ...and so does the card's breakdown: PR1's latest (1 blocking, 1 nit) + PR2's
+    # (4 nits). The all-reviews totals above count PR1's first review too.
+    assert (summary["latest_review_blocking"], summary["latest_review_nits"]) == (1, 5)
     # Completed reviews only: (4000 + 6000 + 8000) / 3.
     assert summary["avg_latency_ms"] == 6000
     # Every review in the window: 0.10 + 0.10 + 0.05 + 0.01 + 0.
