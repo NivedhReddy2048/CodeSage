@@ -128,9 +128,7 @@ def test_every_reconstructed_line_is_one_the_diff_shows():
         if line.strip():
             assert number in entry.changed_lines, f"line {number} not in the diff"
     # ...but only the added ones take a comment.
-    assert {n for n in entry.changed_lines if prepared.allows(entry.path, n)} == (
-        entry.added_lines
-    )
+    assert {n for n in entry.changed_lines if prepared.allows(entry.path, n)} == (entry.added_lines)
 
 
 def test_separate_hunks_each_land_at_their_own_numbers():

@@ -244,6 +244,28 @@ def numbered_diff(prepared):
     return "\n\n".join(blocks)
 
 
+HUNK_RANGES = re.compile(r"^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+
+
+def hunk_ranges(section_text):
+    """`[(old_start, old_end, new_start, new_end)]` for each hunk, inclusive."""
+    ranges = []
+    for raw in section_text.splitlines():
+        match = HUNK_RANGES.match(raw)
+        if not match:
+            continue
+        old_start, old_len, new_start, new_len = (
+            int(match.group(1)),
+            int(match.group(2) or 1),
+            int(match.group(3)),
+            int(match.group(4) or 1),
+        )
+        ranges.append(
+            (old_start, old_start + max(old_len, 1) - 1, new_start, new_start + max(new_len, 1) - 1)
+        )
+    return ranges
+
+
 def added_lines(section_text):
     """Line numbers in the NEW file that the PR added or modified ("+" lines only)."""
     numbers = set()

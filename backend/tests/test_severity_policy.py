@@ -290,3 +290,32 @@ def test_speculative_wording_is_recognised(message):
 )
 def test_definite_findings_are_not_speculative(message):
     assert not policy.SPECULATIVE.search(message)
+
+
+# ------------------------------------------------- what counts as a security claim
+
+
+@pytest.mark.parametrize(
+    ("message", "claims"),
+    [
+        # PR #5 replay: asserts the code is exposed. Out of a test agent's scope.
+        (
+            "No tests cover quotes in customer_name, which could expose SQL injection "
+            "vulnerability if not parameterized.",
+            True,
+        ),
+        ("The query builder allows command injection through the name field.", True),
+        ("This is a SQL injection risk.", True),
+        # Live PR #5 run: names the topic of the missing test; claims no defect.
+        (
+            "The updated function uses a parameterized query, but no test change covers "
+            "this logic, potentially leaving the function untested for SQL injection "
+            "handling.",
+            False,
+        ),
+        ("No test verifies the query is not vulnerable to injection.", False),
+        ("No test covers the empty-list branch.", False),
+    ],
+)
+def test_only_an_asserted_security_defect_is_out_of_a_test_agents_scope(message, claims):
+    assert policy.claims_security_defect(message) is claims

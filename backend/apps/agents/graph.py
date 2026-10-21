@@ -27,8 +27,8 @@ from apps.agents import nodes, policy
 from apps.agents.budget import TokenBudget
 from apps.agents.diffs import prepare
 from apps.agents.providers import GeminiProvider, GroqProvider, ProviderError
-from apps.agents.synthesis import synthesise
-from apps.agents.types import ReviewConfig, ReviewResult
+from apps.agents.synthesis import synthesise_traced
+from apps.agents.types import ReviewConfig, ReviewResult, TraceEntry
 
 logger = logging.getLogger(__name__)
 
@@ -50,8 +50,10 @@ class GraphState(TypedDict, total=False):
     # Declared explicitly: LangGraph discards keys that are not part of the state
     # schema, and an undeclared `synthesised` silently produced empty reviews.
     synthesised: list
-    # Raw findings the severity policy removed, with why. Kept for the record.
-    dropped: list
+    # (finding, reason) for raw findings removed before synthesis - off the diff,
+    # uncited, out of scope - appended by the agents and the policy alike.
+    dropped: Annotated[list, operator.add]
+    trace: list
 
 
 # The agents a progress counter counts: "3/5 agents complete". Synthesis is not
@@ -221,9 +223,17 @@ def _synthesis_node(state):
     """
     # Severity policy first, on the raw findings: merging after it means no agent's
     # unjustified "blocking" can promote a group it happens to be merged into.
-    kept, dropped = policy.apply(state.get("findings", []))
-    merged = synthesise(kept)
-    return {"findings": [], "runs": [], "synthesised": merged, "dropped": dropped}
+    kept, out_of_scope = policy.apply(state.get("findings", []))
+    merged, trace = synthesise_traced(kept)
+    dropped = list(state.get("dropped", [])) + out_of_scope
+    trace += [TraceEntry(finding, "dropped", reason) for finding, reason in dropped]
+    return {
+        "findings": [],
+        "runs": [],
+        "synthesised": merged,
+        "dropped": out_of_scope,
+        "trace": trace,
+    }
 
 
 def run_pipeline(diff, context, config=None, retrieve=None, on_progress=None, fetch_source=None):
@@ -259,6 +269,7 @@ def run_pipeline(diff, context, config=None, retrieve=None, on_progress=None, fe
                 "findings": [],
                 "runs": [],
                 "retrieved": [],
+                "dropped": [],
             }
         )
     except Exception as exc:  # noqa: BLE001 - the graph must not raise past here
@@ -272,6 +283,7 @@ def run_pipeline(diff, context, config=None, retrieve=None, on_progress=None, fe
     result.agent_runs = runs
     result.findings = final.get("synthesised", [])
     result.dropped = final.get("dropped", [])
+    result.trace = final.get("trace", [])
     result.duration_ms = int((time.perf_counter() - started) * 1000)
     result.skipped_agents = list(runtime.budget.skipped)
 
