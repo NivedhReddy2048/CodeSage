@@ -35,12 +35,34 @@ MAX_SEVERITY = {"test_coverage": Severity.NIT}
 # Rule 1: the categories an agent may report in. Agents not listed are unrestricted.
 OWN_CATEGORIES = {"security": {Category.SECURITY}}
 
+_SECURITY_TERMS = (
+    r"(?:sql |command |code |template )?injection|xss|cross[- ]site scripting|"
+    r"path traversal|ssrf|csrf|remote code execution|"
+    r"(?:secret|credential|api key|password|token)s? (?:leak|exposure)|"
+    r"unauthori[sz]ed access|privilege escalation"
+)
+_CLAIM_VERBS = (
+    r"expos\w*|allow\w*|enabl\w*|lead\w* to|caus\w*|result\w* in|introduc\w*|"
+    r"open\w* (?:up|the door)|vulnerab\w*|exploit\w*|susceptible|unsafe|insecure"
+)
+# A claim that the code HAS a security defect: a claim verb near a security term
+# ("could expose SQL injection", "SQL injection vulnerability"). Merely naming the
+# term is not a claim - "untested for SQL injection handling" is a coverage finding.
 SECURITY_CLAIM = re.compile(
-    r"\b(?:injection|xss|cross[- ]site|vulnerab\w*|exploit\w*|attacker\w*|"
-    r"path traversal|ssrf|csrf|hard[- ]?coded (?:secret|key|password|credential)s?|"
-    r"credential\w*|unauthori[sz]ed|authori[sz]ation)\b",
+    rf"\b(?:{_CLAIM_VERBS})\b[^.;]{{0,80}}?\b(?:{_SECURITY_TERMS})\b"
+    rf"|\b(?:{_SECURITY_TERMS})\b[^.;]{{0,40}}?\b(?:vulnerab\w*|risk|exploit\w*|attack\w*)",
     re.IGNORECASE,
 )
+_NEGATION = re.compile(r"\b(?:not|no longer|never)\b\s*$|n't\s*$", re.IGNORECASE)
+
+
+def claims_security_defect(message):
+    """Does the message assert a security defect (rather than mention a topic)?"""
+    for match in SECURITY_CLAIM.finditer(message):
+        if not _NEGATION.search(message[max(0, match.start() - 20) : match.start()]):
+            return True
+    return False
+
 
 SPECULATIVE = re.compile(
     r"\b(?:may|might|could|potentially|possibly|perhaps|presumably)\b"
@@ -64,7 +86,7 @@ def apply(findings):
 
 def out_of_scope(finding):
     """Why this agent should not have reported this finding, or ""."""
-    if finding.agent == "test_coverage" and SECURITY_CLAIM.search(finding.message):
+    if finding.agent == "test_coverage" and claims_security_defect(finding.message):
         return "out of scope: test coverage making a security claim"
     allowed = OWN_CATEGORIES.get(finding.agent)
     if allowed is not None and finding.category not in allowed:

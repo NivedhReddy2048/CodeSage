@@ -18,7 +18,13 @@ from apps.repos.github_app import API_HEADERS, GitHubAppError
 from apps.reviews import comment as comment_renderer
 from apps.reviews import progress
 from apps.reviews.inline import post_inline_comments
-from apps.reviews.models import AgentRunRecord, LLMCall, Review, ReviewFinding
+from apps.reviews.models import (
+    AgentRunRecord,
+    LLMCall,
+    Review,
+    ReviewFinding,
+    ReviewRawFinding,
+)
 from apps.reviews.pricing import estimate_usd, to_inr, unpriced_models
 
 logger = logging.getLogger(__name__)
@@ -188,6 +194,7 @@ def _run_review(review, pull_request, installation_id):
         _store_agent_runs(review, getattr(result, "agent_runs", []))
         _store_totals(review, result)
         findings = _store_findings(review, result.findings)
+        _store_trace(review, getattr(result, "trace", []), findings)
 
     if not result.succeeded:
         # The full reason goes to the log and the stored Review (shown on the review
@@ -387,6 +394,39 @@ def _store_findings(review, findings):
         for finding in findings
     ]
     ReviewFinding.objects.bulk_create(rows)
+    return rows
+
+
+def _store_trace(review, trace, final_rows):
+    """One ReviewRawFinding per raw agent finding, linked to the final row it became."""
+    rows = []
+    for entry in trace:
+        finding = entry.finding
+        unplaced = entry.outcome == "dropped" and not getattr(finding, "cited_line", 0)
+        downgraded = getattr(finding, "downgraded", "")
+        index = entry.final_index
+        rows.append(
+            ReviewRawFinding(
+                review=review,
+                final=final_rows[index] if index is not None and index < len(final_rows) else None,
+                agent=finding.agent,
+                # As reported: a downgrade is the policy's change, not the agent's.
+                severity="blocking" if downgraded else str(finding.severity),
+                category=str(finding.category),
+                file_path=finding.file[:1024],
+                line=finding.line,
+                cited_line=getattr(finding, "cited_line", 0) or finding.line,
+                placement="" if unplaced else str(finding.placement),
+                anchored_by=getattr(finding, "anchored_by", ""),
+                rule=getattr(finding, "rule", "")[:64],
+                evidence=getattr(finding, "evidence", ""),
+                message=finding.message,
+                outcome=entry.outcome,
+                reason=entry.reason[:255],
+                downgraded=downgraded[:255],
+            )
+        )
+    ReviewRawFinding.objects.bulk_create(rows)
     return rows
 
 

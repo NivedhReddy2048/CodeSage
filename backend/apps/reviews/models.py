@@ -156,6 +156,55 @@ class ReviewFinding(models.Model):
         return f"{self.file_path}:{self.line} ({self.severity})"
 
 
+class ReviewRawFinding(models.Model):
+    """One finding exactly as an agent reported it, before synthesis.
+
+    The review's audit trail. Without it, "why does the comment say (also flagged by
+    static_analysis)?" had to be answered by replaying the pipeline: the raw findings
+    were never stored. Each row is linked to the final finding it became, or says
+    why it was dropped.
+    """
+
+    class Outcome(models.TextChoices):
+        KEPT = "kept", "Kept"  # it is `final`
+        MERGED = "merged", "Merged"  # folded into `final`
+        DROPPED = "dropped", "Dropped"  # see `reason`
+
+    review = models.ForeignKey(Review, on_delete=models.CASCADE, related_name="raw_findings")
+    final = models.ForeignKey(
+        ReviewFinding,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="sources",
+    )
+    agent = models.CharField(max_length=64)
+    # As the agent reported it, before the severity policy.
+    severity = models.CharField(max_length=20, choices=ReviewFinding.Severity.choices)
+    category = models.CharField(max_length=40, blank=True)
+    file_path = models.CharField(max_length=1024)
+    # The anchored line, and the line the agent itself named.
+    line = models.IntegerField()
+    cited_line = models.IntegerField()
+    # Blank when the finding was dropped before it could be anchored.
+    placement = models.CharField(max_length=16, blank=True)
+    anchored_by = models.CharField(max_length=16, blank=True)
+    rule = models.CharField(max_length=64, blank=True)
+    evidence = models.TextField(blank=True)
+    message = models.TextField()
+    outcome = models.CharField(max_length=16, choices=Outcome.choices)
+    reason = models.CharField(max_length=255, blank=True)
+    # Why the severity policy lowered it, when it did.
+    downgraded = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.agent} {self.file_path}:{self.line} ({self.outcome})"
+
+
 class LLMCall(models.Model):
     """Telemetry for one provider call (spec section 14).
 

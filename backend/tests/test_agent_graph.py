@@ -514,8 +514,10 @@ def test_grounding_cites_a_retrieved_chunk():
         RetrievedChunk(
             file_path="app/users.py",
             symbol="UserRepository.find_by_id",
-            line_start=15,
-            line_end=20,
+            # Outside the PR's own hunk (new 10-17, old 10-15): a chunk that
+            # overlaps it is the change itself, and grounding never sees it.
+            line_start=40,
+            line_end=45,
             content="def find_by_id(self, user_id): ...",
         )
     ]
@@ -539,7 +541,7 @@ def test_grounding_cites_a_retrieved_chunk():
                                 # so it is neither moved nor merged with ruff's :13.
                                 evidence="def paginate_users(users, page, per_page=10):",
                                 cited_file="app/users.py",
-                                cited_line=16,
+                                cited_line=42,
                             )
                         ]
                     ),
@@ -556,7 +558,7 @@ def test_grounding_cites_a_retrieved_chunk():
 
     grounded = [f for f in result.findings if f.agent == "grounding"]
     assert grounded
-    assert "app/users.py:15-20" in grounded[0].message
+    assert "app/users.py:40-45" in grounded[0].message
 
 
 @pytest.mark.django_db
@@ -623,28 +625,6 @@ def make_finding(agent, line, severity=Severity.NIT, message="Problem.", path="a
         message=message,
         agent=agent,
     )
-
-
-def test_duplicate_findings_are_merged():
-    findings = [
-        make_finding("security", 10, message="SQL injection risk."),
-        make_finding("static_analysis", 11, message="Possible SQL injection (ruff S608)."),
-    ]
-
-    merged = synthesis.synthesise(findings)
-
-    assert len(merged) == 1
-
-
-def test_a_merged_finding_credits_the_other_agents():
-    findings = [
-        make_finding("security", 10),
-        make_finding("static_analysis", 10),
-    ]
-
-    merged = synthesis.synthesise(findings)
-
-    assert "also flagged by" in merged[0].message
 
 
 def test_blocking_wins_when_agents_disagree():

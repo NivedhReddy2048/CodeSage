@@ -147,7 +147,7 @@ def test_tool_findings_off_added_lines_are_dropped_not_moved():
 
     # :6 is context and :4 a blank context line; only :3 was added by the PR.
     assert [(f.line, f.message) for f in findings] == [
-        (3, "Possible hardcoded password (ruff S105)")
+        (3, "ruff S105: Possible hardcoded password")
     ]
 
 

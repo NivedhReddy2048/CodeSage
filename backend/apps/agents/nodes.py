@@ -14,9 +14,9 @@ import time
 
 from apps.agents import agent_prompts as prompts
 from apps.agents import citations
-from apps.agents.anchoring import anchor_all, new_file_lines
+from apps.agents.anchoring import anchor_with_drops, new_file_lines
 from apps.agents.budget import estimate_tokens
-from apps.agents.diffs import reconstruct_new_file
+from apps.agents.diffs import hunk_ranges, reconstruct_new_file
 from apps.agents.providers import ProviderError
 from apps.agents.schema import (
     GROUNDING_SCHEMA,
@@ -194,7 +194,9 @@ def static_analysis(state):
                 line=item.line,
                 severity=Severity.BLOCKING if item.severity == "blocking" else Severity.NIT,
                 category=_tool_category(item),
-                message=f"{item.message} ({item.tool} {item.code})".strip(),
+                # The tool and rule lead, so the finding names its rule wherever
+                # it is shown: "ruff F401: `os` imported but unused".
+                message=f"{item.tool} {item.code}: {item.message}".strip(),
                 agent="static_analysis",
                 rule=f"{item.tool} {item.code}".strip(),
                 evidence=texts.get(item.file, {}).get(item.line, ""),
@@ -268,7 +270,8 @@ def security(state):
         return {"findings": [], "runs": [run]}
 
     findings = _parse(raw, run, runtime.config.max_findings, "security")
-    return {"findings": anchor_all(findings, prepared), "runs": [run]}
+    anchored, dropped = anchor_with_drops(findings, prepared)
+    return {"findings": anchored, "runs": [run], "dropped": dropped}
 
 
 # ----------------------------------------------------------------------- grounding
@@ -296,8 +299,14 @@ def grounding(state):
         logger.exception("Retrieval failed")
         return {"findings": [], "runs": [run]}
 
+    found_any = bool(retrieved)
+    retrieved = exclude_own_changes(retrieved, prepared)
     if not retrieved:
-        run.skipped_reason = "nothing retrieved; repository may not be indexed"
+        run.skipped_reason = (
+            "only this pull request's own changes were retrieved"
+            if found_any
+            else "nothing retrieved; repository may not be indexed"
+        )
         return {"findings": [], "runs": [run]}
 
     message = prompts.build_grounding_message(prepared, retrieved, state.get("intent", ""))
@@ -340,10 +349,37 @@ def grounding(state):
         )
         for f, citation in kept
     ]
-    findings = anchor_all(findings, prepared)
+    findings, off_diff = anchor_with_drops(findings, prepared)
     call_run.findings_count = len(findings)
+    uncited = [(f, "uncited: citation is not inside a retrieved excerpt") for f in dropped]
 
-    return {"findings": findings, "runs": [call_run], "retrieved": retrieved}
+    return {
+        "findings": findings,
+        "runs": [call_run],
+        "retrieved": retrieved,
+        "dropped": uncited + off_diff,
+    }
+
+
+def exclude_own_changes(retrieved, prepared):
+    """Drop retrieved chunks that are this PR's own change, not existing code.
+
+    The index holds the base branch, so a file the PR modifies is retrieved as well -
+    and on testbed PR #5 grounding cited the PR's own `app/reports.py:5-13` as
+    "logic that already exists". A chunk is excluded when it is in a changed file and
+    overlaps a hunk, on either side: index line numbers are the base's (old side),
+    and a re-indexed branch could match the new side.
+    """
+    spans = {entry.path: hunk_ranges(entry.text) for entry in prepared.files}
+
+    def overlaps(chunk):
+        for old_start, old_end, new_start, new_end in spans.get(chunk.file_path, ()):
+            for start, end in ((old_start, old_end), (new_start, new_end)):
+                if chunk.line_start <= end and chunk.line_end >= start:
+                    return True
+        return False
+
+    return [chunk for chunk in retrieved if not overlaps(chunk)]
 
 
 # ------------------------------------------------------------------ test coverage
@@ -403,4 +439,5 @@ def test_coverage(state):
         return {"findings": [], "runs": [run]}
 
     findings = _parse(raw, run, runtime.config.max_findings, "test_coverage")
-    return {"findings": anchor_all(findings, prepared), "runs": [run]}
+    anchored, dropped = anchor_with_drops(findings, prepared)
+    return {"findings": anchored, "runs": [run], "dropped": dropped}

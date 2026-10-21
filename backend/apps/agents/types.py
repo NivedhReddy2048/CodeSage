@@ -64,6 +64,24 @@ class Finding:
     rule: str = ""
     # Set by the severity policy when it lowered this finding: why.
     downgraded: str = ""
+    # The line the agent itself named, before anchoring moved it. 0 until anchored.
+    cited_line: int = 0
+
+
+@dataclass(frozen=True)
+class TraceEntry:
+    """What became of one raw agent finding: the review's audit trail.
+
+    `outcome` is "kept" (it is final finding `final_index`), "merged" (folded into
+    final finding `final_index`, written by another agent or worded differently), or
+    "dropped" (`reason` says why: out of scope, off the diff, uncited, over the
+    limit). A downgrade is not a drop: it is on `finding.downgraded`.
+    """
+
+    finding: Finding
+    outcome: str
+    reason: str = ""
+    final_index: int | None = None
 
     @property
     def citation(self):
@@ -229,8 +247,11 @@ class ReviewResult:
     # Per-agent telemetry (spec section 14), and agents the budget forced out.
     agent_runs: list = field(default_factory=list)
     skipped_agents: list = field(default_factory=list)
-    # (finding, reason) for raw findings the severity policy removed as out of scope.
+    # (finding, reason) for raw findings removed before synthesis: off the diff,
+    # uncited, or out of the agent's scope.
     dropped: list = field(default_factory=list)
+    # One TraceEntry per raw finding, in agent order: the pre-synthesis record.
+    trace: list = field(default_factory=list)
 
     @property
     def blocking(self):

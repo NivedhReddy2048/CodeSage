@@ -82,6 +82,8 @@ def anchor(finding, prepared):
     entry = prepared.entry(finding.file)
     if entry is None:
         return None
+    if not finding.cited_line:
+        finding = replace(finding, cited_line=finding.line)
 
     lines = new_file_lines(entry)
     matches = matching_lines(finding.evidence, lines)
@@ -122,5 +124,16 @@ def anchor(finding, prepared):
 
 
 def anchor_all(findings, prepared):
-    anchored = (anchor(finding, prepared) for finding in findings)
-    return [finding for finding in anchored if finding is not None]
+    return anchor_with_drops(findings, prepared)[0]
+
+
+def anchor_with_drops(findings, prepared):
+    """`(anchored, dropped)`, where dropped is `(finding, reason)` for the record."""
+    kept, dropped = [], []
+    for finding in findings:
+        placed = anchor(finding, prepared)
+        if placed is None:
+            dropped.append((finding, "off-diff: file is not in this diff"))
+        else:
+            kept.append(placed)
+    return kept, dropped
