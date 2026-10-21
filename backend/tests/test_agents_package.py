@@ -142,7 +142,10 @@ def test_changed_lines_are_tracked_from_the_hunk_header():
     assert entry.path == "app/users.py"
     # Hunk starts at new-file line 10; removed lines do not advance the counter.
     assert min(entry.changed_lines) == 10
-    assert prepared.allows("app/users.py", 13)
+    # Only the added line takes a comment; :13 is unchanged context.
+    assert entry.added_lines == {12}
+    assert prepared.allows("app/users.py", 12)
+    assert not prepared.allows("app/users.py", 13)
 
 
 def test_removed_lines_are_not_citable():
@@ -463,8 +466,12 @@ def test_a_subverted_response_fails_closed_rather_than_approving():
 # ================================================================= line mapping
 
 
-def test_findings_outside_the_diff_are_dropped():
-    """A model will confidently cite a line it never saw."""
+def test_findings_off_the_added_lines_are_anchored_not_trusted():
+    """A model will confidently cite a line it never saw.
+
+    :13 is unchanged context one line from the added :12, so it is moved there;
+    :9999 is not in the diff at all, so it is kept but pinned to no line.
+    """
     entries = [good_finding(line=13), good_finding(line=9999)]
 
     with mock.patch(
@@ -473,7 +480,8 @@ def test_findings_outside_the_diff_are_dropped():
     ):
         result = review.run_review(PY_DIFF, context(), config())
 
-    assert [f.line for f in result.findings] == [13]
+    placed = sorted((f.line, str(f.placement)) for f in result.findings)
+    assert placed == [(12, "inline"), (9999, "general")]
 
 
 def test_findings_for_files_not_in_the_diff_are_dropped():

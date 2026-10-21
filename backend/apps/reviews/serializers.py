@@ -33,6 +33,7 @@ class ReviewFindingSerializer(serializers.ModelSerializer):
             "category",
             "file_path",
             "line",
+            "placement",
             "message",
             "citation",
             "dismissed",

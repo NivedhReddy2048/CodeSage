@@ -380,6 +380,7 @@ def _store_findings(review, findings):
             category=str(finding.category),
             file_path=finding.file,
             line=finding.line,
+            placement=str(getattr(finding, "placement", ReviewFinding.Placement.INLINE)),
             message=finding.message,
             citation=getattr(finding, "cited", "")[:512],
         )

@@ -98,6 +98,8 @@ export type ReviewFinding = {
   category: string;
   file_path: string;
   line: number;
+  /** inline: on an added line; existing: about unchanged code; general: no honest line. */
+  placement: "inline" | "existing" | "general";
   message: string;
   citation: string;
   dismissed: boolean;

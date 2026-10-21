@@ -186,6 +186,8 @@ export function DiffViewer({
   const byFile = useMemo(() => {
     const map = new Map<string, Map<number, ReviewFinding[]>>();
     for (const finding of findings) {
+      // A general finding has no line it can honestly be pinned to.
+      if (finding.placement === "general") continue;
       const lines = map.get(finding.file_path) ?? new Map<number, ReviewFinding[]>();
       lines.set(finding.line, [...(lines.get(finding.line) ?? []), finding]);
       map.set(finding.file_path, lines);
@@ -228,5 +230,8 @@ export function unanchoredFindings(diff: string, findings: ReviewFinding[]) {
     }
     visible.set(file.path, lines);
   }
-  return findings.filter((finding) => !visible.get(finding.file_path)?.has(finding.line));
+  return findings.filter(
+    (finding) =>
+      finding.placement === "general" || !visible.get(finding.file_path)?.has(finding.line),
+  );
 }

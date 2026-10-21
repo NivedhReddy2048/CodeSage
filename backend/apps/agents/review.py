@@ -12,6 +12,7 @@ import logging
 import time
 
 from apps.agents import prompts
+from apps.agents.anchoring import anchor_all
 from apps.agents.breaker import get_breaker
 from apps.agents.diffs import prepare
 from apps.agents.providers import GeminiProvider, GroqProvider, ProviderError
@@ -159,23 +160,13 @@ def _attempt(provider, system_prompt, user_message, prepared, config, is_fallbac
 
 
 def _drop_unanchored(findings, prepared):
-    """Keep only findings that point at a line actually present in the diff.
+    """Anchor each finding (see `anchoring`); drop those about files not in the diff.
 
     A model will confidently cite a plausible-looking line it never saw. Posting
     that as a review comment anchors it to unrelated code, which is worse than
     saying nothing: it looks authoritative and is wrong.
     """
-    kept = []
-    for finding in findings:
-        if prepared.allows(finding.file, finding.line):
-            kept.append(finding)
-        else:
-            logger.info(
-                "Dropping finding outside the diff: %s:%s",
-                finding.file,
-                finding.line,
-            )
-    return kept
+    return anchor_all(findings, prepared)
 
 
 def _summarise_failure(calls):

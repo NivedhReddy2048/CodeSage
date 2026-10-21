@@ -7,6 +7,17 @@ import { AGENT_LABELS } from "@/lib/format";
 import type { ReviewFinding } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+const PLACEMENT_LABELS: Record<ReviewFinding["placement"], string> = {
+  inline: "Changed line",
+  existing: "Existing code",
+  general: "General",
+};
+
+/** file:line, or just the file for a finding with no honest line (general). */
+export function findingLocation(finding: Pick<ReviewFinding, "file_path" | "line" | "placement">) {
+  return finding.placement === "general" ? finding.file_path : `${finding.file_path}:${finding.line}`;
+}
+
 function jumpTo(id: number) {
   const target = document.getElementById(findingAnchor(id));
   if (!target) return;
@@ -49,13 +60,18 @@ function Group({
                   onClick={() => jumpTo(finding.id)}
                   className="truncate rounded-sm font-mono text-xs text-fg underline-offset-4 hover:text-brand hover:underline"
                 >
-                  {finding.file_path}:{finding.line}
+                  {findingLocation(finding)}
                 </button>
               ) : (
                 <span className="truncate font-mono text-xs text-fg-secondary">
-                  {finding.file_path}:{finding.line}
+                  {findingLocation(finding)}
                 </span>
               )}
+              {finding.placement && finding.placement !== "inline" ? (
+                <span className="rounded-md border bg-surface-2 px-1.5 py-0.5 text-xs text-fg-secondary">
+                  {PLACEMENT_LABELS[finding.placement]}
+                </span>
+              ) : null}
             </div>
             <p className="mt-1.5 line-clamp-3 text-fg">{finding.message}</p>
             <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-secondary">

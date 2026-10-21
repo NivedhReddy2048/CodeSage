@@ -44,6 +44,7 @@ export const EXAMPLE_FINDINGS: ReviewFinding[] = [
     category: "correctness",
     file_path: "app/reports.py",
     line: 16,
+    placement: "inline",
     message:
       "range(len(users) + 1) runs one index past the end, so users[i] raises IndexError on the last pass. The existing `export_rows` iterates the list directly instead. (see " +
       CITATION +
