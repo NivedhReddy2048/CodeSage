@@ -110,6 +110,42 @@ function refreshAccessToken(): Promise<boolean> {
   return refreshInFlight;
 }
 
+/** Refresh this long before the access token's `exp`, to absorb clock skew and latency. */
+const EXPIRY_MARGIN_SECONDS = 30;
+
+/**
+ * Has this JWT expired, or will it within the margin? Read from its `exp` claim
+ * without verifying it - the server does that; this only decides whether sending it
+ * is pointless. A token that cannot be read is assumed fine and left to the server.
+ */
+export function tokenExpiresSoon(token: string, now: number = Date.now()) {
+  const payload = token.split(".")[1];
+  if (!payload) return false;
+  try {
+    const json = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+    const exp = (JSON.parse(json) as { exp?: unknown }).exp;
+    return typeof exp === "number" && exp * 1000 <= now + EXPIRY_MARGIN_SECONDS * 1000;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Refresh before sending when the access token has expired or is about to.
+ *
+ * Without this the first request after the 30-minute access lifetime was always
+ * rejected: on load that was `/api/auth/me/`, twice under Strict Mode (the mount
+ * effect runs twice), so every return to the app logged two 401s before the shared
+ * refresh replayed them. Goes through the same single-flight refresh, so concurrent
+ * requests still spend one refresh token between them.
+ */
+async function refreshIfExpiring() {
+  const access = getAccessToken();
+  if (access && getRefreshToken() && tokenExpiresSoon(access)) {
+    await refreshAccessToken();
+  }
+}
+
 type RequestOptions = {
   method?: string;
   body?: unknown;
@@ -137,6 +173,8 @@ async function request<T>(
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   };
+
+  if (auth) await refreshIfExpiring();
 
   let response: Response;
   try {
@@ -238,9 +276,15 @@ export function wsUrl(path: string) {
   return `${BASE_URL.replace(/^http/, "ws")}${path}`;
 }
 
-/** Make sure the stored access token is fresh, refreshing it if needed. */
+/**
+ * Get a new access token after the server rejected the current one (the progress
+ * socket's 4401). Refreshes directly: calling `/me` to provoke a 401 first was a
+ * wasted round trip and a logged error. Rejects when the session cannot be renewed.
+ */
 export async function ensureFreshToken() {
-  await api.currentUser();
+  if (!(await refreshAccessToken())) {
+    throw new ApiError(401, "Your session has expired. Sign in again.");
+  }
 }
 
 /** `?a=1&b=2`, dropping empty values; "" when nothing is set. */
