@@ -249,7 +249,7 @@ def test_progress_survives_the_end_of_the_review(world):
     from apps.agents.types import ReviewResult
     from apps.reviews import services
 
-    def pipeline(diff, context, config, retrieve=None, on_progress=None):
+    def pipeline(diff, context, config, retrieve=None, on_progress=None, fetch_source=None):
         for name in AGENT_NAMES:
             on_progress(name, "started", "")
             on_progress(name, "finished", "ok")

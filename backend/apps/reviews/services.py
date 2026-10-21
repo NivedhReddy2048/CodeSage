@@ -50,6 +50,7 @@ def build_config():
         max_findings=settings.REVIEW_MAX_FINDINGS,
         breaker_failure_threshold=settings.REVIEW_BREAKER_FAILURE_THRESHOLD,
         breaker_reset_seconds=settings.REVIEW_BREAKER_RESET_SECONDS,
+        max_source_bytes=settings.INGESTION_MAX_FILE_BYTES,
     )
 
 
@@ -179,6 +180,7 @@ def _run_review(review, pull_request, installation_id):
         # without knowing Django exists.
         retrieve=build_retriever(repository),
         on_progress=progress.ProgressReporter(review),
+        fetch_source=build_source_fetcher(installation_id, repository.full_name, review.head_sha),
     )
 
     with transaction.atomic():
@@ -274,6 +276,33 @@ def build_retriever(repository):
         ]
 
     return retrieve
+
+
+def build_source_fetcher(installation_id, full_name, head_sha):
+    """A `path -> str | None` callable: a changed file's full content at the PR head.
+
+    Static analysis lints this instead of a reconstruction from the diff's hunks,
+    which is missing the imports and uses outside them. Any failure returns None and
+    the agent falls back to the reconstruction, so a GitHub hiccup costs precision,
+    never the review.
+    """
+
+    def fetch(path):
+        if not head_sha:
+            return None
+        try:
+            return github_app.get_file_content(
+                installation_id,
+                full_name,
+                path,
+                head_sha,
+                max_bytes=settings.INGESTION_MAX_FILE_BYTES,
+            )
+        except GitHubAppError as exc:
+            logger.info("Static analysis falls back to hunks for %s: %s", path, exc)
+            return None
+
+    return fetch
 
 
 def _store_agent_runs(review, runs):

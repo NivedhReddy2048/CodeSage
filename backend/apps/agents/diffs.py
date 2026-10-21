@@ -180,6 +180,25 @@ def changed_lines(section_text):
     return numbers
 
 
+def added_lines(section_text):
+    """Line numbers in the NEW file that the PR added or modified ("+" lines only)."""
+    numbers = set()
+    line_number = None
+
+    for raw in section_text.splitlines():
+        hunk = HUNK_HEADER.match(raw)
+        if hunk:
+            line_number = int(hunk.group(1))
+            continue
+        if line_number is None or raw.startswith(("-", "\\")):
+            continue
+        if raw.startswith("+"):
+            numbers.add(line_number)
+        line_number += 1
+
+    return numbers
+
+
 def adds_whole_file(section_text):
     """Does this section add the file, so that its hunks are the whole of it?
 
@@ -271,6 +290,7 @@ def prepare(diff_text, max_bytes):
             DiffFile(
                 path=path,
                 changed_lines=changed_lines(section),
+                added_lines=added_lines(section),
                 text=section,
                 is_new_file=adds_whole_file(section),
             )

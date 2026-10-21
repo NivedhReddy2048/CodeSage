@@ -17,6 +17,7 @@ would waste a round trip on every request and burn rate limit for no benefit.
 """
 
 import time
+from urllib.parse import quote
 
 import jwt
 import requests
@@ -104,13 +105,13 @@ def build_app_jwt():
         raise GitHubAppError(f"Could not sign the App JWT: {exc}") from exc
 
 
-def _request(method, path, token, **kwargs):
+def _request(method, path, token, headers=None, **kwargs):
     """Call the GitHub API, normalising transport and status failures."""
     try:
         response = requests.request(
             method,
             f"{API_ROOT}{path}",
-            headers={**API_HEADERS, "Authorization": f"Bearer {token}"},
+            headers={**API_HEADERS, "Authorization": f"Bearer {token}", **(headers or {})},
             timeout=TIMEOUT,
             **kwargs,
         )
@@ -284,6 +285,37 @@ def get_pull_request(installation_id, repo_full_name, number):
     """`GET /repos/{repo}/pulls/{number}`: the PR's current head, base and title."""
     token = get_installation_token(installation_id)
     return _request("GET", f"/repos/{repo_full_name}/pulls/{number}", token).json()
+
+
+def get_file_content(installation_id, repo_full_name, path, ref, max_bytes):
+    """A file's text at `ref`, or None when it is missing, binary or over `max_bytes`.
+
+    The raw media type returns the bytes themselves rather than base64 in JSON. The
+    path is quoted, so a filename from a pull request cannot add query parameters or
+    climb out of /contents/.
+    """
+    token = get_installation_token(installation_id)
+    response = _request(
+        "GET",
+        f"/repos/{repo_full_name}/contents/{quote(path, safe='/')}",
+        token,
+        headers={"Accept": "application/vnd.github.raw"},
+        params={"ref": ref},
+        stream=True,
+    )
+    # Read at most one byte past the limit: an oversized file is never downloaded.
+    body = b""
+    try:
+        for chunk in response.iter_content(chunk_size=64 * 1024):
+            body += chunk
+            if len(body) > max_bytes:
+                return None
+    finally:
+        response.close()
+    try:
+        return body.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
 
 
 def list_review_comments(installation_id, repo_full_name, number):

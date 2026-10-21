@@ -400,3 +400,59 @@ def test_update_issue_comment_patches_the_comment(app_settings, clean_cache):
     method, url = request.call_args.args
     assert method == "PATCH"
     assert url.endswith("/repos/owner/repo/issues/comments/4242")
+
+
+# ---------------------------------------------------------------- file contents
+
+
+def raw_response(body, status_code=200):
+    response = api_response(status_code, text=body.decode("utf-8", "replace"))
+    response.iter_content.return_value = [body[i : i + 4] for i in range(0, len(body), 4)]
+    return response
+
+
+def test_file_content_is_read_raw_at_the_given_commit():
+    with (
+        mock.patch.object(github_app, "get_installation_token", return_value="ghs_t"),
+        mock.patch.object(
+            github_app.requests, "request", return_value=raw_response(b"import os\n")
+        ) as request,
+    ):
+        text = github_app.get_file_content(1, "owner/repo", "app/a b?.py", "abc123", 1000)
+
+    assert text == "import os\n"
+    method, url = request.call_args.args
+    assert method == "GET"
+    # Quoted: a PR's filename cannot add query parameters or leave /contents/.
+    assert url.endswith("/repos/owner/repo/contents/app/a%20b%3F.py")
+    assert request.call_args.kwargs["params"] == {"ref": "abc123"}
+    assert request.call_args.kwargs["headers"]["Accept"] == "application/vnd.github.raw"
+
+
+def test_a_file_over_the_limit_is_not_read_past_it():
+    response = raw_response(b"x" * 40)
+    with (
+        mock.patch.object(github_app, "get_installation_token", return_value="ghs_t"),
+        mock.patch.object(github_app.requests, "request", return_value=response),
+    ):
+        assert github_app.get_file_content(1, "o/r", "big.py", "abc", max_bytes=10) is None
+    response.close.assert_called_once()
+
+
+def test_a_binary_file_is_not_returned_as_text():
+    with (
+        mock.patch.object(github_app, "get_installation_token", return_value="ghs_t"),
+        mock.patch.object(github_app.requests, "request", return_value=raw_response(b"\xff\xfe")),
+    ):
+        assert github_app.get_file_content(1, "o/r", "logo.py", "abc", 1000) is None
+
+
+def test_a_missing_file_is_an_error_for_the_caller_to_handle():
+    with (
+        mock.patch.object(github_app, "get_installation_token", return_value="ghs_t"),
+        mock.patch.object(
+            github_app.requests, "request", return_value=raw_response(b"Not Found", 404)
+        ),
+        pytest.raises(GitHubAppError),
+    ):
+        github_app.get_file_content(1, "o/r", "gone.py", "abc", 1000)

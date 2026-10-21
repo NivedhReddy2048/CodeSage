@@ -25,7 +25,7 @@ from apps.agents.schema import (
     parse_findings,
 )
 from apps.agents.static_analysis import run_analysis
-from apps.agents.types import AgentRun, Category, Finding, Severity
+from apps.agents.types import AgentRun, Category, Finding, ReviewConfig, Severity
 
 logger = logging.getLogger(__name__)
 
@@ -146,8 +146,12 @@ def static_analysis(state):
     run = AgentRun(name="static_analysis")
 
     started = time.perf_counter()
-    contents = {entry.path: reconstruct_new_file(entry.text) for entry in prepared.files}
-    complete = {entry.path for entry in prepared.files if entry.is_new_file}
+    runtime = state.get("runtime")
+    contents, complete, partial = _sources(
+        getattr(runtime, "fetch_source", None),
+        runtime.config.max_source_bytes if runtime else ReviewConfig().max_source_bytes,
+        prepared,
+    )
 
     try:
         report = run_analysis(contents, complete=complete)
@@ -159,6 +163,8 @@ def static_analysis(state):
 
     run.latency_ms = int((time.perf_counter() - started) * 1000)
     run.detail = report.describe()
+    if partial and report.looked:
+        run.detail += f" · {len(partial)} file(s) from diff hunks only"
 
     # Only claim success if a tool actually looked. Nothing having run is a skip
     # with the reason named, so "0 findings" never stands in for "never checked".
@@ -168,11 +174,13 @@ def static_analysis(state):
 
     run.succeeded = True
 
+    added = {entry.path: entry.added_lines for entry in prepared.files}
     findings = []
     for item in report.findings:
-        # Only report on lines the PR actually touched: a linter run over whole
-        # files will otherwise flag pre-existing issues the author did not write.
-        if not prepared.allows(item.file, item.line):
+        # Only lines the PR added. A linter over whole files otherwise flags
+        # pre-existing code the author did not write - context lines included. Never
+        # moved to a nearby added line either: a tool names the exact line it means.
+        if item.line not in added.get(item.file, ()):
             continue
         findings.append(
             Finding(
@@ -187,6 +195,40 @@ def static_analysis(state):
 
     run.findings_count = len(findings)
     return {"findings": findings, "runs": [run]}
+
+
+def _sources(fetch_source, limit, prepared):
+    """What to lint for each file: `(contents, complete_paths, partial_paths)`.
+
+    An added file's hunks are the whole file. A modified file's hunks are not, so its
+    full content at the PR head is fetched when the caller supplied a way to; a
+    reconstruction from hunks is the fallback, and the linter is told it is partial.
+    """
+    contents, complete, partial = {}, set(), set()
+
+    for entry in prepared.files:
+        if entry.is_new_file:
+            contents[entry.path] = reconstruct_new_file(entry.text)
+            complete.add(entry.path)
+            continue
+
+        source = None
+        if fetch_source is not None:
+            try:
+                source = fetch_source(entry.path)
+            except Exception:  # noqa: BLE001 - a failed fetch costs precision, not the review
+                logger.exception("Could not fetch %s for static analysis", entry.path)
+            if source is not None and len(source.encode("utf-8")) > limit:
+                source = None
+
+        if source is not None:
+            contents[entry.path] = source
+            complete.add(entry.path)
+        else:
+            contents[entry.path] = reconstruct_new_file(entry.text)
+            partial.add(entry.path)
+
+    return contents, complete, partial
 
 
 def _tool_category(item):

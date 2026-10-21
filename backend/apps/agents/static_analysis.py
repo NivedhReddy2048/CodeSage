@@ -152,6 +152,18 @@ def is_config_file(path):
     return name in CONFIG_NAMES or name.startswith(".eslintrc")
 
 
+# Rules whose verdict depends on the rest of the file: names defined, imported or used
+# elsewhere. On a reconstruction from a few hunks that context is missing, so they
+# fire on code that is fine - an `import` outside the hunk makes every use look
+# undefined (F821), and a use outside it makes the assignment look unused (F841).
+PARTIAL_CONTEXT_RULES = frozenset({"F401", "F405", "F811", "F821", "F822", "F823", "F841"})
+
+
+def is_partial_context_artefact(code):
+    """Would this rule only fire because part of the file is missing?"""
+    return is_syntax_code(code) or code in PARTIAL_CONTEXT_RULES
+
+
 def is_syntax_code(code):
     """Is this diagnostic ruff complaining that the file does not parse?
 
@@ -312,9 +324,10 @@ def _run_ruff(workdir, written, complete=frozenset()):
         if not original:
             continue
         code = entry.get("code") or ""
-        if is_syntax_code(code) and original not in complete:
-            # Only part of this file was reconstructed, so it was never going to
-            # parse. Reporting that would describe our own input, not the change.
+        if original not in complete and is_partial_context_artefact(code):
+            # Only part of this file was available: it was never going to parse, and
+            # names defined or used outside the hunks are invisible. Reporting those
+            # would describe our own input, not the change.
             continue
         findings.append(
             ToolFinding(
