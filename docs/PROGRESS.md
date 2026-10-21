@@ -60,7 +60,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **38 merged — bronze (16) reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **40 merged — bronze (16) reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -74,6 +74,35 @@ once, listed "claude" as a repository contributor.
 **Update the merged-PR count in this table in each phase's last PR.** The figure
 counts merged PRs *including* the one making the edit, so it is correct the moment that
 PR lands rather than one behind forever.
+
+---
+
+## Fix — reviews that no worker picked up were invisible
+
+**Status:** Done. Two PRs: #80 (backend, closes #79) and this one (UI, closes #81).
+
+**What happened.** Testbed PR #4 got its acknowledgement comment, then nothing: no row
+on /reviews, and the comment said "reviewing..." indefinitely. Seven Celery workers
+were consuming the one queue, six of them left over from earlier dev sessions, and a
+three-day-old runserver held port 8000. The worker that took the task predated
+migration `reviews.0005` and crashed in `Review.objects.create`
+(`null value in column "progress"`). The insert rolled back, so nothing recorded that
+a review had been requested.
+
+**What changed.**
+
+- The webhook handler creates the `Review` as **pending** before queueing it and passes
+  its id to the task, which is how the UI re-run already worked. A failed enqueue marks
+  the row failed.
+- A review still pending or running after `STALE_AFTER` (15 minutes, the threshold
+  re-run already used) is **stalled**. The API flags it; /reviews and the review page
+  show a "Stalled" badge with a hint that the worker may be down, instead of a
+  "Queued" pulse that never ends.
+
+**Operational lesson.** Celery workers never reload code, and every dev worker here
+shares one nodename and one queue. Before trusting a local review, check that
+`celery -A core inspect stats` lists exactly one pid, and that the process listening on
+:8000 belongs to the current honcho run.
 
 ---
 
