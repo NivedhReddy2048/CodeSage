@@ -1,0 +1,109 @@
+"""Severity policy: what may be blocking, decided here rather than by each agent.
+
+Applied to the raw findings before synthesis merges anything, so one agent's
+over-confident "blocking" can no longer promote a group it was merged into. On the
+testbed runs 73% of findings were blocking and test coverage alone produced 27 of
+38 of them; a reviewer stops reading a review where everything is urgent.
+
+The rules, all deterministic:
+
+1. Scope. An agent reports in its own domain. A test-coverage finding that claims a
+   security defect ("could expose SQL injection", on the line that fixes it) is out
+   of its depth and dropped, and so is a security-agent finding that is not about
+   security. Test coverage's findings are about tests whatever category it chose.
+2. Per-agent ceiling. Test coverage is at most a nit: a missing test is worth
+   saying, not worth blocking a merge on. Of the linters, only bandit's own
+   medium/high severity rating may block; every other lint rule is a nit.
+3. Evidence. Blocking needs the defect quoted from a line this PR added: evidence
+   that matched an added line, or a linter's exact line. A finding on existing code,
+   on no line at all, or placed only by the model's number or a snap, is a nit.
+4. Certainty. "May", "could", "potentially", "if ... untrusted": a finding that is
+   not sure the defect exists is a nit. Model findings only - a tool's wording
+   ("Possible SQL injection vector") is its standard phrasing, not doubt.
+
+Every downgrade records why on the finding; every drop is returned with its reason.
+"""
+
+import re
+from dataclasses import replace
+
+from apps.agents.types import Category, Placement, Severity
+
+# Rule 2: the most an agent's finding can be.
+MAX_SEVERITY = {"test_coverage": Severity.NIT}
+
+# Rule 1: the categories an agent may report in. Agents not listed are unrestricted.
+OWN_CATEGORIES = {"security": {Category.SECURITY}}
+
+SECURITY_CLAIM = re.compile(
+    r"\b(?:injection|xss|cross[- ]site|vulnerab\w*|exploit\w*|attacker\w*|"
+    r"path traversal|ssrf|csrf|hard[- ]?coded (?:secret|key|password|credential)s?|"
+    r"credential\w*|unauthori[sz]ed|authori[sz]ation)\b",
+    re.IGNORECASE,
+)
+
+SPECULATIVE = re.compile(
+    r"\b(?:may|might|could|potentially|possibly|perhaps|presumably)\b"
+    r"|\bif\b[^.;]*\b(?:untrusted|user[- ](?:controlled|supplied|provided)|"
+    r"attacker[- ]controlled|malicious|tainted)\b",
+    re.IGNORECASE,
+)
+
+
+def apply(findings):
+    """`(kept, dropped)`: findings with policy severity, and `(finding, reason)` drops."""
+    kept, dropped = [], []
+    for finding in findings:
+        reason = out_of_scope(finding)
+        if reason:
+            dropped.append((finding, reason))
+            continue
+        kept.append(cap(_own_category(finding)))
+    return kept, dropped
+
+
+def out_of_scope(finding):
+    """Why this agent should not have reported this finding, or ""."""
+    if finding.agent == "test_coverage" and SECURITY_CLAIM.search(finding.message):
+        return "out of scope: test coverage making a security claim"
+    allowed = OWN_CATEGORIES.get(finding.agent)
+    if allowed is not None and finding.category not in allowed:
+        return f"out of scope: {finding.agent} reporting {finding.category}"
+    return ""
+
+
+def _own_category(finding):
+    if finding.agent == "test_coverage" and finding.category != Category.TESTING:
+        return replace(finding, category=Category.TESTING)
+    return finding
+
+
+def blocking_denied(finding):
+    """Why this finding may not be blocking, or "" if it may."""
+    ceiling = MAX_SEVERITY.get(finding.agent)
+    if ceiling == Severity.NIT:
+        return f"{finding.agent.replace('_', ' ')} is never blocking"
+
+    if finding.agent == "static_analysis":
+        if not finding.rule.startswith("bandit "):
+            return "lint rule"
+        return ""  # bandit rated it medium/high, on the exact added line
+
+    if finding.placement == Placement.EXISTING:
+        return "about code this PR did not change"
+    if finding.placement == Placement.GENERAL:
+        return "not anchored to a line this PR added"
+    if finding.anchored_by != "evidence":
+        return "no evidence quoted from an added line"
+    if SPECULATIVE.search(finding.message):
+        return "speculative wording"
+    return ""
+
+
+def cap(finding):
+    if finding.severity != Severity.BLOCKING:
+        return finding
+    reason = blocking_denied(finding)
+    if not reason:
+        return finding
+    return replace(finding, severity=Severity.NIT, downgraded=reason)

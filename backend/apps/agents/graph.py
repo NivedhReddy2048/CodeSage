@@ -23,7 +23,7 @@ from typing import Annotated, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from apps.agents import nodes
+from apps.agents import nodes, policy
 from apps.agents.budget import TokenBudget
 from apps.agents.diffs import prepare
 from apps.agents.providers import GeminiProvider, GroqProvider, ProviderError
@@ -50,6 +50,8 @@ class GraphState(TypedDict, total=False):
     # Declared explicitly: LangGraph discards keys that are not part of the state
     # schema, and an undeclared `synthesised` silently produced empty reviews.
     synthesised: list
+    # Raw findings the severity policy removed, with why. Kept for the record.
+    dropped: list
 
 
 # The agents a progress counter counts: "3/5 agents complete". Synthesis is not
@@ -217,8 +219,11 @@ def _synthesis_node(state):
     call on it would add latency, cost and a chance of hallucination to a step that
     has a correct answer.
     """
-    merged = synthesise(state.get("findings", []))
-    return {"findings": [], "runs": [], "synthesised": merged}
+    # Severity policy first, on the raw findings: merging after it means no agent's
+    # unjustified "blocking" can promote a group it happens to be merged into.
+    kept, dropped = policy.apply(state.get("findings", []))
+    merged = synthesise(kept)
+    return {"findings": [], "runs": [], "synthesised": merged, "dropped": dropped}
 
 
 def run_pipeline(diff, context, config=None, retrieve=None, on_progress=None, fetch_source=None):
@@ -266,6 +271,7 @@ def run_pipeline(diff, context, config=None, retrieve=None, on_progress=None, fe
     runs = final.get("runs", [])
     result.agent_runs = runs
     result.findings = final.get("synthesised", [])
+    result.dropped = final.get("dropped", [])
     result.duration_ms = int((time.perf_counter() - started) * 1000)
     result.skipped_agents = list(runtime.budget.skipped)
 

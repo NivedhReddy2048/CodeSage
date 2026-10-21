@@ -60,6 +60,10 @@ class Finding:
     # (the model's own number, which was an added line), "snapped" (moved onto a
     # nearby added line), "tool" (a linter's exact line), or "" for general ones.
     anchored_by: str = ""
+    # Static analysis only: the tool and its rule id, e.g. "bandit B608", "ruff F401".
+    rule: str = ""
+    # Set by the severity policy when it lowered this finding: why.
+    downgraded: str = ""
 
     @property
     def citation(self):
@@ -225,6 +229,8 @@ class ReviewResult:
     # Per-agent telemetry (spec section 14), and agents the budget forced out.
     agent_runs: list = field(default_factory=list)
     skipped_agents: list = field(default_factory=list)
+    # (finding, reason) for raw findings the severity policy removed as out of scope.
+    dropped: list = field(default_factory=list)
 
     @property
     def blocking(self):
