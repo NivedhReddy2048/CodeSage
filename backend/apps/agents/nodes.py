@@ -196,6 +196,7 @@ def static_analysis(state):
                 category=_tool_category(item),
                 message=f"{item.message} ({item.tool} {item.code})".strip(),
                 agent="static_analysis",
+                rule=f"{item.tool} {item.code}".strip(),
                 evidence=texts.get(item.file, {}).get(item.line, ""),
                 placement=Placement.INLINE,
                 anchored_by="tool",

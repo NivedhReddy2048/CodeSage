@@ -336,8 +336,9 @@ def _run_ruff(workdir, written, complete=frozenset()):
                 code=code,
                 message=entry.get("message") or "",
                 tool="ruff",
-                # S = flake8-bandit security rules; E9 = syntax errors.
-                severity="blocking" if code.startswith(("S", "E9")) else "nit",
+                # A lint rule is a nit, even ruff's flake8-bandit (S) ports: only
+                # bandit's own severity rating can make a tool finding blocking.
+                severity="nit",
             )
         )
     return findings
@@ -360,7 +361,7 @@ def _run_bandit(workdir, written):
         original = written.get(filename)
         if not original:
             continue
-        confidence = (entry.get("issue_confidence") or "").upper()
+        rated = (entry.get("issue_severity") or "").upper()
         findings.append(
             ToolFinding(
                 file=original,
@@ -368,7 +369,9 @@ def _run_bandit(workdir, written):
                 code=entry.get("test_id") or "",
                 message=entry.get("issue_text") or "",
                 tool="bandit",
-                severity="blocking" if confidence == "HIGH" else "nit",
+                # bandit's own severity, not its confidence: medium or high is a
+                # security defect worth blocking on.
+                severity="blocking" if rated in {"MEDIUM", "HIGH"} else "nit",
             )
         )
     return findings
