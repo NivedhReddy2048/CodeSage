@@ -53,6 +53,13 @@ def overview(organization, days=30, repository_id=None):
     )
 
     per_pr = _findings_per_pr(completed)
+    # The "Avg findings per PR" card's breakdown uses the same scope as its average:
+    # the latest completed review of each PR. A PR reviewed three times otherwise
+    # counted once in the headline and three times in the subtitle.
+    latest = findings.filter(review_id__in=_latest_review_ids(completed)).aggregate(
+        blocking=Count("id", filter=Q(severity="blocking")),
+        nit=Count("id", filter=Q(severity="nit")),
+    )
     cost_total = counts["cost_total"] or Decimal(0)
 
     return {
@@ -70,6 +77,8 @@ def overview(organization, days=30, repository_id=None):
             "nits": severity["nit"],
             "blocking_ratio": _ratio(severity["blocking"], severity["total"]),
             "avg_findings_per_pr": _ratio(sum(per_pr.values()), len(per_pr), places=2),
+            "latest_review_blocking": latest["blocking"],
+            "latest_review_nits": latest["nit"],
             "avg_latency_ms": round(latency) if latency is not None else None,
             "est_cost_inr_total": _money(cost_total),
             "est_cost_inr_avg": _money(cost_total / counts["n_total"])
@@ -80,6 +89,16 @@ def overview(organization, days=30, repository_id=None):
         "by_category": _breakdown(findings, "category"),
         "by_agent": _breakdown(findings, "agent"),
     }
+
+
+def _latest_review_ids(completed):
+    """The id of each PR's latest completed review."""
+    latest = {}
+    for row in completed.values("pull_request_id", "id").order_by(
+        "pull_request_id", "created_at", "id"
+    ):
+        latest[row["pull_request_id"]] = row["id"]
+    return list(latest.values())
 
 
 def _findings_per_pr(completed):

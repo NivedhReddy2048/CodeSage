@@ -137,6 +137,22 @@ describe("index health", () => {
     expect(await screen.findByText("Indexing... 12/42 files")).toBeInTheDocument();
     expect(screen.getByText(/files indexed/)).toHaveTextContent("12 of 42 files indexed");
   });
+
+  it("keeps showing the indexed commit while a re-index runs", async () => {
+    apiMock.ingestionStatus.mockResolvedValue({
+      job: { ...doneJob, status: "running", is_active: true, commit_sha: "" },
+      chunk_count: 200,
+      indexed_files: 40,
+      can_manage: false,
+      last_indexed_commit: "abc1234def",
+      last_indexed_at: "2026-10-21T10:00:00Z",
+    });
+    render(<IngestionStatus repositoryId={7} />);
+
+    const commit = await screen.findByText("abc1234");
+    expect(commit).toHaveAttribute("title", "abc1234def (indexed; re-indexing now)");
+    expect(commit).toHaveTextContent("re-indexing");
+  });
 });
 
 describe("audit log", () => {

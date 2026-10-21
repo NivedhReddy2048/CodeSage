@@ -22,6 +22,20 @@ def latest_job(repository):
     return IngestionJob.objects.filter(repository=repository).order_by("-created_at").first()
 
 
+def last_indexed_job(repository):
+    """The most recent job that finished: what the index holds right now.
+
+    Not the latest job: while a re-index runs, the stored chunks are still the
+    previous run's, and the latest job has no commit until it finishes.
+    """
+    return (
+        IngestionJob.objects.filter(repository=repository, status=IngestionJob.Status.DONE)
+        .exclude(commit_sha="")
+        .order_by("-created_at")
+        .first()
+    )
+
+
 def start_ingestion(repository, force=False):
     """Queue an indexing job, returning `(job, started)`.
 

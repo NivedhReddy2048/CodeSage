@@ -395,3 +395,34 @@ def test_ingestion_public_reasons(raw, public):
     from apps.ingestion.serializers import ingestion_public_reason
 
     assert ingestion_public_reason(raw) == public
+
+
+@pytest.mark.django_db
+def test_while_reindexing_the_last_indexed_commit_is_still_reported(owner, repository):
+    """The index still holds the previous run's code until the new run finishes."""
+    from django.utils import timezone
+
+    IngestionJob.objects.create(
+        repository=repository,
+        status=IngestionJob.Status.DONE,
+        commit_sha="a" * 40,
+        finished_at=timezone.now(),
+    )
+    IngestionJob.objects.create(repository=repository, status=IngestionJob.Status.FAILED)
+    IngestionJob.objects.create(repository=repository, status=IngestionJob.Status.RUNNING)
+
+    body = auth(owner).get(reverse("ingestion-status", args=[repository.pk])).json()
+
+    assert body["job"]["status"] == "running"
+    assert body["job"]["commit_sha"] == ""
+    assert body["last_indexed_commit"] == "a" * 40
+    assert body["last_indexed_at"] is not None
+
+
+@pytest.mark.django_db
+def test_nothing_indexed_yet_reports_no_commit(owner, repository):
+    IngestionJob.objects.create(repository=repository, status=IngestionJob.Status.RUNNING)
+
+    body = auth(owner).get(reverse("ingestion-status", args=[repository.pk])).json()
+
+    assert (body["last_indexed_commit"], body["last_indexed_at"]) == ("", None)

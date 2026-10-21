@@ -84,6 +84,8 @@ function Kpis({ data }: { data: AnalyticsOverview }) {
   // Done, degraded and failed are disjoint (a degraded review is stored as failed
   // with the degraded flag; "failed" here excludes it). The rest are still running.
   const inProgress = Math.max(0, s.reviews - s.completed_reviews - s.degraded_reviews - s.failed_reviews);
+  // The findings card's one scope: each PR's latest completed review, like its average.
+  const latestFindings = s.latest_review_blocking + s.latest_review_nits;
   const latency = data.timeseries.map((day) => day.avg_latency_ms);
   const costPerReview = data.timeseries.map((day) => (day.reviews ? Number(day.est_cost_inr) / day.reviews : null));
 
@@ -109,15 +111,15 @@ function Kpis({ data }: { data: AnalyticsOverview }) {
         label="Avg findings per PR"
         value={s.avg_findings_per_pr ?? "-"}
         context={
-          s.findings
-            ? `${s.blocking} blocking, ${s.nits} nits (${Math.round((s.blocking_ratio ?? 0) * 100)}% blocking)`
-            : "No findings in this period"
+          latestFindings
+            ? `Latest review of each PR: ${s.latest_review_blocking} blocking, ${s.latest_review_nits} nits (${Math.round((s.latest_review_blocking / latestFindings) * 100)}% blocking)`
+            : "Latest review of each PR: no findings"
         }
       >
         <BreakdownBar
           segments={[
-            { label: "blocking", value: s.blocking, color: "var(--chart-blocking)" },
-            { label: "nits", value: s.nits, color: "var(--chart-nit)" },
+            { label: "blocking", value: s.latest_review_blocking, color: "var(--chart-blocking)" },
+            { label: "nits", value: s.latest_review_nits, color: "var(--chart-nit)" },
           ]}
         />
       </StatTile>
