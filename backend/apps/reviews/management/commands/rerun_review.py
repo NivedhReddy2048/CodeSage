@@ -20,6 +20,7 @@ from apps.audit.services import Action
 from apps.audit.services import record as audit
 from apps.repos.github_app import GitHubAppError
 from apps.repos.models import Repository
+from apps.reviews.models import Review
 from apps.reviews.rerun import refresh_pull_request
 from apps.reviews.services import review_pull_request
 
@@ -44,7 +45,7 @@ class Command(BaseCommand):
             f"Reviewing {repository.full_name}#{pr_number} at {pull_request.head_sha[:7]}..."
         )
 
-        review = review_pull_request(pull_request, installation_id)
+        review = review_pull_request(pull_request, installation_id, trigger=Review.Trigger.RERUN)
         audit(
             repository.organization,
             None,

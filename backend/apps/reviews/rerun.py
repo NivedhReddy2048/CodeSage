@@ -65,7 +65,10 @@ def request_rerun(review, actor):
         raise RerunRefused("Could not read the pull request from GitHub.") from exc
 
     fresh = Review.objects.create(
-        pull_request=pull_request, status=Review.Status.PENDING, head_sha=pull_request.head_sha
+        pull_request=pull_request,
+        status=Review.Status.PENDING,
+        head_sha=pull_request.head_sha,
+        trigger=Review.Trigger.RERUN,
     )
 
     from apps.reviews.tasks import review_pull_request_task

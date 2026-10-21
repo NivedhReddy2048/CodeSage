@@ -297,9 +297,34 @@ describe("review detail", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("labels the cost as an estimate", async () => {
+  it("labels the cost as an estimate, at two decimals with the exact figure on hover", async () => {
     await renderReview({});
     expect(screen.getByText("Est. cost at paid-tier rates")).toBeInTheDocument();
-    expect(screen.getByText("₹0.0725")).toBeInTheDocument();
+    expect(screen.getByText("₹0.07")).toHaveAttribute("title", "Exact estimate: ₹0.0725");
+  });
+
+  it("says how many findings, and how many block, in words", async () => {
+    const finding = (id: number, severity: "blocking" | "nit") => ({
+      id,
+      agent: "security",
+      severity,
+      category: "security",
+      file_path: "app/x.py",
+      line: id,
+      placement: "inline",
+      message: "m",
+      citation: "",
+      dismissed: false,
+    });
+    await renderReview({ findings: [finding(1, "blocking")] });
+    expect(screen.getByText(/1 finding/)).toHaveTextContent("1 finding · 1 blocking");
+  });
+
+  it("lists every model instead of cutting the names off, and tags a re-run", async () => {
+    await renderReview({ model_used: "openai/gpt-oss-120b, openai/gpt-oss-20b", trigger: "rerun" });
+    expect(screen.getByText("openai/gpt-oss-120b")).toBeInTheDocument();
+    expect(screen.getByText("openai/gpt-oss-20b")).toBeInTheDocument();
+    expect(screen.getByText("openai/gpt-oss-20b").closest("dd")).not.toHaveClass("truncate");
+    expect(screen.getByText("Re-run")).toBeInTheDocument();
   });
 });

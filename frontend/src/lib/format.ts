@@ -12,6 +12,25 @@ export function formatInr(value: string | number | null | undefined, digits = 2)
   return `₹${Number(value).toFixed(digits)}`;
 }
 
+/**
+ * The stored estimate at full precision, for a tooltip beside the 2-decimal figure:
+ * trailing zeros dropped, never fewer than two decimals ("₹0.1416", "₹0.10").
+ */
+export function formatInrExact(value: string | number | null | undefined) {
+  if (value === null || value === undefined || value === "") return "-";
+  const [whole, fraction = ""] = String(value).split(".");
+  const trimmed = fraction.replace(/0+$/, "").padEnd(2, "0");
+  return `₹${whole}.${trimmed}`;
+}
+
+/** "2 blocking · 1 nit", "1 nit", or "" for none. */
+export function findingCounts(blocking: number, nits: number) {
+  const parts: string[] = [];
+  if (blocking) parts.push(`${blocking} blocking`);
+  if (nits) parts.push(`${nits} nit${nits === 1 ? "" : "s"}`);
+  return parts.join(" · ");
+}
+
 const RELATIVE = new Intl.RelativeTimeFormat("en", { numeric: "auto" });
 
 export function formatRelative(iso: string, now: number = Date.now()) {

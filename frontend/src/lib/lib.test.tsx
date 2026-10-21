@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useResource } from "@/hooks/use-resource";
 import { ApiError, api, query } from "@/lib/api";
-import { formatDuration, formatInr } from "@/lib/format";
+import { findingCounts, formatDuration, formatInr, formatInrExact } from "@/lib/format";
 import { clearTokens, setSelectedOrganizationId, storeTokens } from "@/lib/tokens";
 import { cn } from "@/lib/utils";
 
@@ -119,6 +119,12 @@ describe("format", () => {
     expect(formatInr("0.0648")).toBe("₹0.06");
     expect(formatInr("0.0648", 4)).toBe("₹0.0648");
     expect(formatInr(null)).toBe("-");
+    expect(formatInrExact("0.141600")).toBe("₹0.1416");
+    expect(formatInrExact("0.100000")).toBe("₹0.10");
+    expect(formatInrExact(null)).toBe("-");
+    expect(findingCounts(2, 1)).toBe("2 blocking · 1 nit");
+    expect(findingCounts(0, 3)).toBe("3 nits");
+    expect(findingCounts(0, 0)).toBe("");
   });
 });
 

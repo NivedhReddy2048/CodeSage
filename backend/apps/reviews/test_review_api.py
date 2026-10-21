@@ -161,6 +161,9 @@ def test_an_owner_can_rerun_and_it_is_queued_and_audited(world, never_reach_a_re
     fresh = Review.objects.get(pk=response.data["review_id"])
     assert fresh.status == Review.Status.PENDING
     assert fresh.head_sha == "fffffff"
+    assert fresh.trigger == Review.Trigger.RERUN
+    listed = factories.client(world["alice"]).get("/api/reviews/").data["results"]
+    assert next(r for r in listed if r["id"] == fresh.pk)["trigger"] == "rerun"
 
     task, args = (
         never_reach_a_real_broker.call_args.args[0],
@@ -353,3 +356,27 @@ def test_the_detail_payload_does_not_carry_the_diff(world):
     data = factories.client(world["alice"]).get(f"/api/reviews/{world['done_a'].pk}/").data
 
     assert "diff" not in data
+
+
+def test_the_trigger_backfill_marks_earlier_reruns_from_the_audit_log(world):
+    """Re-runs before `Review.trigger` existed are recovered from their audit entries."""
+    import importlib
+
+    from django.apps import apps
+
+    backfill = importlib.import_module(
+        "apps.reviews.migrations.0010_backfill_review_trigger"
+    ).backfill
+    earlier_rerun = factories.review(world["pr_a"])
+    AuditLogEntry.objects.create(
+        organization=world["repo_a"].organization,
+        action="review.rerun",
+        metadata={"new_review": earlier_rerun.pk, "source": "manage.py rerun_review"},
+    )
+
+    backfill(apps, None)
+
+    earlier_rerun.refresh_from_db()
+    world["done_a"].refresh_from_db()
+    assert earlier_rerun.trigger == Review.Trigger.RERUN
+    assert world["done_a"].trigger == Review.Trigger.WEBHOOK

@@ -152,6 +152,8 @@ export type Review = {
   status: ReviewStatus;
   /** Pending or running past the backend's STALE_AFTER: no worker has it. */
   stalled: boolean;
+  /** "rerun" when a person asked for it, else "webhook". */
+  trigger: "webhook" | "rerun";
   head_sha: string;
   model_used: string;
   used_fallback: boolean;
@@ -181,6 +183,8 @@ export type ReviewSummary = {
   status: ReviewStatus;
   /** Pending or running past the backend's STALE_AFTER: no worker has it. */
   stalled: boolean;
+  /** "rerun" when a person asked for it, else "webhook". */
+  trigger: "webhook" | "rerun";
   head_sha: string;
   model_used: string;
   used_fallback: boolean;
@@ -206,6 +210,8 @@ export type ReviewListItem = {
   status: ReviewStatus;
   /** Pending or running past the backend's STALE_AFTER: no worker has it. */
   stalled: boolean;
+  /** "rerun" when a person asked for it, else "webhook". */
+  trigger: "webhook" | "rerun";
   degraded: boolean;
   used_fallback: boolean;
   head_sha: string;
@@ -297,6 +303,8 @@ export type AppNotification = {
   title: string;
   body: string;
   link: string;
+  /** For reviews: full repository name (the title shortens it), head SHA, trigger. */
+  meta: { repository?: string; pr_number?: number; head_sha?: string; trigger?: string };
   read: boolean;
   read_at: string | null;
   created_at: string;

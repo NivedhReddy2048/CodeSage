@@ -57,7 +57,13 @@ class Review(models.Model):
         FAILED = "failed", "Failed"
 
     pull_request = models.ForeignKey(PullRequest, on_delete=models.CASCADE, related_name="reviews")
+
+    class Trigger(models.TextChoices):
+        WEBHOOK = "webhook", "Webhook"  # a push or an opened/reopened PR
+        RERUN = "rerun", "Re-run"  # requested from the UI or `manage.py rerun_review`
+
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
+    trigger = models.CharField(max_length=16, choices=Trigger.choices, default=Trigger.WEBHOOK)
     # The commit actually reviewed. Shown in the comment so a reader can tell
     # whether the review covers the latest push.
     head_sha = models.CharField(max_length=64, blank=True)

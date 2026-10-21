@@ -11,6 +11,7 @@ import { AgentsTable } from "@/components/review/agents-table";
 import { DiffViewer, unanchoredFindings } from "@/components/review/diff-viewer";
 import { FindingsPanel } from "@/components/review/findings-panel";
 import { RerunButton } from "@/components/review/rerun-button";
+import { Cost, ReviewRef } from "@/components/review-ref";
 import { ReviewStatusPill } from "@/components/review/status-pill";
 import { StatusBadge } from "@/components/status-badge";
 import { Callout, EmptyState, ErrorState, ListSkeleton, TableSkeleton } from "@/components/states";
@@ -19,14 +20,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useResource } from "@/hooks/use-resource";
 import { useReviewProgress } from "@/hooks/use-review-progress";
 import { api } from "@/lib/api";
-import { formatDuration, formatInr } from "@/lib/format";
+import { formatDuration } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import type { Review } from "@/lib/types";
 
-function Stat({ label, value, hint }: { label: string; value: React.ReactNode; hint?: string }) {
+function Stat({
+  label,
+  value,
+  hint,
+  wrap = false,
+}: {
+  label: string;
+  value: React.ReactNode;
+  hint?: string;
+  /** Let a long value (model names) wrap instead of being cut off. */
+  wrap?: boolean;
+}) {
   return (
     <div className="min-w-0 px-4 py-3">
       <dt className="text-micro text-fg-secondary">{label}</dt>
-      <dd className="mt-1 truncate font-mono text-lg font-semibold text-fg tabular-nums" title={hint}>
+      <dd
+        className={cn("mt-1 font-mono text-lg font-semibold text-fg tabular-nums", !wrap && "truncate")}
+        title={hint}
+      >
         {value}
       </dd>
     </div>
@@ -35,6 +51,8 @@ function Stat({ label, value, hint }: { label: string; value: React.ReactNode; h
 
 function Summary({ review, inFlight }: { review: Review; inFlight: boolean }) {
   const blocking = review.findings.filter((f) => f.severity === "blocking").length;
+  const total = review.findings.length;
+  const models = (review.model_used || "").split(",").map((m) => m.trim()).filter(Boolean);
   // While agents run nothing is final; dashes, not zeros that read as results.
   const pending = (value: React.ReactNode) => (inFlight ? "-" : value);
   return (
@@ -44,9 +62,12 @@ function Summary({ review, inFlight }: { review: Review; inFlight: boolean }) {
           label="Findings"
           value={pending(
             <>
-              {review.findings.length}
+              {total} finding{total === 1 ? "" : "s"}
               {blocking ? (
-                <span className="ml-1.5 font-sans text-sm font-medium text-status-blocking">{blocking} blocking</span>
+                <span className="font-sans text-sm font-medium text-status-blocking">
+                  <span className="text-fg-secondary"> · </span>
+                  {blocking} blocking
+                </span>
               ) : null}
             </>,
           )}
@@ -54,7 +75,7 @@ function Summary({ review, inFlight }: { review: Review; inFlight: boolean }) {
         <Stat label="Review time" value={review.status === "done" ? formatDuration(review.duration_ms) : "-"} />
         <Stat
           label="Est. cost at paid-tier rates"
-          value={pending(formatInr(review.estimated_cost_inr, 4))}
+          value={pending(<Cost value={review.estimated_cost_inr} />)}
           hint="CodeSage runs on free tiers; actual spend is zero."
         />
         <Stat
@@ -63,8 +84,20 @@ function Summary({ review, inFlight }: { review: Review; inFlight: boolean }) {
         />
         <Stat
           label={review.used_fallback ? "Models (fallback)" : "Models"}
-          value={pending(<span className="text-sm font-medium">{review.model_used || "-"}</span>)}
-          hint={review.model_used}
+          wrap
+          value={pending(
+            models.length ? (
+              <span className="block text-sm font-medium">
+                {models.map((model) => (
+                  <span key={model} className="block [overflow-wrap:anywhere]">
+                    {model}
+                  </span>
+                ))}
+              </span>
+            ) : (
+              "-"
+            ),
+          )}
         />
       </dl>
     </Card>
@@ -129,6 +162,7 @@ function ReviewHeader({ review, actions }: { review: Review; actions: React.Reac
             <span className="sr-only">Reviewed at commit </span>
             {review.head_sha.slice(0, 7)}
           </span>
+          <ReviewRef sha="" trigger={review.trigger} />
         </p>
         <h1 className="font-mono text-h1 [overflow-wrap:anywhere] text-fg">
           {review.repository}#{review.pr_number}
