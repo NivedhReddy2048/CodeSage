@@ -62,6 +62,21 @@ def test_the_list_filters(world, query, expected):
     assert {r["id"] for r in rows} == {world[name].pk for name in expected}
 
 
+def test_a_review_nobody_picked_up_is_flagged_stalled(world):
+    """Pending or running past STALE_AFTER means no worker has it; finished never stalls."""
+    queued = factories.review(world["pr_a"], Review.Status.PENDING)
+    stuck = factories.review(world["pr_a"], Review.Status.PENDING, days_ago=1)
+    old_done = factories.review(world["pr_a"], Review.Status.DONE, days_ago=1)
+    client = factories.client(world["alice"])
+
+    rows = {r["id"]: r["stalled"] for r in client.get("/api/reviews/").data["results"]}
+
+    assert rows[queued.pk] is False
+    assert rows[stuck.pk] is True
+    assert rows[old_done.pk] is False
+    assert client.get(f"/api/reviews/{stuck.pk}/").data["stalled"] is True
+
+
 def test_filtering_by_another_organisations_repository_returns_nothing(world):
     repo_b = world["repo_b"].pk
     rows = factories.client(world["alice"]).get(f"/api/reviews/?repository={repo_b}").data

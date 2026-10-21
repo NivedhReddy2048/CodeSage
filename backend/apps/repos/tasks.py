@@ -12,7 +12,7 @@ from apps.accounts.models import Membership, User
 from apps.repos import github_app
 from apps.repos.github_app import GitHubAppError
 from apps.repos.models import AppInstallation, Repository, WebhookEvent
-from apps.reviews.models import PullRequest
+from apps.reviews.models import PullRequest, Review
 
 logger = logging.getLogger(__name__)
 
@@ -265,14 +265,25 @@ def handle_pull_request_event(event):
     # reviews app at module load.
     from apps.reviews.tasks import review_pull_request_task
 
+    # The row exists before the worker does anything, so a review that is never
+    # picked up - no worker, a stale worker, a crash before its first write - still
+    # shows on /reviews as pending (and later stalled) instead of leaving no trace.
+    review = Review.objects.create(
+        pull_request=pull_request, status=Review.Status.PENDING, head_sha=pull_request.head_sha
+    )
+
     try:
-        review_pull_request_task.delay(pull_request.pk, installation.installation_id)
-    except Exception:  # noqa: BLE001 - a broker outage must not lose the ack comment
+        review_pull_request_task.delay(pull_request.pk, installation.installation_id, review.pk)
+    except Exception as exc:  # noqa: BLE001 - a broker outage must not lose the ack comment
         logger.exception(
             "Could not queue a review for %s#%s",
             repository.full_name,
             pull_request.number,
         )
+        review.status = Review.Status.FAILED
+        review.error = f"Could not queue the review: {exc}"[:2000]
+        review.finished_at = timezone.now()
+        review.save(update_fields=["status", "error", "finished_at"])
 
 
 def post_acknowledgement(pull_request, installation_id):

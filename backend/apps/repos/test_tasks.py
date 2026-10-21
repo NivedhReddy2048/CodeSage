@@ -9,7 +9,7 @@ from apps.accounts.services import get_or_create_user_from_github
 from apps.repos import tasks
 from apps.repos.github_app import GitHubAppError
 from apps.repos.models import AppInstallation, Repository, WebhookEvent
-from apps.reviews.models import PullRequest
+from apps.reviews.models import PullRequest, Review
 
 INSTALLATION_ID = 172631969
 
@@ -176,6 +176,48 @@ def test_reopened_is_reviewable(owner):
     comment.assert_called_once()
     queued.assert_called_once()
     assert PullRequest.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_a_pending_review_exists_before_the_worker_runs(owner):
+    """Regression: testbed PR #4 left no trace of its review.
+
+    A worker started before migration reviews.0005 took the task and crashed inside
+    its own `Review.objects.create`. The insert rolled back, and since the worker was
+    the only thing that made the row, nothing showed on /reviews and the ack comment
+    said "reviewing..." forever. The row now exists before anything is queued, and
+    the task is told which row to fill in.
+    """
+    with (
+        mock.patch.object(tasks.github_app, "create_issue_comment", return_value={"id": 1}),
+        mock.patch("apps.reviews.tasks.review_pull_request_task.delay") as queued,
+    ):
+        tasks.handle_webhook_event(store().pk)
+
+    review = Review.objects.get()
+    assert review.status == Review.Status.PENDING
+    assert review.head_sha == "b" * 40
+    queued.assert_called_once_with(PullRequest.objects.get().pk, INSTALLATION_ID, review.pk)
+
+
+@pytest.mark.django_db
+def test_a_review_that_cannot_be_queued_is_recorded_as_failed(owner):
+    """A broker outage must not leave a pending row no worker will ever pick up."""
+    with (
+        mock.patch.object(tasks.github_app, "create_issue_comment", return_value={"id": 1}),
+        mock.patch(
+            "apps.reviews.tasks.review_pull_request_task.delay",
+            side_effect=ConnectionError("Redis is down"),
+        ),
+    ):
+        tasks.handle_webhook_event(store().pk)
+
+    review = Review.objects.get()
+    assert review.status == Review.Status.FAILED
+    assert "Redis is down" in review.error
+    assert review.finished_at is not None
+    # The acknowledgement still went out.
+    assert PullRequest.objects.get().ack_comment_id == 1
 
 
 @pytest.mark.django_db
