@@ -29,6 +29,9 @@ class Notification(models.Model):
     body = models.CharField(max_length=500, blank=True)
     # A frontend route such as /reviews/12, so the bell can link straight to it.
     link = models.CharField(max_length=255, blank=True)
+    # Structured context the UI renders beside the title: for a review, the full
+    # repository name (the title shortens it), the head SHA and what triggered it.
+    meta = models.JSONField(default=dict, blank=True)
     read_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 

@@ -4,6 +4,7 @@ import { Bell, CircleCheck, CircleX, TriangleAlert } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
+import { ReviewRef } from "@/components/review-ref";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -34,6 +35,18 @@ const KIND_ICON = {
  * polls once a minute and again whenever it is opened, so the count is fresh without
  * holding a second socket open.
  */
+/**
+ * The title with the repository's full name, for the tooltip: titles shorten it
+ * ("codesage-testbed #7 · 1 blocking") so the PR number is never what gets cut.
+ */
+export function fullTitle(item: AppNotification) {
+  const repository = item.meta?.repository;
+  const number = item.meta?.pr_number;
+  if (!repository || number === undefined) return item.title;
+  const at = item.title.indexOf(` #${number}`);
+  return at === -1 ? item.title : `${repository}${item.title.slice(at)}`;
+}
+
 export function NotificationBell() {
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unread, setUnread] = useState(0);
@@ -111,10 +124,16 @@ export function NotificationBell() {
                 >
                   <Icon aria-hidden="true" className={cn("mt-0.5 size-4", tone)} />
                   <span className="min-w-0 flex-1">
-                    <span className={cn("block truncate text-fg", !item.read && "font-semibold")}>
+                    <span
+                      className={cn("block truncate text-fg", !item.read && "font-semibold")}
+                      title={fullTitle(item)}
+                    >
                       {item.title}
                     </span>
                     <span className="block truncate text-xs text-fg-secondary">{item.body}</span>
+                    {item.meta?.head_sha || item.meta?.trigger === "rerun" ? (
+                      <ReviewRef sha={item.meta.head_sha ?? ""} trigger={item.meta.trigger} className="mt-0.5" />
+                    ) : null}
                     <time
                       dateTime={item.created_at}
                       className="mt-0.5 block font-mono text-[0.6875rem] text-fg-secondary tabular-nums"

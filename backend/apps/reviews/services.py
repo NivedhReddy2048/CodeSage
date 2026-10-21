@@ -113,7 +113,7 @@ def fetch_compare_diff(installation_id, full_name, base, head_sha):
     return response.text
 
 
-def review_pull_request(pull_request, installation_id, review=None):
+def review_pull_request(pull_request, installation_id, review=None, trigger=None):
     """Review one pull request and update the bot's comment.
 
     Always returns a Review row: a failed review is a recorded outcome with a
@@ -130,6 +130,7 @@ def review_pull_request(pull_request, installation_id, review=None):
             status=Review.Status.RUNNING,
             head_sha=pull_request.head_sha,
             started_at=timezone.now(),
+            trigger=trigger or Review.Trigger.WEBHOOK,
         )
     else:
         review.status = Review.Status.RUNNING

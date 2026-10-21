@@ -192,6 +192,36 @@ describe("notification bell", () => {
     expect(apiMock.markAllNotificationsRead).toHaveBeenCalledOnce();
   });
 
+  it("titles lead with the PR number, keep the full name on hover, and open the review", async () => {
+    const note = {
+      id: 9,
+      kind: "review.finished",
+      title: "codesage-testbed #7 · 1 blocking",
+      body: "Review finished.",
+      link: "/reviews/44",
+      meta: { repository: "NivedhReddy2048/codesage-testbed", pr_number: 7, head_sha: "7693464abc", trigger: "rerun" },
+      read: false,
+      read_at: null,
+      created_at: new Date().toISOString(),
+    };
+    apiMock.notifications.mockResolvedValue({ unread_count: 1, results: [note] });
+    apiMock.markNotificationRead.mockResolvedValue({});
+    render(<NotificationBell />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Notifications, 1 unread" }));
+    const item = await screen.findByRole("menuitem", { name: /codesage-testbed #7/ });
+    expect(within(item).getByText("codesage-testbed #7 · 1 blocking")).toHaveAttribute(
+      "title",
+      "NivedhReddy2048/codesage-testbed #7 · 1 blocking",
+    );
+    expect(within(item).getByText("7693464")).toBeInTheDocument();
+    expect(within(item).getByText("Re-run")).toBeInTheDocument();
+    expect(item).toHaveAttribute("href", "/reviews/44");
+
+    await userEvent.click(item);
+    expect(apiMock.markNotificationRead).toHaveBeenCalledWith(9);
+  });
+
   it("caps the visible count, and keeps the pill out of the accessible name", async () => {
     apiMock.notifications.mockResolvedValue({ unread_count: 12, results: notes });
     render(<NotificationBell />);

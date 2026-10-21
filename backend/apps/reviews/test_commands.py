@@ -21,11 +21,14 @@ PR_DATA = {
 }
 
 
-def fake_review(pr, installation_id):
+def fake_review(pr, installation_id, trigger=None):
+    # The command marks its review as a re-run, which the UI shows as a tag.
+    assert trigger == Review.Trigger.RERUN
     review = Review.objects.create(
         pull_request=pr,
         status=Review.Status.DONE,
         head_sha=pr.head_sha,
+        trigger=trigger,
         model_used="gemini-flash-lite-latest",
         used_fallback=True,
     )

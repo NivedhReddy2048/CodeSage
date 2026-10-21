@@ -30,9 +30,17 @@ def test_a_finished_review_notifies_every_member(world):
     assert {n.recipient for n in notes} == {world["alice"], world["carol"]}
     assert all(n.organization == world["org_a"] for n in notes)
     note = notes.first()
-    assert note.title == "Review of alice/app#4 finished"
-    assert note.body == "1 finding."
+    # The repository's short name first, so a narrow menu never cuts the PR number;
+    # the full name, commit and trigger travel in `meta` for the UI.
+    assert note.title == "app #4 · 1 nit"
+    assert note.body == "Review finished."
     assert note.link == f"/reviews/{review.pk}"
+    assert note.meta == {
+        "repository": "alice/app",
+        "pr_number": 4,
+        "head_sha": review.head_sha,
+        "trigger": "webhook",
+    }
 
 
 @pytest.mark.parametrize(
@@ -84,7 +92,8 @@ def test_the_list_holds_only_my_notifications_with_an_unread_count(world):
 
     assert data["unread_count"] == 1
     assert len(data["results"]) == 1
-    assert data["results"][0]["title"].startswith("Review of alice/app#4")
+    assert data["results"][0]["title"].startswith("app #4 · ")
+    assert data["results"][0]["meta"]["repository"] == "alice/app"
 
 
 def test_marking_read(world):
@@ -143,11 +152,29 @@ def test_notifications_follow_the_selected_organisation(world):
     in_a = factories.client(world["carol"], org_a).get("/api/notifications/").data
     personal = factories.client(world["carol"]).get("/api/notifications/").data
 
-    assert [n["title"] for n in in_a["results"]] == ["Review of alice/app#4 finished"]
-    assert [n["title"] for n in personal["results"]] == ["Review of carol/app#1 finished"]
+    # Both repositories are called "app": the full name in `meta` tells them apart.
+    assert [n["meta"]["repository"] for n in in_a["results"]] == ["alice/app"]
+    assert [n["meta"]["repository"] for n in personal["results"]] == ["carol/app"]
 
 
 def test_notifications_require_authentication(db):
     from rest_framework.test import APIClient
 
     assert APIClient().get("/api/notifications/").status_code == 401
+
+
+@pytest.mark.parametrize(
+    ("findings", "summary"),
+    [
+        ((), "no issues"),
+        ([("nit", "style", "security")], "1 nit"),
+        (
+            [("blocking", "security", "security"), ("nit", "x", "y"), ("nit", "x", "y")],
+            "1 blocking · 2 nits",
+        ),
+    ],
+)
+def test_the_title_says_what_the_review_found(world, findings, summary):
+    notify_review(factories.review(world["pr_a"], findings=findings))
+
+    assert Notification.objects.first().title == f"app #4 · {summary}"

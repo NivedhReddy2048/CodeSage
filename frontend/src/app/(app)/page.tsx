@@ -12,6 +12,7 @@ import { BreakdownBar, Sparkline } from "@/components/charts/kpi-parts";
 import { StatTile } from "@/components/charts/stat-tile";
 import { useOrganization } from "@/components/organization-provider";
 import { PageHeader } from "@/components/page-header";
+import { Cost } from "@/components/review-ref";
 import { ReviewTable } from "@/components/review-table";
 import { EmptyState, ErrorState, ListSkeleton, TableSkeleton } from "@/components/states";
 import { buttonVariants } from "@/components/ui/button";
@@ -21,7 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { useResource } from "@/hooks/use-resource";
 import { api, query } from "@/lib/api";
-import { AGENT_LABELS, formatDuration, formatInr } from "@/lib/format";
+import { AGENT_LABELS, formatDuration } from "@/lib/format";
 import type { AnalyticsOverview } from "@/lib/types";
 
 const PERIODS = [7, 30, 90] as const;
@@ -131,8 +132,12 @@ function Kpis({ data }: { data: AnalyticsOverview }) {
       <StatTile
         icon={IndianRupee}
         label="Est. cost per review"
-        value={formatInr(s.est_cost_inr_avg, 2)}
-        context={<span title={data.cost_basis}>At paid-tier rates · {formatInr(s.est_cost_inr_total, 2)} total; actual spend ₹0</span>}
+        value={<Cost value={s.est_cost_inr_avg} />}
+        context={
+          <span title={data.cost_basis}>
+            At paid-tier rates · <Cost value={s.est_cost_inr_total} /> total; actual spend ₹0
+          </span>
+        }
       >
         <Sparkline values={costPerReview} color="var(--chart-secondary)" />
       </StatTile>

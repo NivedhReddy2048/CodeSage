@@ -3,6 +3,7 @@
 import { OctagonAlert } from "lucide-react";
 import Link from "next/link";
 
+import { Cost, ReviewRef } from "@/components/review-ref";
 import { StatusBadge, reviewStatusKind } from "@/components/status-badge";
 import {
   Table,
@@ -12,7 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { formatDuration, formatInr, formatRelative } from "@/lib/format";
+import { formatDuration, formatRelative } from "@/lib/format";
 import type { ReviewListItem } from "@/lib/types";
 
 /**
@@ -56,6 +57,7 @@ export function ReviewTable({
               <span className="block truncate text-xs text-fg-secondary">
                 {review.pr_title || "Untitled"}
               </span>
+              <ReviewRef sha={review.head_sha} trigger={review.trigger} className="mt-0.5" />
             </TableCell>
             <TableCell>
               <div className="flex flex-wrap gap-1">
@@ -64,25 +66,13 @@ export function ReviewTable({
               </div>
             </TableCell>
             <TableCell className="text-right">
-              <span className="inline-flex items-center justify-end gap-1.5">
-                {review.blocking_count ? (
-                  <span
-                    className="inline-flex h-5 items-center gap-1 rounded-full border border-status-blocking-border bg-status-blocking-bg px-1.5 text-[0.6875rem] font-medium text-status-blocking"
-                    title={`${review.blocking_count} blocking`}
-                  >
-                    <OctagonAlert aria-hidden="true" className="size-3" />
-                    <span className="font-mono tabular-nums">{review.blocking_count}</span>
-                    <span className="sr-only"> blocking</span>
-                  </span>
-                ) : null}
-                <span className="font-mono tabular-nums">{review.finding_count}</span>
-              </span>
+              <FindingCounts blocking={review.blocking_count} nits={review.nit_count} />
             </TableCell>
             <TableCell className={`${wide} text-right font-mono tabular-nums`}>
               {review.status === "done" ? formatDuration(review.duration_ms) : "-"}
             </TableCell>
             <TableCell className={`${wide} text-right font-mono tabular-nums`}>
-              {formatInr(review.estimated_cost_inr)}
+              <Cost value={review.estimated_cost_inr} />
             </TableCell>
             <TableCell className="hidden text-right text-fg-secondary sm:table-cell">
               <time dateTime={review.created_at} className="font-mono text-xs tabular-nums">
@@ -93,5 +83,26 @@ export function ReviewTable({
         ))}
       </TableBody>
     </Table>
+  );
+}
+
+/** "2 blocking · 1 nit" in words, blocking in its colour; "None" when clean. */
+export function FindingCounts({ blocking, nits }: { blocking: number; nits: number }) {
+  if (!blocking && !nits) return <span className="text-fg-secondary">None</span>;
+  return (
+    <span className="inline-flex items-center justify-end gap-1.5 text-xs whitespace-nowrap">
+      {blocking ? (
+        <span className="inline-flex items-center gap-1 font-medium text-status-blocking">
+          <OctagonAlert aria-hidden="true" className="size-3" />
+          <span className="tabular-nums">{blocking}</span> blocking
+        </span>
+      ) : null}
+      {blocking && nits ? <span className="text-fg-secondary"> · </span> : null}
+      {nits ? (
+        <span className="text-fg-secondary">
+          <span className="tabular-nums">{nits}</span> nit{nits === 1 ? "" : "s"}
+        </span>
+      ) : null}
+    </span>
   );
 }
