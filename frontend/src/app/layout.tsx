@@ -32,8 +32,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // next-themes sets the theme class on <html> before hydration; the warning it
     // would otherwise trigger is about that one attribute only.
+    // data-scroll-behavior: globals.css makes <html> scroll smoothly, and this tells
+    // Next.js so it can turn that off during route changes (it warns without it).
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >

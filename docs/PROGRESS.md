@@ -60,7 +60,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **41 merged — bronze (16) reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **48 merged — bronze (16) reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -74,6 +74,77 @@ once, listed "claude" as a repository contributor.
 **Update the merged-PR count in this table in each phase's last PR.** The figure
 counts merged PRs *including* the one making the edit, so it is correct the moment that
 PR lands rather than one behind forever.
+
+---
+
+## Review quality and UI fixes from the testbed run
+
+**Status:** Done. Seven PRs, each closing its own issue: #86, #88, #90, #92, #94, #96 and
+this one. They came from testing the full flow on codesage-testbed (PRs #5, #6, #7 and
+a re-run).
+
+**What the investigation found.** Raw agent findings were never stored, so they were
+reconstructed for the investigation. Two problems surfaced:
+
+- Every "(also flagged by static_analysis)" was a false lint warning, caused by
+  linting a file rebuilt from the diff's hunks: F821 "undefined sqlite3", F841 "conn
+  never used". Synthesis had merged it into an unrelated finding by proximity alone.
+- Lines like :4 and :15 came from LLM agents counting lines in a raw diff and landing
+  on blank context lines, which the diff check accepted.
+
+**Fixed, in order:**
+
+1. **#86, static analysis on the real file.** Modified files are fetched at the head
+   SHA. If the fetch fails, the linter runs on the hunks with context-dependent rules
+   off. Tool findings are kept only on added lines.
+2. **#88, evidence-based anchoring.** Agents see numbered `+`/context lines and must
+   quote the line they mean. Each finding is anchored where the quote actually is:
+   an added line goes inline, an unchanged line goes under "existing code", and
+   anything else becomes "general". Inline comments only ever land on added lines.
+3. **#90, severity policy, before merging.** Test coverage is never blocking. Lint
+   rules are nits; only bandit medium/high may block. Blocking needs evidence on an
+   added line and definite wording. Agents stay in their own scope.
+4. **#92, synthesis.** Findings merge only on the same line and the same issue, and no
+   distinct finding is lost. Every raw finding is persisted (`ReviewRawFinding`) as
+   kept, merged or dropped, with the reason. Grounding no longer cites the PR's own
+   change.
+5. **#94, UI.** Counts read in words ("2 blocking · 1 nit"). Review rows show the
+   head SHA and a "Re-run" tag (`Review.trigger`, backfilled from the audit log).
+   Notification titles lead with the PR number. Costs show 2 decimals with the exact
+   figure in a tooltip, and model names wrap.
+6. **#96, dashboard and repositories.** The indexed commit stays visible while a
+   re-index runs. "Avg findings per PR" uses one scope (each PR's latest review)
+   for both its headline and its breakdown.
+7. **This PR, console.** `data-scroll-behavior` on `<html>`. Page loads no longer
+   log 401s from `/api/auth/me/`: the cause was an expired 30-minute access token
+   sent twice under Strict Mode. The access token is now refreshed before it's sent,
+   through the existing single-flight refresh.
+
+**Re-run after #86–#92** (`rerun_review`, reviews 43 and 44):
+
+- PR #5: 1 nit at :9.
+- PR #7: 2 nits at :3 and :17.
+
+Every finding was anchored by quoted evidence onto an added line. Every model
+"blocking" was downgraded with a recorded reason. No lint artefacts, no blank-line
+anchors.
+
+### Known limitations
+
+- **Run-to-run variance** (which findings a model reports, and how it words them) is
+  deferred to the Phase 8 evaluation harness. The testbed PRs are regression fixtures,
+  not tuning targets.
+- **Two planted bugs are still missed:** testbed PR #4's unclosed DB connection and its
+  missing not-found check. That's for Phase 8 to measure.
+- **Stale inline comments stay.** Inline comments from earlier runs are never removed,
+  so a re-run leaves an outdated "Blocking" comment next to the corrected one. The
+  summary comment is always current.
+- **Near-duplicates on adjacent lines.** One agent reporting a single issue twice, on
+  adjacent lines with identical text, is not merged, by the same-line rule.
+- **JS/TS pattern scan.** Its `eval()` and `innerHTML` rules are nits now that only
+  bandit may make a tool finding blocking.
+- **Refresh tokens are rotated but not blacklisted,** so a used refresh token stays
+  valid until it expires.
 
 ---
 
