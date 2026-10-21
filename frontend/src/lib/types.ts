@@ -148,6 +148,8 @@ export type Review = {
   /** Owner/admin: may re-run, and sees raw error text. */
   can_manage: boolean;
   status: ReviewStatus;
+  /** Pending or running past the backend's STALE_AFTER: no worker has it. */
+  stalled: boolean;
   head_sha: string;
   model_used: string;
   used_fallback: boolean;
@@ -175,6 +177,8 @@ export type ReviewSummary = {
   pr_number: number;
   pr_title: string;
   status: ReviewStatus;
+  /** Pending or running past the backend's STALE_AFTER: no worker has it. */
+  stalled: boolean;
   head_sha: string;
   model_used: string;
   used_fallback: boolean;
@@ -198,6 +202,8 @@ export type ReviewListItem = {
   pr_number: number;
   pr_title: string;
   status: ReviewStatus;
+  /** Pending or running past the backend's STALE_AFTER: no worker has it. */
+  stalled: boolean;
   degraded: boolean;
   used_fallback: boolean;
   head_sha: string;

@@ -4,6 +4,7 @@ import {
   CircleMinus,
   CircleX,
   Clock,
+  ClockAlert,
   LoaderCircle,
   OctagonAlert,
   Shuffle,
@@ -22,6 +23,7 @@ export type StatusKind =
   | "done"
   | "running"
   | "pending"
+  | "stalled"
   | "failed"
   | "skipped";
 
@@ -29,7 +31,7 @@ type Style = { label: string; icon: LucideIcon; tone: string; spin?: boolean };
 
 // Each tone is a token triple from globals.css (text, fill, outline). The text clears
 // 4.5:1 on its fill over the canvas, a card and surface-2, in light and dark - the
-// contrast test checks every one. Nit, degraded and fallback share amber, and every
+// contrast test checks every one. Nit, degraded, fallback and stalled share amber, and every
 // badge carries an icon and a word, so the status never rests on colour alone.
 const STYLES: Record<StatusKind, Style> = {
   blocking: {
@@ -73,6 +75,12 @@ const STYLES: Record<StatusKind, Style> = {
     icon: Clock,
     tone: "bg-status-neutral-bg text-status-neutral border-status-neutral-border",
   },
+  // Pending or running long past any real review: no worker has it.
+  stalled: {
+    label: "Stalled",
+    icon: ClockAlert,
+    tone: "bg-status-degraded-bg text-status-degraded border-status-degraded-border",
+  },
   failed: {
     label: "Failed",
     icon: CircleX,
@@ -115,14 +123,19 @@ export function StatusBadge({
   );
 }
 
-/** A review's headline status: degraded outranks the raw status it sits on. */
+/**
+ * A review's headline status: degraded outranks the raw status it sits on, and a
+ * stalled review is not shown as merely queued or running.
+ */
 export function reviewStatusKind(review: {
   status: string;
   degraded: boolean;
+  stalled?: boolean;
 }): StatusKind {
   if (review.degraded) return "degraded";
   if (review.status === "done") return "done";
-  if (review.status === "running") return "running";
   if (review.status === "failed") return "failed";
+  if (review.stalled) return "stalled";
+  if (review.status === "running") return "running";
   return "pending";
 }

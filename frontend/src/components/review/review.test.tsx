@@ -188,6 +188,26 @@ describe("status pill", () => {
     render(<ReviewStatusPill status="failed" degraded transport="idle" progress={null} />);
     expect(screen.getByText("Degraded")).toBeInTheDocument();
   });
+
+  it("says a stalled review is stalled instead of pretending it is queued", () => {
+    render(<ReviewStatusPill status="pending" degraded={false} stalled transport="socket" progress={null} />);
+    expect(screen.getByRole("status")).toHaveTextContent("Stalled");
+    expect(screen.getByText(/worker may not be running/)).toBeInTheDocument();
+    expect(screen.queryByText("Queued")).not.toBeInTheDocument();
+  });
+
+  it("trusts live progress over a stale stalled flag", () => {
+    render(
+      <ReviewStatusPill
+        status="pending"
+        degraded={false}
+        stalled
+        transport="socket"
+        progress={{ type: "review.progress", review_id: 1, status: "running", agents: {}, completed: 1, total: 5 }}
+      />,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Reviewing... 1/5 agents");
+  });
 });
 
 describe("re-run button", () => {

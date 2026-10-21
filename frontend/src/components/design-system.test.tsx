@@ -17,6 +17,7 @@ describe("StatusBadge", () => {
     "done",
     "running",
     "pending",
+    "stalled",
     "failed",
     "skipped",
   ];
@@ -49,6 +50,14 @@ describe("StatusBadge", () => {
     expect(reviewStatusKind({ status: "done", degraded: false })).toBe("done");
     expect(reviewStatusKind({ status: "running", degraded: false })).toBe("running");
     expect(reviewStatusKind({ status: "pending", degraded: false })).toBe("pending");
+  });
+
+  it("shows a review no worker picked up as stalled, not queued", () => {
+    expect(reviewStatusKind({ status: "pending", degraded: false, stalled: true })).toBe("stalled");
+    expect(reviewStatusKind({ status: "running", degraded: false, stalled: true })).toBe("stalled");
+    // A finished review is what it is, whatever the flag says.
+    expect(reviewStatusKind({ status: "done", degraded: false, stalled: true })).toBe("done");
+    expect(reviewStatusKind({ status: "failed", degraded: false, stalled: true })).toBe("failed");
   });
 });
 

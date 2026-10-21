@@ -187,6 +187,7 @@ export default function ReviewPage() {
             <ReviewStatusPill
               status={review.status}
               degraded={review.degraded}
+              stalled={review.stalled}
               progress={live.progress}
               transport={live.transport}
             />

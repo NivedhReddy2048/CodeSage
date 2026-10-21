@@ -7,20 +7,38 @@ import type { ReviewProgress } from "@/lib/types";
 /**
  * "Reviewing... 3/5 agents" while the pipeline runs, then the final status. Lives in
  * an aria-live region so a screen reader hears progress without polling the page.
+ *
+ * A review the API calls stalled is not pulsed at as if work were happening: nothing
+ * is, until a worker picks it up - which a live progress event would show.
  */
 export function ReviewStatusPill({
   status,
   degraded,
+  stalled = false,
   progress,
   transport,
 }: {
   status: string;
   degraded: boolean;
+  stalled?: boolean;
   progress: ReviewProgress | null;
   transport: ProgressTransport;
 }) {
   const liveStatus = progress?.status ?? status;
-  const running = liveStatus === "pending" || liveStatus === "running";
+  const inFlight = liveStatus === "pending" || liveStatus === "running";
+  const isStalled = inFlight && stalled && progress?.type !== "review.progress";
+  const running = inFlight && !isStalled;
+
+  if (isStalled) {
+    return (
+      <span role="status" aria-live="polite" className="inline-flex items-center gap-2">
+        <StatusBadge kind="stalled" />
+        <span className="text-xs text-fg-secondary">
+          Not finished after 15 minutes. The review worker may not be running.
+        </span>
+      </span>
+    );
+  }
 
   return (
     <span role="status" aria-live="polite" className="inline-flex items-center gap-2">
