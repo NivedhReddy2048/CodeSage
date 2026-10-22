@@ -571,3 +571,27 @@ def test_every_committed_fixture_is_sound():
         for problem in case_store.validate(case, CATEGORIES)
     ]
     assert problems == []
+
+
+def test_a_daily_limit_stops_the_day_cleanly_and_tomorrow_resumes(root, fake):
+    """No invalid record, no retry: the quota is spent, not the run broken."""
+    for cid in ("c1", "c2", "c3"):
+        make_case(root, cid=cid)
+    daily = result(error="groq: daily limit reached (HTTP 429: ... tokens per day (TPD))")
+    arm = fake(result(findings=[1]), daily)
+    day1 = lambda: datetime(2026, 10, 23, 9, tzinfo=UTC)  # noqa: E731
+    day2 = lambda: datetime(2026, 10, 24, 9, tzinfo=UTC)  # noqa: E731
+
+    first, sleeps = go(root, clock=day1)
+
+    store = runner.Store(root)
+    assert first["stopped"] == "provider daily limit reached at c2 run 1 (pipeline)"
+    assert (first["ran"], first["invalid"], first["retries"]) == (1, 0, 0)
+    assert store.read("dev", "pipeline", "c2", 1) is None  # nothing stored for c2
+    assert sleeps == [runner.PACE_SECONDS]  # pacing only, no retry backoff
+
+    arm.outcomes = [result(findings=[1])]
+    second, _ = go(root, clock=day2)
+
+    assert (second["cached"], second["ran"], second["stopped"]) == (1, 2, "")
+    assert all(store.read("dev", "pipeline", c, 1)["valid"] for c in ("c1", "c2", "c3"))

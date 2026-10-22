@@ -27,6 +27,7 @@ from pathlib import Path
 from django.conf import settings
 
 from apps.agents import run_pipeline
+from apps.agents.providers import DAILY_LIMIT_MESSAGE
 from apps.agents.types import RepoContext
 from apps.evaluation import cases as case_store
 
@@ -137,6 +138,13 @@ def run_pipeline_arm(case, config):
 
 
 ARMS = {"pipeline": run_pipeline_arm}
+
+
+def daily_limit_hit(result):
+    """Did a provider refuse because its per-day quota is spent?"""
+    return any(DAILY_LIMIT_MESSAGE in (run.error or "") for run in result.agent_runs) or (
+        DAILY_LIMIT_MESSAGE in (result.failure_reason or "")
+    )
 
 
 def invalid_reasons(result):
@@ -329,6 +337,28 @@ def run_suite(
                     spent_any = True
                     started = clock()
                     result = ARMS[arm](case, config)
+                    if daily_limit_hit(result):
+                        # Not the run's fault and not worth retrying: the quota is
+                        # spent until it resets. Nothing is stored, so tomorrow's
+                        # run picks this case up from where it stopped.
+                        store.log_attempt(
+                            {
+                                "day": day,
+                                "suite": suite,
+                                "arm": arm,
+                                "case": case["id"],
+                                "run": run_index,
+                                "attempt": attempt,
+                                "valid": False,
+                                "reasons": ["provider daily limit reached; stopped for the day"],
+                                "started_at": started.isoformat(),
+                            }
+                        )
+                        summary["stopped"] = (
+                            f"provider daily limit reached at {case['id']} run {run_index} ({arm})"
+                        )
+                        log(summary["stopped"] + "; rerun tomorrow to resume from the cache")
+                        return summary
                     record = serialise(result, case, arm, run_index, started, clock(), config)
                     record["attempts"] = attempt
                     store.log_attempt(
