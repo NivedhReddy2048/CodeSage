@@ -65,6 +65,7 @@ class Command(BaseCommand):
                 for name in (
                     "recall",
                     "recall_lenient",
+                    "recall_blocking",
                     "recall_pooled",
                     "blocking_precision",
                     "false_alarms",

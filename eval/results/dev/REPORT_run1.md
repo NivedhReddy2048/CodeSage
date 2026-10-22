@@ -85,6 +85,33 @@ Manual review of the 4 baseline blocking findings that matched no bug:
 
 **Caveat 2: the pipeline's precision and false-alarm figures are not evidence of discrimination.** It produced only 2 blocking findings in 20 runs (see F1).
 
+### A′. The same results under the measurement amendments H1–H3
+
+These were approved after this report and applied to both arms before any TEST run (issue #124):
+- **H1:** a finding credits at most one bug.
+- **H2:** per-agent credit comes only from findings that survived.
+- **H3:** recall at blocking severity is reported.
+
+The table above is kept as originally reported. This table is `run_eval --suite dev --report` on the same 40 results under the amended scorer.
+
+| Metric | Pipeline | Baseline |
+|---|---|---|
+| Recall, headline (±2 + category, one-to-one) | **5/13 (18–64%)** | **9/13 (42–87%)** |
+| Recall, lenient (±3, one-to-one) | 13/13 (77–100%) | 11/13 (58–96%) |
+| **Recall, blocking severity (H3)** | **2/13 (4–42%)** | **7/13 (29–77%)** |
+| Blocking precision, raw (unchanged by H1) | 2/2 (34–100%) | 7/11 (35–85%) |
+| False alarms on clean cases (unchanged) | 0/8 (0–32%) | 2/8 (7–59%) |
+| Anchoring accuracy | 5/5 (57–100%) | 9/9 (70–100%) |
+
+- **Per agent, pipeline (H2):**
+  - static_analysis: 3 (pysnooper-3, pr1 syntax, pr8 syntax), all unique.
+  - grounding: 2 (testbed-pr2, testbed-pr3), both unique.
+  - Grounding was previously also credited with both pr1 bugs, through a finding the citation check dropped.
+- **Per case:** the only verdict H1 changes is testbed-pr1.
+  - Pipeline: the syntax bug is caught, the off-by-one is not.
+  - Baseline: the off-by-one is caught, the syntax bug is not.
+  - This is the "by meaning" reading given in caveat 1 above.
+
 ## B. Per-case results
 
 Notation: severity:line, B = blocking, N = nit. "Lenient only" means a finding within ±3 lines exists but fails the headline rule.

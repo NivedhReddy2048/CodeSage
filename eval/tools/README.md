@@ -66,3 +66,35 @@ diff, file snapshot or ground truth changed. No evaluation result existed at the
 original seal or at the amendment; `eval/results/` was empty and no commit had ever
 touched it. The builders here produce the amended cases (verified byte for byte for
 the testbed and planted cases).
+
+## Measurement amendment (after DEV run 1, before any TEST run)
+
+DEV run 1 ([eval/results/dev/REPORT_run1.md](../results/dev/REPORT_run1.md)) showed
+three flaws in how results were scored, not in the cases. They were fixed for both
+arms (issue #124) before any TEST run. TEST cases, ground truth and the category map
+are unchanged.
+
+- **H1, one-to-one matching.** Within a run a finding credits at most one bug.
+  Findings are paired with bugs by a maximum matching, and among those the pairing
+  with the findings closest to their bugs (`matching.assign`). It applies to every
+  recall figure, anchoring accuracy and the per-agent table. Blocking precision still
+  asks only whether a blocking finding is about some planted bug. Motivation:
+  testbed-pr1 has bugs on :1 and :3, and one finding was credited for both, in both
+  arms.
+- **H2, surviving findings only.** Per-agent contribution counts raw findings that
+  reached the review (trace outcome `kept` or `merged`), never ones dropped by
+  anchoring, the citation check or the policy. Motivation: on testbed-pr1 grounding
+  was credited for a finding the citation check had dropped.
+- **H3, blocking-severity recall.** Reported beside recall at any severity: a bug
+  counts when a blocking finding catches it (majority over runs, under H1).
+  Motivation: most of the pipeline's DEV run 1 hits were nits, which never stop a
+  merge.
+
+Effect on DEV run 1:
+
+| | Pipeline before | Pipeline after | Baseline before | Baseline after |
+|---|---|---|---|---|
+| Headline recall | 6/13 | 5/13 | 10/13 | 9/13 |
+| Lenient recall | 13/13 | 13/13 | 12/13 | 11/13 |
+| Blocking recall (new) | n/a | 2/13 | n/a | 7/13 |
+| Anchoring | 5/6 | 5/5 | 9/10 | 9/9 |
