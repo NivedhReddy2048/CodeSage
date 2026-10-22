@@ -1,0 +1,15 @@
+diff --git a/app/reports.py b/app/reports.py
+index 2259b4f..748954f 100644
+--- a/app/reports.py
++++ b/app/reports.py
+@@ -6,8 +6,8 @@
+ def get_orders_by_customer(db_path, customer_name):
+     conn = sqlite3.connect(db_path)
+     cursor = conn.cursor()
+-    query = f"SELECT * FROM orders WHERE customer = '{customer_name}'"
+-    cursor.execute(query)
++    query = "SELECT * FROM orders WHERE customer = ?"
++    cursor.execute(query, (customer_name,))
+     return cursor.fetchall()
+ 
+ 

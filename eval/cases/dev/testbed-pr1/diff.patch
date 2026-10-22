@@ -1,0 +1,12 @@
+diff --git a/test.py b/test.py
+new file mode 100644
+index 0000000..0aaf616
+--- /dev/null
++++ b/test.py
+@@ -0,0 +1,6 @@
++   def get_user(users: list[dict], user_id: int) -> dict | None:
++       """Return the user with the given id, or None when absent."""
++       for i in range(len(users) + 1):
++           if users[i]["id"] == user_id:
++               return users[i]
++       return None

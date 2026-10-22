@@ -1,0 +1,22 @@
+diff --git a/misc/generate_authors.py b/misc/generate_authors.py
+--- a/misc/generate_authors.py
++++ b/misc/generate_authors.py
+@@ -15,8 +15,6 @@
+ 
+ """
+ 
+-
+-import time
+ 
+ import subprocess
+ 
+@@ -48,5 +46,6 @@
+     for author in iterate_authors_by_chronological_order():
+         print(author)
+ 
+-if __name__ ==  '__main__':
+-    print_authors()
+\ No newline at end of file
++
++if __name__ == '__main__':
++    print_authors()

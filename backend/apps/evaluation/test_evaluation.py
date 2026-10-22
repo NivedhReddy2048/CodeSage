@@ -240,7 +240,7 @@ def test_a_sound_case_validates(root):
     [
         (
             {"bugs": [{"id": "x", "file": "app/q.py", "lines": [9, 9], "category": "security"}]},
-            "not all added lines",
+            "do not start and end on added lines",
         ),
         (
             {"bugs": [{"id": "x", "file": "app/q.py", "lines": [2, 2], "category": "sql"}]},
@@ -537,3 +537,37 @@ def test_the_check_fails_loudly_on_a_bad_case(root):
 
     with pytest.raises(CommandError, match="1 problem"):
         call_command("run_eval", "--check", "--root", str(root), stdout=StringIO())
+
+
+def test_a_bug_range_may_hold_an_unchanged_line_but_not_leave_the_hunk(root):
+    """thefuck-3: the fix changed lines 108 and 110 with line 109 kept between them."""
+    diff = (
+        "diff --git a/app/m.py b/app/m.py\n--- a/app/m.py\n+++ b/app/m.py\n"
+        "@@ -1,3 +1,3 @@\n-x = 1\n+x = 2\n y = 0\n-z = 1\n+z = 2\n"
+    )
+    case_dir = make_case(
+        root,
+        diff=diff,
+        bugs=[{"id": "b", "file": "app/m.py", "lines": [1, 3], "category": "correctness"}],
+    )
+    (case_dir / "files" / "app").mkdir(parents=True)
+    (case_dir / "files" / "app" / "m.py").write_text("x = 2\ny = 0\nz = 2\n")
+    assert case_store.validate(case_store.load_suite(root, "dev")[0], CATEGORIES) == []
+
+    data = json.loads((case_dir / "case.json").read_text())
+    data["bugs"][0]["lines"] = [1, 5]
+    (case_dir / "case.json").write_text(json.dumps(data))
+    problems = case_store.validate(case_store.load_suite(root, "dev")[0], CATEGORIES)
+    assert any("do not start and end" in p for p in problems), problems
+
+
+def test_every_committed_fixture_is_sound():
+    """CI guard: no case under eval/cases/ may land with unsound ground truth."""
+    root = CATEGORIES_FILE.parent
+    problems = [
+        problem
+        for suite in sorted(case_store.SUITES)
+        for case in case_store.load_suite(root, suite)
+        for problem in case_store.validate(case, CATEGORIES)
+    ]
+    assert problems == []

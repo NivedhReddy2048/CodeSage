@@ -1,0 +1,12 @@
+diff --git a/lib/application.js b/lib/application.js
+--- a/lib/application.js
++++ b/lib/application.js
+@@ -168,7 +168,7 @@
+   // express app
+   if (mount_app && mount_app.handle && mount_app.set) {
+     debug('.use app under %s', mount_path);
+-    mount_app.mountpath = mount_path;
++    mount_app.mountpath = path;
+     mount_app.parent = this;
+ 
+     // restore .app property on req and res

@@ -1,0 +1,25 @@
+{
+  "id": "clean-pysnooper-2b4b64b",
+  "suite": "dev",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "refactor",
+    "project": "cool-RR/PySnooper",
+    "url": "https://github.com/cool-RR/PySnooper/commit/2b4b64b71b3558b8b1fd43b52601157ddada7abe",
+    "license": "MIT",
+    "commit": "2b4b64b71b3558b8b1fd43b52601157ddada7abe",
+    "parent": "c90ec63874f00acd9b6f9012691b3a7d711cccc9",
+    "message": "Cleanup generate_authors"
+  },
+  "context": {
+    "full_name": "cool-RR/PySnooper",
+    "pr_number": 0,
+    "title": "Cleanup generate_authors",
+    "base_branch": "main",
+    "head_sha": "2b4b64b71b3558b8b1fd43b52601157ddada7abe"
+  },
+  "retrieval": null,
+  "bugs": [],
+  "notes": "An upstream refactor commit with no known bug. Clean means no KNOWN bug; any blocking finding counts as a false alarm. Only the source file's diff is reviewed; the commit changed 1 file(s)."
+}

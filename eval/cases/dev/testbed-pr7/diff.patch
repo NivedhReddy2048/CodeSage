@@ -1,0 +1,22 @@
+diff --git a/app/reports.py b/app/reports.py
+index 75266fb..cbafd24 100644
+--- a/app/reports.py
++++ b/app/reports.py
+@@ -1,6 +1,6 @@
++import os
+ import sqlite3
+-
+-API_KEY = "sk-live-9f8a7b6c5d4e3f2a1b0c"
++API_KEY = os.environ.get("REPORTS_API_KEY", "")
+ 
+ def get_orders_by_customer(db_path, customer_name):
+     conn = sqlite3.connect(db_path)
+@@ -14,6 +14,8 @@ def get_orders_by_customer(db_path, customer_name):
+ 
+ 
+ def average_order_value(orders):
++    if not orders:
++        return 0
+     total = 0
+     for order in orders:
+         total += order["amount"]

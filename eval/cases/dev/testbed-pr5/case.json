@@ -1,0 +1,24 @@
+{
+  "id": "testbed-pr5",
+  "suite": "dev",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "testbed",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed/pull/5",
+    "base_commit": "4e8efc16186caa818520479f45f3540bc270124a"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 5,
+    "title": "Use parameterized query for customer orders",
+    "base_branch": "main",
+    "head_sha": "eee851c10977f7f06fcea6b2126543bc6bf3dff2"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [],
+  "notes": "Clean testbed PR (a fix with no new bug); seen during development."
+}

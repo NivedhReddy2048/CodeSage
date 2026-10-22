@@ -1,0 +1,36 @@
+{
+  "id": "testbed-pr3",
+  "suite": "dev",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "testbed",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed/pull/3",
+    "base_commit": "3c4019eb96fba99eb991f0011b5af168ee55a026"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 3,
+    "title": "Add user lookup helpers for reporting",
+    "base_branch": "main",
+    "head_sha": "76fb4bd29260dbc876a514b0a45d40f44dcaebd8"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [
+    {
+      "id": "duplicate",
+      "file": "app/lookup.py",
+      "lines": [
+        4,
+        12
+      ],
+      "category": "other",
+      "kind": "added",
+      "note": "lookup_user reimplements UserRepository.find_by_id (app/users.py:15-20)."
+    }
+  ],
+  "notes": "Testbed PR; seen during development."
+}

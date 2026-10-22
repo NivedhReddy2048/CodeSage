@@ -20,8 +20,9 @@ case.json:
       "notes": "..."
     }
 
-`lines` are NEW-file line numbers. For "added" bugs every line in the range must be
-one the diff adds. A "deletion" bug (a reversed fix that removes a check) has no added
+`lines` are NEW-file line numbers. For "added" bugs the range starts and ends on lines
+the diff adds and stays inside the hunk (a multi-line fix may keep a context line in
+between). A "deletion" bug (a reversed fix that removes a check) has no added
 line; its range is where the removed code was, and must sit inside a hunk.
 """
 
@@ -129,8 +130,14 @@ def validate(case, categories, max_diff_bytes=24_000):
         if start > end:
             problems.append(f"{cid}/{bid}: line range is backwards")
         elif bug.get("kind", "added") == "added":
-            if not span <= entry.added_lines:
-                problems.append(f"{cid}/{bid}: lines {start}-{end} are not all added lines")
+            # Both ends are lines the PR added; between them a multi-line fix may keep
+            # an unchanged line, but the whole range stays inside the hunk.
+            if start not in entry.added_lines or end not in entry.added_lines:
+                problems.append(
+                    f"{cid}/{bid}: lines {start}-{end} do not start and end on added lines"
+                )
+            elif not span <= entry.changed_lines:
+                problems.append(f"{cid}/{bid}: lines {start}-{end} leave the hunk")
         elif bug.get("kind") == "deletion":
             if not span <= entry.changed_lines:
                 problems.append(f"{cid}/{bid}: deletion point {start}-{end} is outside the hunks")

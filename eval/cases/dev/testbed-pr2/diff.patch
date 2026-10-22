@@ -1,0 +1,20 @@
+diff --git a/web/orders.js b/web/orders.js
+new file mode 100644
+index 0000000..8cfa267
+--- /dev/null
++++ b/web/orders.js
+@@ -0,0 +1,14 @@
++import { request } from "./api";
++
++export async function fetchOrder(orderId) {
++  return request(`/api/orders/${orderId}`);
++}
++
++export async function orderSummary(orderId) {
++  const order = fetchOrder(orderId);
++  return `Order ${order.id} costs ${order.total}`;
++}
++
++export function formatOrderLine(order) {
++  return `${order.sku} x${order.quantity}`;
++}

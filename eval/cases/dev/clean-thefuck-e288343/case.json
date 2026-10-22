@@ -1,0 +1,25 @@
+{
+  "id": "clean-thefuck-e288343",
+  "suite": "dev",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "refactor",
+    "project": "nvbn/thefuck",
+    "url": "https://github.com/nvbn/thefuck/commit/e2883430bc2555a46599c6819c95bcd9d1268da1",
+    "license": "MIT",
+    "commit": "e2883430bc2555a46599c6819c95bcd9d1268da1",
+    "parent": "a4b690369c632c485e50508636d7564b01f3f94c",
+    "message": "#N/A: Cleanup shells/fish.py a bit"
+  },
+  "context": {
+    "full_name": "nvbn/thefuck",
+    "pr_number": 0,
+    "title": "#N/A: Cleanup shells/fish.py a bit",
+    "base_branch": "main",
+    "head_sha": "e2883430bc2555a46599c6819c95bcd9d1268da1"
+  },
+  "retrieval": null,
+  "bugs": [],
+  "notes": "An upstream refactor commit with no known bug. Clean means no KNOWN bug; any blocking finding counts as a false alarm. Only the source file's diff is reviewed; the commit changed 1 file(s)."
+}

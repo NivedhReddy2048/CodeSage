@@ -1,0 +1,22 @@
+diff --git a/lib/utils.js b/lib/utils.js
+--- a/lib/utils.js
++++ b/lib/utils.js
+@@ -70,15 +70,10 @@
+  * @api private
+  */
+ 
+-exports.normalizeTypes = function(types){
+-  var ret = [];
+-
+-  for (var i = 0; i < types.length; ++i) {
+-    ret.push(exports.normalizeType(types[i]));
+-  }
+-
+-  return ret;
++exports.normalizeTypes = function(types) {
++  return types.map(exports.normalizeType);
+ };
++
+ 
+ /**
+  * Parse accept params `str` returning an

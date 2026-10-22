@@ -1,0 +1,47 @@
+{
+  "id": "testbed-pr1",
+  "suite": "dev",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "testbed",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed/pull/1",
+    "base_commit": "60de3af652710cba9f3709a9ff06be2438535950"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 1,
+    "title": "Add get_user function to retrieve user by ID",
+    "base_branch": "main",
+    "head_sha": "23e9d6f0fed643d6d9a4e7a94ec5d6104592efbf"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [
+    {
+      "id": "syntax",
+      "file": "test.py",
+      "lines": [
+        1,
+        1
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Every line is indented by 4 spaces: the file does not parse."
+    },
+    {
+      "id": "off-by-one",
+      "file": "test.py",
+      "lines": [
+        3,
+        3
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "range(len(users) + 1) reads past the end (IndexError)."
+    }
+  ],
+  "notes": "Testbed PR; seen during development."
+}

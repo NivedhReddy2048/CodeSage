@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-pysnooper-3",
+  "suite": "dev",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "PySnooper",
+    "bug": 3,
+    "url": "https://github.com/cool-RR/PySnooper",
+    "license": "MIT",
+    "buggy_commit": "6e3d797be3fa0a746fb5b1b7c7fea78eb926c208",
+    "fixed_commit": "15555ed760000b049aff8fecc79d29339c1224c3",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "cool-RR/PySnooper",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy PySnooper bug 3",
+    "base_branch": "main",
+    "head_sha": "6e3d797be3fa0a746fb5b1b7c7fea78eb926c208"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "pysnooper/pysnooper.py",
+      "lines": [
+        26,
+        26
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Writes to output_path, a name that does not exist here (NameError); the parameter is output. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}
