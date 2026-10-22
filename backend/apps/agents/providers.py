@@ -29,6 +29,20 @@ class ProviderError(Exception):
     """A provider could not produce a response."""
 
 
+class DailyLimitReached(ProviderError):
+    """The provider's per-day token or request quota is spent: waiting cannot help.
+
+    Live, the caller fails over at once. The evaluation harness stops for the day
+    instead, because its runs must not be served by the fallback.
+    """
+
+
+# Groq names the exhausted limit in the 429 body: "... on tokens per day (TPD):
+# Limit 200000, Used ..." or "requests per day (RPD)".
+DAILY_LIMIT = re.compile(r"\b(?:tokens|requests) per day\b|\((?:TPD|RPD)\)", re.IGNORECASE)
+DAILY_LIMIT_MESSAGE = "daily limit reached"
+
+
 # Groq's free tier: 8,000 tokens per minute per model, and one review's three parallel
 # 20b agents spend about 4.4k. A 429 is usually that bucket, which refills within a
 # minute - so it is waited out rather than failed over. A wait longer than this means a
@@ -144,6 +158,10 @@ class Provider:
                 if response.status_code not in RETRYABLE_STATUS:
                     raise ProviderError(f"{self.name}: {last_error}")
                 if response.status_code == 429:
+                    if DAILY_LIMIT.search(response.text or ""):
+                        raise DailyLimitReached(
+                            f"{self.name}: {DAILY_LIMIT_MESSAGE} ({last_error})"
+                        )
                     asked = retry_after(response)
                     if asked is not None and asked > MAX_RATE_LIMIT_WAIT:
                         # A daily limit, not the per-minute bucket: nothing to wait for.

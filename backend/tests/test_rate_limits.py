@@ -181,3 +181,55 @@ def test_groq_durations_parse(value, seconds):
 
 def test_a_mock_without_real_headers_means_no_retry_after():
     assert retry_after(mock.Mock()) is None
+
+
+# -------------------------------------------------------------- daily limits
+
+TPD = (
+    "Rate limit reached for model `openai/gpt-oss-20b` in organization `org_x` service "
+    "tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199812, Requested 1534."
+)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [TPD, "Rate limit reached ... on requests per day (RPD): Limit 1000, Used 1000"],
+)
+def test_a_daily_limit_named_in_the_body_fails_at_once_even_with_a_short_retry_after(body):
+    """Groq may say retry-after: 7 on a daily limit; waiting would not help."""
+    from apps.agents.providers import DailyLimitReached
+
+    refused = mock.Mock(status_code=429, headers={"retry-after": "7"}, text=body)
+    provider = GroqProvider(api_key="g", model="m", max_retries=3)
+    with (
+        mock.patch("apps.agents.providers.requests.post", return_value=refused) as post,
+        mock.patch("apps.agents.providers.time.sleep") as sleep,
+        pytest.raises(DailyLimitReached, match="daily limit reached"),
+    ):
+        provider.complete("s", [{"role": "user", "content": "u"}])
+
+    assert post.call_count == 1
+    sleep.assert_not_called()
+
+
+def test_live_a_daily_limit_fails_over_to_gemini_immediately():
+    daily = mock.Mock(status_code=429, headers={"retry-after": "5"}, text=TPD)
+
+    (_, provider, used_fallback), post, sleep = call([daily, gemini_ok()])
+
+    assert (provider, used_fallback) == ("gemini", True)
+    assert post.call_count == 2
+    sleep.assert_not_called()
+
+
+def test_a_per_minute_limit_is_still_waited_out():
+    tpm = mock.Mock(
+        status_code=429,
+        headers={"retry-after": "3"},
+        text="Rate limit reached ... on tokens per minute (TPM): Limit 8000",
+    )
+
+    (_, provider, _), _, sleep = call([tpm, groq_ok()])
+
+    assert provider == "groq"
+    assert sleep.call_count == 1
