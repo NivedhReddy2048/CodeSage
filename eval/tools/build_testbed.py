@@ -11,7 +11,12 @@ import sys
 from pathlib import Path
 
 REPO = "NivedhReddy2048/codesage-testbed"
-INDEX = "8934446375efcce89bb47fa88454c2bb4946cd67"
+# Testbed main after the seal amendment removed the answer-revealing docstrings and
+# comments (a6ddd12); the original seal recorded 8934446.
+INDEX = "a6ddd12ec663c1b8ce4cc2a6a40372aa03093b87"
+# The commit the planted cases were written against (their head_sha and base file).
+# The amendment changed no code, so app/service.py is identical at both commits.
+PLANTED_BASE = "8934446375efcce89bb47fa88454c2bb4946cd67"
 
 
 def gh(*args):
@@ -221,16 +226,16 @@ CHANGE_EMAIL = '''
 
 def planted(stage):
     for cid, (language, path, content, bugs, note) in PLANTED.items():
-        write(stage, case(cid, "test", language, f"Add {path}", bugs, kind="planted", head=INDEX,
+        write(stage, case(cid, "test", language, f"Update {path}", bugs, kind="planted", head=PLANTED_BASE,
                           notes=note + " Written for TEST before any DEV run."), new_file_diff(path, content))
-    before = file_at(INDEX, "app/service.py")
+    before = file_at(PLANTED_BASE, "app/service.py")
     after = before.rstrip("\n") + "\n" + CHANGE_EMAIL
     diff = modified_diff("app/service.py", before, after)
     start = after.splitlines().index("    def change_email(self, user_id, email):") + 1
-    write(stage, case("planted-change-email", "test", "python", "Let users change their email", [
+    write(stage, case("planted-change-email", "test", "python", "Update app/service.py", [
         bug("skips-validation", "app/service.py", [start + 5, start + 5], "correctness",
             "Stores the new email unvalidated and un-normalised, unlike register (is_valid_email, normalise_email).")],
-        kind="planted", head=INDEX, notes="Grounding: register() in the same class shows the rule. "
+        kind="planted", head=PLANTED_BASE, notes="Grounding: register() in the same class shows the rule. "
         "Written for TEST before any DEV run."), diff, {"app/service.py": after})
 
 

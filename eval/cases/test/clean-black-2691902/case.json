@@ -15,7 +15,7 @@
   "context": {
     "full_name": "psf/black",
     "pr_number": 0,
-    "title": "Clean up dead code in magic trailing comma logic (#4131)",
+    "title": "Update src/black/lines.py",
     "base_branch": "main",
     "head_sha": "269190274b8dc134c9c107ada8f386594a8c62cf"
   },

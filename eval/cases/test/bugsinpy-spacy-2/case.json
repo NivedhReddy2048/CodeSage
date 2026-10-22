@@ -16,7 +16,7 @@
   "context": {
     "full_name": "explosion/spaCy",
     "pr_number": 0,
-    "title": "Reversed BugsInPy spacy bug 2",
+    "title": "Update spacy/util.py",
     "base_branch": "main",
     "head_sha": "efec28ce70a0ff69471cc379867deebe7eb881e0"
   },

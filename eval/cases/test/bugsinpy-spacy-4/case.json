@@ -16,7 +16,7 @@
   "context": {
     "full_name": "explosion/spaCy",
     "pr_number": 0,
-    "title": "Reversed BugsInPy spacy bug 4",
+    "title": "Update spacy/cli/converters/conllu2json.py",
     "base_branch": "main",
     "head_sha": "abd5c06374eab5db0cf897b73543b1f3eb007e12"
   },

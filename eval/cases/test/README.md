@@ -10,7 +10,8 @@ category map; `run_eval --suite test` refuses otherwise.
 - `testbed-pr4`: the five planted bugs, including the two known misses (unclosed
   connection, missing not-found check). It was reviewed live during development,
   so it is the one TEST case that is not unseen.
-- `planted-*` (7): written for TEST against the testbed index at `8934446`. Four
+- `planted-*` (7): written for TEST against testbed `8934446` (index recorded as
+  `a6ddd12` after the seal amendment; no code differs). Four
   need the codebase (grounding):
   - refund-dollars: dollars subtracted from `total_cents`;
   - signup-email: reimplements `is_valid_email`;

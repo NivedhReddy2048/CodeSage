@@ -16,7 +16,7 @@
   "context": {
     "full_name": "nvbn/thefuck",
     "pr_number": 0,
-    "title": "Reversed BugsInPy thefuck bug 21",
+    "title": "Update thefuck/rules/git_fix_stash.py",
     "base_branch": "main",
     "head_sha": "71dc2666ccf62e653291d9a7a08e2c6c3320425b"
   },

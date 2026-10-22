@@ -16,7 +16,7 @@
   "context": {
     "full_name": "psf/black",
     "pr_number": 0,
-    "title": "Reversed BugsInPy black bug 19",
+    "title": "Update black.py",
     "base_branch": "main",
     "head_sha": "337a4199f90ca48a19cf26511e0cec330b13bd4e"
   },

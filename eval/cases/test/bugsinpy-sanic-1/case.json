@@ -16,7 +16,7 @@
   "context": {
     "full_name": "huge-success/sanic",
     "pr_number": 0,
-    "title": "Reversed BugsInPy sanic bug 1",
+    "title": "Update sanic/app.py",
     "base_branch": "main",
     "head_sha": "e7001b00747b659f7042b0534802b936ee8a53e0"
   },

@@ -16,7 +16,7 @@
   "context": {
     "full_name": "jakubroztocil/httpie",
     "pr_number": 0,
-    "title": "Reversed BugsInPy httpie bug 3",
+    "title": "Update httpie/sessions.py",
     "base_branch": "main",
     "head_sha": "8c33e5e3d31d3cd6476c4d9bc963a4c529f883d2"
   },

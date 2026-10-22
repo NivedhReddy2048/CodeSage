@@ -16,9 +16,9 @@
     "dataset": "https://bugsjs.github.io/"
   },
   "context": {
-    "full_name": "BugsJS/express",
+    "full_name": "expressjs/express",
     "pr_number": 0,
-    "title": "Reversed BugsJS express bug 9",
+    "title": "Update lib/application.js",
     "base_branch": "master",
     "head_sha": "8ba3f39b33042f59d50ef5b5fb87109d3f3a2a26"
   },

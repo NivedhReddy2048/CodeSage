@@ -15,7 +15,7 @@
   "context": {
     "full_name": "spotify/luigi",
     "pr_number": 0,
-    "title": "Rename to rpc_log_retries, and make it apply to all the logging involved",
+    "title": "Update luigi/rpc.py",
     "base_branch": "main",
     "head_sha": "d2d3944c251f267f5fbb9586445433cec53866c3"
   },

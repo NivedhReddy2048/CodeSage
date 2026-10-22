@@ -15,7 +15,7 @@
   "context": {
     "full_name": "scrapy/scrapy",
     "pr_number": 0,
-    "title": "Pin older Twisted in tests, update type hints. (#6882)",
+    "title": "Update scrapy/core/downloader/handlers/http11.py",
     "base_branch": "main",
     "head_sha": "ba10dcfd1a44fae0d48cba6bf6b49f2bd05c35a4"
   },

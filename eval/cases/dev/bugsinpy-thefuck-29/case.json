@@ -16,7 +16,7 @@
   "context": {
     "full_name": "nvbn/thefuck",
     "pr_number": 0,
-    "title": "Reversed BugsInPy thefuck bug 29",
+    "title": "Update thefuck/types.py",
     "base_branch": "main",
     "head_sha": "4a2f869c6d6ef03d8d7ada1121cc6631d7ef979e"
   },

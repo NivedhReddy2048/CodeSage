@@ -16,9 +16,9 @@
     "dataset": "https://bugsjs.github.io/"
   },
   "context": {
-    "full_name": "BugsJS/bower",
+    "full_name": "bower/bower",
     "pr_number": 0,
-    "title": "Reversed BugsJS bower bug 3",
+    "title": "Update lib/core/scripts.js",
     "base_branch": "master",
     "head_sha": "e85a5f778fc74e91862caa5bad2817d6bf475d1c"
   },

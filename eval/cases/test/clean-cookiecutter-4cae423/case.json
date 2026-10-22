@@ -15,7 +15,7 @@
   "context": {
     "full_name": "cookiecutter/cookiecutter",
     "pr_number": 0,
-    "title": "Type annotate vcs.clone function",
+    "title": "Update cookiecutter/vcs.py",
     "base_branch": "main",
     "head_sha": "4cae4233f89b8458b785c62db5feadc5454d5d56"
   },

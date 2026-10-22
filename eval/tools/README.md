@@ -38,3 +38,31 @@ python manage.py run_eval --check --root <root>
   and docs in the same commit are not part of the reviewed diff.
 - **Licenses.** Only permissive licenses (MIT, BSD-3-Clause, Apache-2.0); GPL
   projects (e.g. ansible) are excluded. See THIRD_PARTY_NOTICES.md.
+
+## Seal amendment (before any run)
+
+The TEST set was sealed at `e4d42b9` (PR #112; TEST content `6a0726c`). Before any
+evaluation run, a review of what the pipeline would see found answer leaks, and they
+were removed in one amendment (issue #113):
+
+1. **The testbed index.** Testbed `main` carried four `BUG (...)` docstrings
+   (`app/orders.py` x2, `app/users.py` x2), one `// BUG (missing await)` comment
+   (`web/users.js`) and a README saying the service exists to exercise CodeSage's
+   review. Grounding could retrieve any of them. They were removed or neutralised
+   (docstring, comment and README text only; no behaviour change) in testbed commit
+   `a6ddd12`, and the testbed was re-indexed at it. Every retrieval case's
+   `retrieval.index_commit` moved from `8934446` to `a6ddd12` (16 cases: 9 testbed,
+   7 planted).
+2. **Titles and repository names.** The baseline prompt includes the PR title, which
+   said "Reversed BugsInPy <project> bug <n>" for every benchmark case and repeated
+   the commit message for clean ones. BugsJS cases also named `BugsJS/<project>` as
+   the repository, which the intent agent sees. Every non-testbed case now has the
+   title `Update <path>` (41 cases, buggy and clean alike) and no body; the five
+   BugsJS cases name their upstream repository. Testbed PRs keep their real titles,
+   none of which reveals a bug.
+
+Only `context.title`, `context.full_name` and `retrieval.index_commit` changed. No
+diff, file snapshot or ground truth changed. No evaluation result existed at the
+original seal or at the amendment; `eval/results/` was empty and no commit had ever
+touched it. The builders here produce the amended cases (verified byte for byte for
+the testbed and planted cases).

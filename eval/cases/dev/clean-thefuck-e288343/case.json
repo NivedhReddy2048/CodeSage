@@ -15,7 +15,7 @@
   "context": {
     "full_name": "nvbn/thefuck",
     "pr_number": 0,
-    "title": "#N/A: Cleanup shells/fish.py a bit",
+    "title": "Update thefuck/shells/fish.py",
     "base_branch": "main",
     "head_sha": "e2883430bc2555a46599c6819c95bcd9d1268da1"
   },

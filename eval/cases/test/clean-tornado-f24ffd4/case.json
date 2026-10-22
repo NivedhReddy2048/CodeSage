@@ -15,7 +15,7 @@
   "context": {
     "full_name": "tornadoweb/tornado",
     "pr_number": 0,
-    "title": "Type hint HTTPFile attributes",
+    "title": "Update tornado/httputil.py",
     "base_branch": "main",
     "head_sha": "f24ffd41ac8483466f0e400e0f3657c313f74f52"
   },

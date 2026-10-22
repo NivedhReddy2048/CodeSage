@@ -17,7 +17,7 @@
   },
   "retrieval": {
     "repository": "NivedhReddy2048/codesage-testbed",
-    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+    "index_commit": "a6ddd12ec663c1b8ce4cc2a6a40372aa03093b87"
   },
   "bugs": [],
   "notes": "Clean testbed PR (a fix with no new bug); seen during development."

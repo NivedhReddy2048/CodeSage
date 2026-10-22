@@ -15,7 +15,7 @@
   "context": {
     "full_name": "fastapi/fastapi",
     "pr_number": 0,
-    "title": "\ud83d\udd28 Update sponsors script to simplify previews (#15786)",
+    "title": "Update scripts/docs.py",
     "base_branch": "main",
     "head_sha": "32d711f6d24224f2aed3395cac428222cbe9b1fb"
   },

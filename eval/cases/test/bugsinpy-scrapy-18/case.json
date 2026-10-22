@@ -16,7 +16,7 @@
   "context": {
     "full_name": "scrapy/scrapy",
     "pr_number": 0,
-    "title": "Reversed BugsInPy scrapy bug 18",
+    "title": "Update scrapy/responsetypes.py",
     "base_branch": "main",
     "head_sha": "41588397c04356f2b0c393b61ed68271a08d6ccd"
   },

@@ -16,7 +16,7 @@
   "context": {
     "full_name": "tornadoweb/tornado",
     "pr_number": 0,
-    "title": "Reversed BugsInPy tornado bug 11",
+    "title": "Update tornado/http1connection.py",
     "base_branch": "main",
     "head_sha": "79ef301eb05cac82c075198e502d94dad296f6aa"
   },

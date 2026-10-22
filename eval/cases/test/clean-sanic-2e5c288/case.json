@@ -15,7 +15,7 @@
   "context": {
     "full_name": "sanic-org/sanic",
     "pr_number": 0,
-    "title": "Add convenience for annotated handlers (#2225)",
+    "title": "Update sanic/router.py",
     "base_branch": "main",
     "head_sha": "2e5c288feae62e13e2ca604a2854a9f3175395d3"
   },

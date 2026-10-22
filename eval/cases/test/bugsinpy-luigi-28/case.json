@@ -16,7 +16,7 @@
   "context": {
     "full_name": "spotify/luigi",
     "pr_number": 0,
-    "title": "Reversed BugsInPy luigi bug 28",
+    "title": "Update luigi/contrib/hive.py",
     "base_branch": "main",
     "head_sha": "e37cb0ea1d97e6340840128a68c8d59bd05c28c3"
   },

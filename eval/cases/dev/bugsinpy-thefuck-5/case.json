@@ -16,7 +16,7 @@
   "context": {
     "full_name": "nvbn/thefuck",
     "pr_number": 0,
-    "title": "Reversed BugsInPy thefuck bug 5",
+    "title": "Update thefuck/rules/git_push.py",
     "base_branch": "main",
     "head_sha": "7c858fadb3458be829d3d43666ccb46c3ed5b8a0"
   },

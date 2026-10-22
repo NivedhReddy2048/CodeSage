@@ -15,7 +15,7 @@
   "context": {
     "full_name": "cool-RR/PySnooper",
     "pr_number": 0,
-    "title": "Cleanup generate_authors",
+    "title": "Update misc/generate_authors.py",
     "base_branch": "main",
     "head_sha": "2b4b64b71b3558b8b1fd43b52601157ddada7abe"
   },
