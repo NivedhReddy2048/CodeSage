@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-spacy-2",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "spacy",
+    "bug": 2,
+    "url": "https://github.com/explosion/spaCy",
+    "license": "MIT",
+    "buggy_commit": "efec28ce70a0ff69471cc379867deebe7eb881e0",
+    "fixed_commit": "cfdaf99b8029d6762730c5d5bd2b6f6c173c1241",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "explosion/spaCy",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy spacy bug 2",
+    "base_branch": "main",
+    "head_sha": "efec28ce70a0ff69471cc379867deebe7eb881e0"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "spacy/util.py",
+      "lines": [
+        211,
+        211
+      ],
+      "category": "correctness",
+      "kind": "deletion",
+      "note": "Removes config.update(overrides): component overrides are silently ignored. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

@@ -1,0 +1,15 @@
+diff --git a/app/refunds.py b/app/refunds.py
+new file mode 100644
+--- /dev/null
++++ b/app/refunds.py
+@@ -0,0 +1,10 @@
++"""Refunds for cancelled or partly returned orders."""
++
++
++def apply_refund(order, amount):
++    """Take a refund off an order. `amount` is what the customer gets back, in dollars."""
++    if amount <= 0:
++        raise ValueError("a refund must be positive")
++    order.total_cents -= amount
++    order.status = "refunded" if order.total_cents <= 0 else "partially_refunded"
++    return order

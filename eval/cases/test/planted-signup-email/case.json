@@ -1,0 +1,35 @@
+{
+  "id": "planted-signup-email",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "planted",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 0,
+    "title": "Add app/signup.py",
+    "base_branch": "main",
+    "head_sha": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [
+    {
+      "id": "duplicate-validation",
+      "file": "app/signup.py",
+      "lines": [
+        8,
+        9
+      ],
+      "category": "other",
+      "kind": "added",
+      "note": "Reimplements app/validators.py is_valid_email with a weaker pattern, and skips normalise_email."
+    }
+  ],
+  "notes": "Grounding: the existing validator is in app/validators.py. Written for TEST before any DEV run."
+}

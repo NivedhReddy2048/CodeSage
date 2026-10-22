@@ -1,0 +1,35 @@
+{
+  "id": "planted-export-leak",
+  "suite": "test",
+  "language": "javascript",
+  "clean": false,
+  "source": {
+    "kind": "planted",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 0,
+    "title": "Add web/exporter.js",
+    "base_branch": "main",
+    "head_sha": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [
+    {
+      "id": "fd-leak",
+      "file": "web/exporter.js",
+      "lines": [
+        4,
+        11
+      ],
+      "category": "resource-leak",
+      "kind": "added",
+      "note": "The descriptor is never closed when the loop throws (no try/finally)."
+    }
+  ],
+  "notes": "Planted resource leak. Written for TEST before any DEV run."
+}

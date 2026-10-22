@@ -1,0 +1,12 @@
+diff --git a/lib/reporter.js b/lib/reporter.js
+--- a/lib/reporter.js
++++ b/lib/reporter.js
+@@ -21,7 +21,7 @@
+     return null
+   }
+ 
+-  var URL_REGEXP = new RegExp('(?:http:\\/\\/[^\\/]*)?\\/?' +
++  var URL_REGEXP = new RegExp('http:\\/\\/[^\\/]*\\/' +
+     '(base|absolute)' + // prefix
+     '((?:[A-z]\\:)?[^\\?\\s\\:]*)' + // path
+     '(\\?\\w*)?' + // sha

@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-tornado-11",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "tornado",
+    "bug": 11,
+    "url": "https://github.com/tornadoweb/tornado",
+    "license": "Apache-2.0",
+    "buggy_commit": "79ef301eb05cac82c075198e502d94dad296f6aa",
+    "fixed_commit": "1131c9b50a6a4c0868d0d6fa5e0be077cf8fd1ca",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "tornadoweb/tornado",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy tornado bug 11",
+    "base_branch": "main",
+    "head_sha": "79ef301eb05cac82c075198e502d94dad296f6aa"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "tornado/http1connection.py",
+      "lines": [
+        568,
+        568
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Transfer-Encoding is compared case-sensitively, so 'Chunked' bodies are not decoded. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

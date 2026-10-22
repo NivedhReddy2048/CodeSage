@@ -1,0 +1,12 @@
+diff --git a/cookiecutter/prompt.py b/cookiecutter/prompt.py
+--- a/cookiecutter/prompt.py
++++ b/cookiecutter/prompt.py
+@@ -88,7 +88,7 @@
+     ))
+ 
+     user_choice = click.prompt(
+-        prompt, type=click.Choice(choices), default=default, show_choices=False
++        prompt, type=click.Choice(choices), default=default
+     )
+     return choice_map[user_choice]
+ 

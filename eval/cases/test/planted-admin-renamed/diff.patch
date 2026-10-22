@@ -1,0 +1,15 @@
+diff --git a/app/admin.py b/app/admin.py
+new file mode 100644
+--- /dev/null
++++ b/app/admin.py
+@@ -0,0 +1,10 @@
++"""Admin operations."""
++
++
++def suspend_user(users, user_id):
++    """Deactivate a user from the admin console."""
++    user = users.get_by_id(user_id)
++    if user is None:
++        return False
++    user.is_active = False
++    return True

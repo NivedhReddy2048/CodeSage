@@ -1,0 +1,40 @@
+{
+  "id": "bugsjs-hexo-5",
+  "suite": "test",
+  "language": "javascript",
+  "clean": false,
+  "source": {
+    "kind": "bugsjs",
+    "project": "hexo",
+    "bug": 5,
+    "url": "https://github.com/BugsJS/hexo",
+    "license": "MIT",
+    "buggy_tag": "Bug-5-original",
+    "fixed_tag": "Bug-5-fix",
+    "buggy_commit": "4f190623ebe9c73560b2b50625b17ed35ab9c3eb",
+    "fixed_commit": "d27934ab1c262bb29028f4eea0bb0663e3fe5df5",
+    "dataset": "https://bugsjs.github.io/"
+  },
+  "context": {
+    "full_name": "BugsJS/hexo",
+    "pr_number": 0,
+    "title": "Reversed BugsJS hexo bug 5",
+    "base_branch": "master",
+    "head_sha": "4f190623ebe9c73560b2b50625b17ed35ab9c3eb"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "lib/plugins/helper/is.js",
+      "lines": [
+        4,
+        14
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "is_current no longer normalises a leading slash, so relative paths never match. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

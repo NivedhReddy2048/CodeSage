@@ -1,0 +1,35 @@
+{
+  "id": "planted-change-email",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "planted",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 0,
+    "title": "Let users change their email",
+    "base_branch": "main",
+    "head_sha": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [
+    {
+      "id": "skips-validation",
+      "file": "app/service.py",
+      "lines": [
+        36,
+        36
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Stores the new email unvalidated and un-normalised, unlike register (is_valid_email, normalise_email)."
+    }
+  ],
+  "notes": "Grounding: register() in the same class shows the rule. Written for TEST before any DEV run."
+}

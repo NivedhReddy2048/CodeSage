@@ -1,0 +1,40 @@
+{
+  "id": "bugsjs-bower-3",
+  "suite": "test",
+  "language": "javascript",
+  "clean": false,
+  "source": {
+    "kind": "bugsjs",
+    "project": "bower",
+    "bug": 3,
+    "url": "https://github.com/BugsJS/bower",
+    "license": "MIT",
+    "buggy_tag": "Bug-3-original",
+    "fixed_tag": "Bug-3-fix",
+    "buggy_commit": "e85a5f778fc74e91862caa5bad2817d6bf475d1c",
+    "fixed_commit": "14921123025c487c51038a04539384e37acbf9e3",
+    "dataset": "https://bugsjs.github.io/"
+  },
+  "context": {
+    "full_name": "BugsJS/bower",
+    "pr_number": 0,
+    "title": "Reversed BugsJS bower bug 3",
+    "base_branch": "master",
+    "head_sha": "e85a5f778fc74e91862caa5bad2817d6bf475d1c"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "lib/core/scripts.js",
+      "lines": [
+        86,
+        86
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Replaces only the first '%' placeholder; the global regex was dropped. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

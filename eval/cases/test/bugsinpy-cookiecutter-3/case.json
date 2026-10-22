@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-cookiecutter-3",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "cookiecutter",
+    "bug": 3,
+    "url": "https://github.com/cookiecutter/cookiecutter",
+    "license": "BSD-3-Clause",
+    "buggy_commit": "5c282f020a8db7e5e7c4e7b51b010556ca31fb7f",
+    "fixed_commit": "7129d474206761a6156925db78eee4b62a0e3944",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "cookiecutter/cookiecutter",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy cookiecutter bug 3",
+    "base_branch": "main",
+    "head_sha": "5c282f020a8db7e5e7c4e7b51b010556ca31fb7f"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "cookiecutter/prompt.py",
+      "lines": [
+        91,
+        91
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Drops show_choices=False, so the choices are printed twice in the prompt. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

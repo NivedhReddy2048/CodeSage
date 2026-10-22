@@ -1,0 +1,25 @@
+{
+  "id": "clean-karma-1458267",
+  "suite": "test",
+  "language": "javascript",
+  "clean": true,
+  "source": {
+    "kind": "refactor",
+    "project": "karma-runner/karma",
+    "url": "https://github.com/karma-runner/karma/commit/145826764a76717f63d35e393238b56304575672",
+    "license": "MIT",
+    "commit": "145826764a76717f63d35e393238b56304575672",
+    "parent": "c311ac00cef4a957f889ed613238793c0ffa95a2",
+    "message": "refactor(lib): small update in lib/emitter_wrapper"
+  },
+  "context": {
+    "full_name": "karma-runner/karma",
+    "pr_number": 0,
+    "title": "refactor(lib): small update in lib/emitter_wrapper",
+    "base_branch": "main",
+    "head_sha": "145826764a76717f63d35e393238b56304575672"
+  },
+  "retrieval": null,
+  "bugs": [],
+  "notes": "An upstream refactor commit with no known bug. Clean means no KNOWN bug; any blocking finding counts as a false alarm. Only the source file's diff is reviewed; the commit changed 1 file(s)."
+}

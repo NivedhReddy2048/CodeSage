@@ -1,0 +1,35 @@
+diff --git a/app/reports.py b/app/reports.py
+new file mode 100644
+index 0000000..2259b4f
+--- /dev/null
++++ b/app/reports.py
+@@ -0,0 +1,29 @@
++import sqlite3
++
++API_KEY = "sk-live-9f8a7b6c5d4e3f2a1b0c"
++
++
++def get_orders_by_customer(db_path, customer_name):
++    conn = sqlite3.connect(db_path)
++    cursor = conn.cursor()
++    query = f"SELECT * FROM orders WHERE customer = '{customer_name}'"
++    cursor.execute(query)
++    return cursor.fetchall()
++
++
++def average_order_value(orders):
++    total = 0
++    for order in orders:
++        total += order["amount"]
++    return total / len(orders)
++
++
++def find_customer(customers, email):
++    for c in customers:
++        if c["email"] == email:
++            return c
++
++
++def customer_display_name(customers, email):
++    customer = find_customer(customers, email)
++    return customer["first_name"] + " " + customer["last_name"]

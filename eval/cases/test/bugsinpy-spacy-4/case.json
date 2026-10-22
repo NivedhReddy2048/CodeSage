@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-spacy-4",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "spacy",
+    "bug": 4,
+    "url": "https://github.com/explosion/spaCy",
+    "license": "MIT",
+    "buggy_commit": "abd5c06374eab5db0cf897b73543b1f3eb007e12",
+    "fixed_commit": "9fa9d7f2cb52ce6a70c264d4e57c7f190d7686bf",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "explosion/spaCy",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy spacy bug 4",
+    "base_branch": "main",
+    "head_sha": "abd5c06374eab5db0cf897b73543b1f3eb007e12"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "spacy/cli/converters/conllu2json.py",
+      "lines": [
+        73,
+        73
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Treats '_' as a real head index: int('_') fails, or the head is wrong, for empty heads. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

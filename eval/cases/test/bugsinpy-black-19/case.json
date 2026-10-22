@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-black-19",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "black",
+    "bug": 19,
+    "url": "https://github.com/psf/black",
+    "license": "MIT",
+    "buggy_commit": "337a4199f90ca48a19cf26511e0cec330b13bd4e",
+    "fixed_commit": "29e97d1d4a7717f1bd0ca35cacf2f2ce6d815b0c",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "psf/black",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy black bug 19",
+    "base_branch": "main",
+    "head_sha": "337a4199f90ca48a19cf26511e0cec330b13bd4e"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "black.py",
+      "lines": [
+        1047,
+        1047
+      ],
+      "category": "correctness",
+      "kind": "deletion",
+      "note": "Removes the rule against blank lines between a comment and a decorator. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}
