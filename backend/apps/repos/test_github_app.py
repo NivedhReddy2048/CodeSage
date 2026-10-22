@@ -456,3 +456,66 @@ def test_a_missing_file_is_an_error_for_the_caller_to_handle():
         pytest.raises(GitHubAppError),
     ):
         github_app.get_file_content(1, "o/r", "gone.py", "abc", 1000)
+
+
+# ------------------------------------------------- superseding inline comments
+
+
+def test_update_review_comment_patches_the_pulls_comment():
+    with (
+        mock.patch.object(github_app, "get_installation_token", return_value="ghs_t"),
+        mock.patch.object(
+            github_app.requests, "request", return_value=api_response(200, {"id": 9})
+        ) as request,
+    ):
+        github_app.update_review_comment(1, "o/r", 9, "Superseded")
+
+    method, url = request.call_args.args
+    assert (method, url.rsplit("/repos", 1)[1]) == ("PATCH", "/o/r/pulls/comments/9")
+    assert request.call_args.kwargs["json"] == {"body": "Superseded"}
+
+
+def thread_page(nodes, has_next=False, cursor=None):
+    return api_response(
+        200,
+        {
+            "data": {
+                "repository": {
+                    "pullRequest": {
+                        "reviewThreads": {
+                            "pageInfo": {"hasNextPage": has_next, "endCursor": cursor},
+                            "nodes": nodes,
+                        }
+                    }
+                }
+            }
+        },
+    )
+
+
+def test_review_threads_are_keyed_by_their_first_comment_across_pages():
+    first = {"id": "T1", "isResolved": False, "comments": {"nodes": [{"databaseId": 41}]}}
+    second = {"id": "T2", "isResolved": True, "comments": {"nodes": [{"databaseId": 42}]}}
+    with (
+        mock.patch.object(github_app, "get_installation_token", return_value="ghs_t"),
+        mock.patch.object(
+            github_app.requests,
+            "request",
+            side_effect=[thread_page([first], True, "c1"), thread_page([second])],
+        ) as request,
+    ):
+        threads = github_app.list_review_threads(1, "owner/testbed", 7)
+
+    assert threads == {41: ("T1", False), 42: ("T2", True)}
+    variables = request.call_args.kwargs["json"]["variables"]
+    assert variables == {"owner": "owner", "name": "testbed", "number": 7, "after": "c1"}
+
+
+def test_a_graphql_error_in_a_200_body_raises():
+    refused = api_response(200, {"errors": [{"message": "Resource not accessible"}]})
+    with (
+        mock.patch.object(github_app, "get_installation_token", return_value="ghs_t"),
+        mock.patch.object(github_app.requests, "request", return_value=refused),
+        pytest.raises(GitHubAppError, match="Resource not accessible"),
+    ):
+        github_app.resolve_review_thread(1, "T1")
