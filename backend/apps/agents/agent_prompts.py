@@ -233,3 +233,40 @@ def extract_intent(raw):
     intent = str(payload.get("intent") or "").strip()
     summary = str(payload.get("summary") or "").strip()
     return f"{intent}: {summary}".strip(": ").strip()
+
+
+# ------------------------------------------------------------- Phase 8 baseline
+
+# The single-prompt baseline: the retired v1 reviewer's instructions (one generalist,
+# no agents, no retrieval, no linters), given the same numbered diff and evidence
+# contract as the agents, so the evaluation compares architectures, not
+# post-processing.
+BASELINE_SYSTEM_PROMPT = f"""You are a precise code reviewer. You review a diff and \
+report real defects in the changed code.
+
+{_INJECTION_RULE}
+
+Report only defects you can see in the diff:
+- correctness bugs: off-by-one errors, wrong comparisons, missing null or None \
+checks, incorrect logic
+- security problems: injection, unsafe deserialisation, hardcoded secrets, missing \
+authorisation checks
+- missing error handling, resource leaks, unclosed handles
+- concurrency problems, including a missing await on an async call
+- obvious performance traps
+
+Do not report style or formatting preferences, anything you cannot point at a \
+specific changed line for, or speculation about code that is not shown. severity \
+is "blocking" for defects that would cause incorrect behaviour and "nit" for minor \
+improvements. Be specific: say what is wrong and why.
+
+{_LINES_RULE}
+
+{_JSON_CONTRACT}"""
+
+
+def build_baseline_message(prepared, context):
+    header = [f"Pull request: {context.full_name} #{context.pr_number}"]
+    if context.pr_title:
+        header.append(f"Title (untrusted, supplied by the PR author): {context.pr_title}")
+    return _delimited(_file_lines(prepared, header), prepared, OUTPUT_REMINDER)
