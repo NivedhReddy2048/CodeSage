@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 1,
+      "input_tokens": 1003,
+      "latency_ms": 2516,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 886,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "960",
+        "x-ratelimit-remaining-tokens": "6016",
+        "x-ratelimit-reset-requests": "57m36s",
+        "x-ratelimit-reset-tokens": "14.879s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_87b3c396db",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "testbed-pr8-f701890",
+  "case_hash": "912b936e1669768b",
+  "duration_ms": 2517,
+  "estimated_cost_inr": "0.0648",
+  "estimated_cost_usd": "0.000682",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "correctness",
+      "file": "app/money.py",
+      "line": 17,
+      "message": "The function split_evenly does not validate that the total amount is non\u2011negative. For a negative total, the divmod and remainder logic will produce incorrect part values, breaking the guarantee that parts differ by at most one cent and sum to the original total.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "finished_at": "2026-10-22T15:57:12.905774+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "correctness",
+      "cited_line": 17,
+      "downgraded": "",
+      "evidence": "total = to_money(total)",
+      "file": "app/money.py",
+      "line": 17,
+      "message": "The function split_evenly does not validate that the total amount is non\u2011negative. For a negative total, the divmod and remainder logic will produce incorrect part values, breaking the guarantee that parts differ by at most one cent and sum to the original total.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:57:10.388668+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 1,
+      "input_tokens": 787,
+      "latency_ms": 1938,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 569,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "990",
+        "x-ratelimit-remaining-tokens": "6674",
+        "x-ratelimit-reset-requests": "14m24s",
+        "x-ratelimit-reset-tokens": "9.945s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_02b0d31eca",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "bugsinpy-thefuck-32",
+  "case_hash": "c08f81fb3f93c032",
+  "duration_ms": 1938,
+  "estimated_cost_inr": "0.0436",
+  "estimated_cost_usd": "0.000459",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "correctness",
+      "file": "thefuck/rules/ls_lah.py",
+      "line": 2,
+      "message": "The new match implementation uses a substring check (`'ls' in command.script`) which matches any command containing the letters \"ls\" anywhere (e.g., \"echo ls\", \"my_ls\"), leading to false positives. The original logic required the command to be exactly \"ls\" or start with \"ls \" while excluding options. This change breaks the intended matching behavior.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "nit"
+    }
+  ],
+  "finished_at": "2026-10-22T15:25:48.031910+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "cited",
+      "category": "correctness",
+      "cited_line": 2,
+      "downgraded": "no evidence quoted from an added line",
+      "evidence": "'    return 'ls' in command.script and not ('ls -' in command.script)",
+      "file": "thefuck/rules/ls_lah.py",
+      "line": 2,
+      "message": "The new match implementation uses a substring check (`'ls' in command.script`) which matches any command containing the letters \"ls\" anywhere (e.g., \"echo ls\", \"my_ls\"), leading to false positives. The original logic required the command to be exactly \"ls\" or start with \"ls \" while excluding options. This change breaks the intended matching behavior.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "nit"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:25:46.093159+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

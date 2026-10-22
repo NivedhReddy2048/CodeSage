@@ -1,0 +1,173 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 0,
+      "input_tokens": 563,
+      "latency_ms": 724,
+      "model": "openai/gpt-oss-20b",
+      "name": "diff_intent",
+      "output_tokens": 128,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-20b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "975",
+        "x-ratelimit-remaining-tokens": "7272",
+        "x-ratelimit-reset-requests": "36m0s",
+        "x-ratelimit-reset-tokens": "5.46s"
+      },
+      "requested_model": "openai/gpt-oss-20b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_a12402de73",
+      "used_fallback": false
+    },
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 0,
+      "input_tokens": 1683,
+      "latency_ms": 1419,
+      "model": "openai/gpt-oss-20b",
+      "name": "grounding",
+      "output_tokens": 518,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-20b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "973",
+        "x-ratelimit-remaining-tokens": "1942",
+        "x-ratelimit-reset-requests": "38m52.8s",
+        "x-ratelimit-reset-tokens": "45.435s"
+      },
+      "requested_model": "openai/gpt-oss-20b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_8b41efc9a3",
+      "used_fallback": false
+    },
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 0,
+      "input_tokens": 931,
+      "latency_ms": 1272,
+      "model": "openai/gpt-oss-120b",
+      "name": "security",
+      "output_tokens": 170,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "963",
+        "x-ratelimit-remaining-tokens": "6088",
+        "x-ratelimit-reset-requests": "53m16.799s",
+        "x-ratelimit-reset-tokens": "14.34s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_c15aa9c1b7",
+      "used_fallback": false
+    },
+    {
+      "detail": "ran ruff, bandit",
+      "error": "",
+      "findings_count": 0,
+      "input_tokens": 0,
+      "latency_ms": 565,
+      "model": "",
+      "name": "static_analysis",
+      "output_tokens": 0,
+      "provider": "",
+      "provider_model": "",
+      "rate_limits": {},
+      "requested_model": "",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "",
+      "used_fallback": false
+    },
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 1,
+      "input_tokens": 893,
+      "latency_ms": 1463,
+      "model": "openai/gpt-oss-20b",
+      "name": "test_coverage",
+      "output_tokens": 472,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-20b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "974",
+        "x-ratelimit-remaining-tokens": "4639",
+        "x-ratelimit-reset-requests": "37m26.4s",
+        "x-ratelimit-reset-tokens": "25.207s"
+      },
+      "requested_model": "openai/gpt-oss-20b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_9b8528b477",
+      "used_fallback": false
+    }
+  ],
+  "arm": "pipeline",
+  "attempts": 1,
+  "case": "testbed-pr8-584b17d",
+  "case_hash": "18ff22e7f0b8b250",
+  "duration_ms": 3037,
+  "estimated_cost_inr": "0.0772",
+  "estimated_cost_usd": "0.000812",
+  "final_findings": [
+    {
+      "agent": "test_coverage",
+      "category": "testing",
+      "file": "app/money.py",
+      "line": 13,
+      "message": "Function split_evenly is added but no tests cover it.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "nit"
+    }
+  ],
+  "finished_at": "2026-10-22T15:54:03.789098+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "test_coverage",
+      "anchored_by": "evidence",
+      "category": "testing",
+      "cited_line": 13,
+      "downgraded": "test coverage is never blocking",
+      "evidence": "def split_evenly(total: Decimal, parts: int) -> list[Decimal]:",
+      "file": "app/money.py",
+      "line": 13,
+      "message": "Function split_evenly is added but no tests cover it.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "nit"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:54:00.747407+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

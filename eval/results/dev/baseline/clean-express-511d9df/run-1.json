@@ -1,0 +1,106 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 2,
+      "input_tokens": 839,
+      "latency_ms": 1939,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 514,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "982",
+        "x-ratelimit-remaining-tokens": "6310",
+        "x-ratelimit-reset-requests": "25m55.199s",
+        "x-ratelimit-reset-tokens": "12.674s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_93703442d9",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "clean-express-511d9df",
+  "case_hash": "3adacf5f248e6ee4",
+  "duration_ms": 1939,
+  "estimated_cost_inr": "0.0413",
+  "estimated_cost_usd": "0.000434",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "correctness",
+      "file": "lib/utils.js",
+      "line": 73,
+      "message": "The new implementation uses `types.map` which only works on true Array instances. The original code iterated over any array\u2011like object via its `length` property, so callers that pass an array\u2011like (e.g., arguments or a custom object with numeric keys) will now cause a TypeError. This changes the function\u2019s contract and can break existing usage.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "blocking"
+    },
+    {
+      "agent": "baseline",
+      "category": "correctness",
+      "file": "lib/utils.js",
+      "line": 74,
+      "message": "Using `Array.prototype.map` without verifying that `types` is defined may throw a TypeError when `types` is `null` or `undefined`. The previous loop would also throw on accessing `length`, but the map call masks the original intent of handling an empty array gracefully. Adding an explicit check would preserve original behavior.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "nit"
+    }
+  ],
+  "finished_at": "2026-10-22T15:34:05.098273+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "correctness",
+      "cited_line": 73,
+      "downgraded": "",
+      "evidence": "exports.normalizeTypes = function(types) {",
+      "file": "lib/utils.js",
+      "line": 73,
+      "message": "The new implementation uses `types.map` which only works on true Array instances. The original code iterated over any array\u2011like object via its `length` property, so callers that pass an array\u2011like (e.g., arguments or a custom object with numeric keys) will now cause a TypeError. This changes the function\u2019s contract and can break existing usage.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "blocking"
+    },
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "correctness",
+      "cited_line": 74,
+      "downgraded": "speculative wording",
+      "evidence": "return types.map(exports.normalizeType);",
+      "file": "lib/utils.js",
+      "line": 74,
+      "message": "Using `Array.prototype.map` without verifying that `types` is defined may throw a TypeError when `types` is `null` or `undefined`. The previous loop would also throw on accessing `length`, but the map call masks the original intent of handling an empty array gracefully. Adding an explicit check would preserve original behavior.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "nit"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:34:03.158363+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

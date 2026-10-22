@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 1,
+      "input_tokens": 898,
+      "latency_ms": 3689,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 502,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "964",
+        "x-ratelimit-remaining-tokens": "6121",
+        "x-ratelimit-reset-requests": "51m50.399s",
+        "x-ratelimit-reset-tokens": "14.092s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_dee443f41b",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "testbed-pr7",
+  "case_hash": "9dde6eb284536503",
+  "duration_ms": 3689,
+  "estimated_cost_inr": "0.0414",
+  "estimated_cost_usd": "0.000436",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "security",
+      "file": "app/reports.py",
+      "line": 3,
+      "message": "Using os.environ.get with a default empty string allows the application to run without a required API key, potentially causing unauthorized or malformed API calls; the code should enforce that the environment variable is set and raise an error if missing.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "nit"
+    }
+  ],
+  "finished_at": "2026-10-22T15:53:00.693428+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "security",
+      "cited_line": 3,
+      "downgraded": "speculative wording",
+      "evidence": "API_KEY = os.environ.get(\"REPORTS_API_KEY\", \"\")",
+      "file": "app/reports.py",
+      "line": 3,
+      "message": "Using os.environ.get with a default empty string allows the application to run without a required API key, potentially causing unauthorized or malformed API calls; the code should enforce that the environment variable is set and raise an error if missing.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "nit"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:52:57.003532+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

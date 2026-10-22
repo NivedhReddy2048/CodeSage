@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 1,
+      "input_tokens": 852,
+      "latency_ms": 2498,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 851,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "992",
+        "x-ratelimit-remaining-tokens": "6786",
+        "x-ratelimit-reset-requests": "11m31.2s",
+        "x-ratelimit-reset-tokens": "9.105s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_f640395b96",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "bugsinpy-thefuck-3",
+  "case_hash": "d16051175412d7d3",
+  "duration_ms": 2498,
+  "estimated_cost_inr": "0.0606",
+  "estimated_cost_usd": "0.000638",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "resource-leak",
+      "file": "thefuck/shells/fish.py",
+      "line": 110,
+      "message": "The subprocess is started with Popen but the code never waits for it to terminate (e.g., via proc.wait() or proc.communicate()), potentially leaving a zombie process each time info() is called.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "nit"
+    }
+  ],
+  "finished_at": "2026-10-22T15:23:43.400785+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "resource-leak",
+      "cited_line": 110,
+      "downgraded": "",
+      "evidence": "version = proc.stdout.read().decode('utf-8').strip()",
+      "file": "thefuck/shells/fish.py",
+      "line": 110,
+      "message": "The subprocess is started with Popen but the code never waits for it to terminate (e.g., via proc.wait() or proc.communicate()), potentially leaving a zombie process each time info() is called.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "nit"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:23:40.902093+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}
