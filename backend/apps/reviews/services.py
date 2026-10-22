@@ -240,9 +240,11 @@ def _run_review(review, pull_request, installation_id):
 
 
 def _post_inline(pull_request, installation_id, review, findings):
-    """Inline comments for a completed review. Never fails the review."""
-    if not findings:
-        return None
+    """Inline comments for a completed review. Never fails the review.
+
+    Runs even with no findings: a clean re-review still has earlier comments to mark
+    superseded.
+    """
     try:
         return post_inline_comments(
             github_app,

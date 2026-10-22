@@ -103,6 +103,9 @@ def render(
             f"No issues found in `{_short(review.head_sha)}`.",
             "",
         ]
+        inline_note = _render_inline_note(inline)
+        if inline_note:
+            lines += [inline_note, ""]
     else:
         existing = [f for f in findings if _placement(f) == "existing"]
         general = [f for f in findings if _placement(f) == "general"]
@@ -173,13 +176,16 @@ def render(
 
 
 def _render_inline_note(inline):
-    if inline is None or not (inline.posted or inline.duplicates):
+    superseded = getattr(inline, "superseded", 0)
+    if inline is None or not (inline.posted or inline.duplicates or superseded):
         return ""
     parts = []
     if inline.posted:
         parts.append(f"{inline.posted} new inline comment{'s' if inline.posted != 1 else ''}")
     if inline.duplicates:
         parts.append(f"{inline.duplicates} already on the diff from an earlier run")
+    if superseded:
+        parts.append(f"{superseded} earlier comment{'s' if superseded != 1 else ''} superseded")
     return f"_Inline on the changed lines: {', '.join(parts)}._"
 
 

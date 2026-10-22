@@ -338,6 +338,79 @@ def list_review_comments(installation_id, repo_full_name, number):
     return comments
 
 
+def update_review_comment(installation_id, repo_full_name, comment_id, body):
+    """`PATCH /repos/{repo}/pulls/comments/{id}`: rewrite an inline comment's body."""
+    token = get_installation_token(installation_id)
+    return _request(
+        "PATCH",
+        f"/repos/{repo_full_name}/pulls/comments/{comment_id}",
+        token,
+        json={"body": body},
+    ).json()
+
+
+def _graphql(installation_id, query, variables):
+    """POST /graphql. GraphQL reports failures in a 200 body, so those raise too."""
+    token = get_installation_token(installation_id)
+    payload = _request(
+        "POST", "/graphql", token, json={"query": query, "variables": variables}
+    ).json()
+    if payload.get("errors"):
+        raise GitHubAppError(f"GraphQL error: {str(payload['errors'])[:300]}")
+    return payload.get("data") or {}
+
+
+REVIEW_THREADS_QUERY = """
+query($owner: String!, $name: String!, $number: Int!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100, after: $after) {
+        pageInfo { hasNextPage endCursor }
+        nodes { id isResolved comments(first: 1) { nodes { databaseId } } }
+      }
+    }
+  }
+}
+"""
+
+
+def list_review_threads(installation_id, repo_full_name, number):
+    """`{first comment's REST id: (thread node id, is_resolved)}` for a PR's threads.
+
+    Threads exist only in GraphQL; a REST review comment is matched to its thread by
+    the thread's first comment, which is the one CodeSage posted.
+    """
+    owner, name = repo_full_name.split("/", 1)
+    threads, after = {}, None
+    while True:
+        data = _graphql(
+            installation_id,
+            REVIEW_THREADS_QUERY,
+            {"owner": owner, "name": name, "number": number, "after": after},
+        )
+        page = (
+            ((data.get("repository") or {}).get("pullRequest") or {}).get("reviewThreads")
+        ) or {}
+        for node in page.get("nodes") or []:
+            first = ((node.get("comments") or {}).get("nodes") or [{}])[0]
+            if first.get("databaseId"):
+                threads[first["databaseId"]] = (node["id"], bool(node.get("isResolved")))
+        info = page.get("pageInfo") or {}
+        if not info.get("hasNextPage"):
+            return threads
+        after = info.get("endCursor")
+
+
+def resolve_review_thread(installation_id, thread_id):
+    """GraphQL `resolveReviewThread`. Needs pull_requests: write."""
+    return _graphql(
+        installation_id,
+        "mutation($id: ID!) { resolveReviewThread(input: {threadId: $id}) "
+        "{ thread { id isResolved } } }",
+        {"id": thread_id},
+    )
+
+
 def create_review(installation_id, repo_full_name, number, commit_id, body, comments):
     """Post one PR review carrying several inline comments.
 
