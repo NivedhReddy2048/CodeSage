@@ -16,6 +16,12 @@ unrelated lint artefact was credited as "also flagged by static_analysis".
 Findings from one agent are never merged with each other: an agent that lists two
 things on a line means two things. The only exception is a verbatim repeat.
 
+Test coverage and correctness often describe one defect from two sides: "this raises
+IndexError on a one-word command" and "no test covers a one-word command". Test
+coverage's category is always "testing", so the category rule would never pair them.
+On the same anchored line with overlapping wording they are one finding, led by
+correctness, "(also noted by test coverage)". Test coverage stays about tests.
+
 THE REPRESENTATIVE
 The member whose evidence matched an added line and whose wording is definite, then
 the most severe, then by agent precedence. A security agent's explanation reads
@@ -35,7 +41,17 @@ logger = logging.getLogger(__name__)
 # Which agent's wording leads when several report one defect, after evidence and
 # certainty. Security first because its framing of a shared finding is the one that
 # matters; static analysis keeps its rule id in the credit line either way.
-AGENT_PRECEDENCE = ("security", "grounding", "static_analysis", "test_coverage", "review")
+AGENT_PRECEDENCE = (
+    "security",
+    "correctness",
+    "grounding",
+    "static_analysis",
+    "test_coverage",
+    "review",
+)
+
+# A defect and the missing test for it: one finding, led by the defect.
+DEFECT_AND_TEST = frozenset({"correctness", "test_coverage"})
 
 # Two messages describe the same issue when this share of the shorter message's
 # content words appear in the other, and at least MIN_SHARED_WORDS do.
@@ -87,16 +103,54 @@ def synthesise_traced(findings, max_findings=25):
 
 
 def _group(findings):
-    """Groups of `(position, finding)`, the representative first in each."""
+    """Groups of `(position, finding)`, the representative first in each.
+
+    Test coverage is grouped last. Its category is always "testing", so it can never
+    be the same issue as a linter's or another agent's finding; a test-coverage
+    finding instead joins the group whose correctness finding describes the same
+    defect, whoever else flagged it.
+    """
     groups = []
+    deferred = []
     for position, finding in enumerate(findings):
-        for group in groups:
-            if all(_same_issue(finding, member) for _, member in group):
-                group.append((position, finding))
-                break
+        if finding.agent == "test_coverage":
+            deferred.append((position, finding))
         else:
-            groups.append([(position, finding)])
-    return [sorted(group, key=lambda pair: _rank(pair[1])) for group in groups]
+            _place(groups, position, finding)
+    for position, finding in deferred:
+        defect = next(
+            (
+                group
+                for group in groups
+                if any(
+                    member.agent == "correctness" and _same_issue(finding, member)
+                    for _, member in group
+                )
+            ),
+            None,
+        )
+        if defect is not None:
+            defect.append((position, finding))
+        else:
+            _place(groups, position, finding)
+    return [sorted(group, key=lambda pair: _lead_key(pair[1], group)) for group in groups]
+
+
+def _place(groups, position, finding):
+    for group in groups:
+        if all(_same_issue(finding, member) for _, member in group):
+            group.append((position, finding))
+            return
+    groups.append([(position, finding)])
+
+
+def _lead_key(finding, group):
+    # Test coverage never leads a defect it merged with: its finding is the missing
+    # test, the correctness finding is what is wrong.
+    yields = finding.agent == "test_coverage" and any(
+        member.agent == "correctness" for _, member in group
+    )
+    return (yields, *_rank(finding))
 
 
 def _same_issue(a, b):
@@ -106,6 +160,8 @@ def _same_issue(a, b):
         return _normalised(a.message) == _normalised(b.message)
     if a.rule and b.rule:
         return a.rule == b.rule
+    if {a.agent, b.agent} == DEFECT_AND_TEST:
+        return similar(a.message, b.message)
     if a.category != b.category:
         return False
     return similar(a.message, b.message)
@@ -158,15 +214,23 @@ def _merge(group):
     if any(f.severity == Severity.BLOCKING for f in members):
         lead = replace(lead, severity=Severity.BLOCKING, downgraded="")
 
-    credits = []
+    credits, noted = [], False
     for finding in members[1:]:
         if finding.agent == lead.agent:
             continue  # a verbatim repeat, not a second opinion
+        if {finding.agent, lead.agent} == DEFECT_AND_TEST:
+            noted = True  # it said there is no test, not that the code is wrong
+            continue
         credit = finding.agent + (f": {finding.rule}" if finding.rule else "")
         if credit not in credits:
             credits.append(credit)
+    notes = []
     if credits:
-        lead = replace(lead, message=f"{lead.message} (also flagged by {', '.join(credits)})")
+        notes.append(f"also flagged by {', '.join(credits)}")
+    if noted:
+        notes.append("also noted by test coverage")
+    if notes:
+        lead = replace(lead, message=f"{lead.message} ({'; '.join(notes)})")
     return lead
 
 

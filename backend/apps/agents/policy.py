@@ -7,10 +7,11 @@ testbed runs 73% of findings were blocking and test coverage alone produced 27 o
 
 The rules, all deterministic:
 
-1. Scope. An agent reports in its own domain. A test-coverage finding that claims a
-   security defect ("could expose SQL injection", on the line that fixes it) is out
-   of its depth and dropped, and so is a security-agent finding that is not about
-   security. Test coverage's findings are about tests whatever category it chose.
+1. Scope. An agent reports in its own domain. A test-coverage or correctness
+   finding that claims a security defect ("could expose SQL injection", on the line
+   that fixes it) is out of its depth and dropped, and so is a security-agent finding
+   that is not about security, or a correctness finding about tests, style or
+   performance. Test coverage's findings are about tests whatever category it chose.
    Grounding may not fault a change for being safer than the code it cites
    ("uses a parameterized query while existing code uses f-strings"): existing code
    is precedent only when it is not itself a defect.
@@ -46,7 +47,21 @@ MAX_SEVERITY = {"test_coverage": Severity.NIT}
 BLOCKING_TOOL_RULES = frozenset({"pattern-scan js-eval", "pattern-scan js-new-function"})
 
 # Rule 1: the categories an agent may report in. Agents not listed are unrestricted.
-OWN_CATEGORIES = {"security": {Category.SECURITY}}
+# Correctness owns defects in what the code does; security, tests, style and
+# performance belong to other agents or to no one.
+OWN_CATEGORIES = {
+    "security": {Category.SECURITY},
+    "correctness": {
+        Category.CORRECTNESS,
+        Category.ERROR_HANDLING,
+        Category.CONCURRENCY,
+        Category.RESOURCE_LEAK,
+        Category.OTHER,
+    },
+}
+
+# Rule 1: agents whose security claims are out of their depth.
+NO_SECURITY_CLAIMS = {"test_coverage": "test coverage", "correctness": "correctness"}
 
 _SECURITY_TERMS = (
     r"(?:sql |command |code |template )?injection|xss|cross[- ]site scripting|"
@@ -164,8 +179,8 @@ def apply(findings):
 
 def out_of_scope(finding):
     """Why this agent should not have reported this finding, or ""."""
-    if finding.agent == "test_coverage" and claims_security_defect(finding.message):
-        return "out of scope: test coverage making a security claim"
+    if finding.agent in NO_SECURITY_CLAIMS and claims_security_defect(finding.message):
+        return f"out of scope: {NO_SECURITY_CLAIMS[finding.agent]} making a security claim"
     if finding.agent == "grounding" and faults_a_safer_change(finding):
         return "out of scope: grounding faulting a change for being safer than existing code"
     allowed = OWN_CATEGORIES.get(finding.agent)

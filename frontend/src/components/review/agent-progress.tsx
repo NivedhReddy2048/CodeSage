@@ -3,11 +3,18 @@ import type { AgentState } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 /**
- * The five agents the progress socket counts, in the order the graph runs them:
- * Diff/Intent first, then the four that fan out. Synthesis is the merge after them,
+ * The six agents the progress socket counts, in the order the graph runs them:
+ * Diff/Intent first, then the five that fan out. Synthesis is the merge after them,
  * not an agent that can be pending, so it has no segment.
  */
-export const PROGRESS_AGENTS = ["diff_intent", "static_analysis", "security", "grounding", "test_coverage"] as const;
+export const PROGRESS_AGENTS = [
+  "diff_intent",
+  "static_analysis",
+  "security",
+  "correctness",
+  "grounding",
+  "test_coverage",
+] as const;
 
 const TONE: Record<AgentState, string> = {
   pending: "bg-[color:var(--chart-empty)]",
@@ -31,7 +38,7 @@ const WORD: Record<AgentState, string> = {
  */
 export function AgentProgress({ agents }: { agents: Partial<Record<string, AgentState>> }) {
   return (
-    <ol aria-label="Agent progress" className="grid grid-cols-5 gap-1.5">
+    <ol aria-label="Agent progress" className="grid grid-cols-6 gap-1.5">
       {PROGRESS_AGENTS.map((name) => {
         const state = agents[name] ?? "pending";
         const label = AGENT_LABELS[name] ?? name;

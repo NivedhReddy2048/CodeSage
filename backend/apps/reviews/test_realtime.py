@@ -51,7 +51,7 @@ def test_an_authenticated_member_gets_the_snapshot_then_live_events(tenants):
         first = await communicator.receive_json_from()
         assert first["type"] == "review.snapshot"
         assert first["review_id"] == review_a.pk
-        assert (first["completed"], first["total"]) == (0, 5)
+        assert (first["completed"], first["total"]) == (0, 6)
 
         reporter = await sync_to_async(progress.ProgressReporter)(review_a)
         await sync_to_async(reporter)("security", "started")
@@ -204,7 +204,7 @@ def test_the_finished_event_carries_the_final_status(tenants):
 
 
 def test_the_pipeline_reports_every_agent_starting_and_finishing():
-    """Through the real graph, with providers mocked: 5 agents, each started then finished."""
+    """Through the real graph, with providers mocked: 6 agents, each started then finished."""
     from apps.agents.graph import Runtime, run_pipeline
     from apps.agents.providers import ProviderResponse
     from apps.agents.static_analysis import AnalysisReport
@@ -232,12 +232,20 @@ def test_the_pipeline_reports_every_agent_starting_and_finishing():
             on_progress=lambda agent, state, status: events.append((agent, state, status)),
         )
 
-    agents = {"diff_intent", "static_analysis", "security", "grounding", "test_coverage"}
+    agents = {
+        "diff_intent",
+        "static_analysis",
+        "security",
+        "correctness",
+        "grounding",
+        "test_coverage",
+    }
     assert {a for a, state, _ in events if state == "started"} == agents
     finished = {a: status for a, state, status in events if state == "finished"}
     assert set(finished) == agents
     assert finished["grounding"] == "skipped"  # no retrieval configured
     assert finished["security"] == "ok"
+    assert finished["correctness"] == "ok"
     # diff_intent runs alone, before the fan-out.
     assert events[0] == ("diff_intent", "started", "")
 

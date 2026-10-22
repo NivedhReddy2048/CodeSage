@@ -1,9 +1,10 @@
 # CodeSage
 
 Multi-agent code review for GitHub pull requests. Every PR is reviewed by a
-six-agent LangGraph pipeline grounded in the repository's own code through hybrid
-retrieval (pgvector dense + Postgres full-text), so findings carry real file and
-line citations rather than generic advice.
+LangGraph pipeline of six agents (diff/intent, static analysis, security, correctness,
+codebase grounding and test coverage) and a deterministic synthesis step, grounded in
+the repository's own code through hybrid retrieval (pgvector dense + Postgres
+full-text), so findings carry real file and line citations rather than generic advice.
 
 Architecture, tech-stack rationale and free-tier constraints: [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md).
 Build status: [docs/PROGRESS.md](docs/PROGRESS.md).

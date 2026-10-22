@@ -115,7 +115,8 @@ Built with LangGraph, same orchestration tool as EKIP. A `Review` triggers this 
 3. **Security agent** — LLM pass focused only on secrets, injection risk, unsafe deserialization, checked against the static findings.
 4. **Codebase-grounding agent** — the RAG core: hybrid retrieval (pgvector cosine + Postgres full-text/BM25-style ranking) over the repo's own embedded code+docs, so a suggestion like "this duplicates logic in `utils/validators.py`" is actually true, with a citation (file + line).
 5. **Test-coverage agent** — flags changed logic with no corresponding test change; suggests specific test cases.
-6. **Synthesis agent** — merges all findings, deduplicates, prioritizes (blocking vs. nit), and posts one structured review comment back to the PR as `codesage[bot]` through the GitHub App (§13). The comment ends with a cost/latency footer (§14).
+6. **Correctness agent** *(added in Phase 8, issue #126)* — LLM pass that owns logic defects in the added lines: wrong conditions, the wrong variable, off-by-one, missing arguments, unhandled None/empty/index cases, broken behaviour changes. Never security or missing tests. Phase 8's DEV run 1 showed that without it most correctness bugs were noticed only as "untested".
+7. **Synthesis** — merges all findings, deduplicates, prioritizes (blocking vs. nit), and posts one structured review comment back to the PR as `codesage[bot]` through the GitHub App (§13). The comment ends with a cost/latency footer (§14). As built it is a deterministic step, not a model call, so the pipeline counts six agents plus synthesis.
 
 **Reliability layer (reuse your EKIP experience directly):**
 - Multi-LLM failover: Groq → Gemini, with circuit breakers and latency tracking (you've already built this once).

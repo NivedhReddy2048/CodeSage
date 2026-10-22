@@ -25,7 +25,7 @@ const FEATURES = [
   {
     icon: Network,
     title: "Multi-agent review",
-    body: "Five agents read every pull request: intent, security, static analysis, test coverage and codebase grounding.",
+    body: "Six agents read every pull request: intent, static analysis, security, correctness, codebase grounding and test coverage.",
   },
   {
     icon: BookOpenCheck,
@@ -225,7 +225,7 @@ export default function LoginPage() {
           <section aria-labelledby="how-it-works-title" id="how-it-works" className="scroll-mt-20 border-t bg-surface-1/40">
             <div className="mx-auto max-w-[1200px] px-4 py-16 sm:px-6 lg:py-20">
               <SectionHeading id="how-it-works-title" eyebrow="How it works" title="One diff in, one review out">
-                Diff/Intent reads the change first. Four agents then run in parallel, and
+                Diff/Intent reads the change first. Five agents then run in parallel, and
                 synthesis merges what they found into a single comment on the pull request.
               </SectionHeading>
               <PipelineDiagram />

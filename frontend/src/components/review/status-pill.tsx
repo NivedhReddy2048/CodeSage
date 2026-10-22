@@ -5,7 +5,7 @@ import type { ProgressTransport } from "@/hooks/use-review-progress";
 import type { ReviewProgress } from "@/lib/types";
 
 /**
- * "Reviewing... 3/5 agents" while the pipeline runs, then the final status. Lives in
+ * "Reviewing... 3/6 agents" while the pipeline runs, then the final status. Lives in
  * an aria-live region so a screen reader hears progress without polling the page.
  *
  * A review the API calls stalled is not pulsed at as if work were happening: nothing

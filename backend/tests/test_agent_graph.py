@@ -348,13 +348,14 @@ def test_a_zero_budget_skips_everything():
 # =============================================================== graph structure
 
 
-def test_the_graph_has_all_six_agents():
+def test_the_graph_has_all_six_agents_and_synthesis():
     nodes = {n for n in build_graph().get_graph().nodes if not n.startswith("__")}
 
     assert nodes == {
         "diff_intent",
         "static_analysis",
         "security",
+        "correctness",
         "grounding",
         "test_coverage",
         "synthesis",
@@ -380,6 +381,7 @@ def test_the_pipeline_runs_end_to_end():
         "diff_intent",
         "static_analysis",
         "security",
+        "correctness",
         "grounding",
         "test_coverage",
     }

@@ -183,12 +183,12 @@ describe("status pill", () => {
         status="running"
         degraded={false}
         transport="socket"
-        progress={{ type: "review.progress", review_id: 1, status: "running", agents: {}, completed: 3, total: 5 }}
+        progress={{ type: "review.progress", review_id: 1, status: "running", agents: {}, completed: 3, total: 6 }}
       />,
     );
     const pill = screen.getByRole("status");
     expect(pill).toHaveAttribute("aria-live", "polite");
-    expect(pill).toHaveTextContent("Reviewing... 3/5 agents");
+    expect(pill).toHaveTextContent("Reviewing... 3/6 agents");
   });
 
   it("says when it has fallen back to polling", () => {
@@ -215,10 +215,10 @@ describe("status pill", () => {
         degraded={false}
         stalled
         transport="socket"
-        progress={{ type: "review.progress", review_id: 1, status: "running", agents: {}, completed: 1, total: 5 }}
+        progress={{ type: "review.progress", review_id: 1, status: "running", agents: {}, completed: 1, total: 6 }}
       />,
     );
-    expect(screen.getByRole("status")).toHaveTextContent("Reviewing... 1/5 agents");
+    expect(screen.getByRole("status")).toHaveTextContent("Reviewing... 1/6 agents");
   });
 });
 
@@ -280,6 +280,7 @@ describe("agent progress", () => {
       "Diff/Intent: done",
       "Static analysis: waiting",
       "Security: running",
+      "Correctness: waiting",
       "Codebase grounding: failed",
       "Test coverage: waiting",
     ]);

@@ -17,7 +17,7 @@ pull requests, each closing its own issue. Architecture lives in
 | 5 | Full 6-agent pipeline | `phase-5a` retrieval, `5b` graph, `5c` wiring; hardening `5d` honest output, `5e` grounding + inline | **Done** |
 | 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **Done** |
 | 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Next |
-| 8 | Evaluation | `phase-8a` fixtures, `8b` run_eval, `8c` results | Not started |
+| 8 | Evaluation | `phase-8a` harness, `8b` DEV set, `8c` TEST set, `8d` baseline; after DEV run 1: `8e` undefined names, `8f` grounding precedent, `8g` measurement amendments, `8h` correctness agent | In progress: DEV round 2 next |
 | R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | **Done** |
 
 Phase 8 depends only on Phase 5, so it can be built before or after Phase 7.
@@ -74,6 +74,46 @@ once, listed "claude" as a repository contributor.
 **Update the merged-PR count in this table in each phase's last PR.** The figure
 counts merged PRs *including* the one making the edit, so it is correct the moment that
 PR lands rather than one behind forever.
+
+---
+
+## Phase 8 — Evaluation (in progress)
+
+Method, dataset and results: [EVALUATION.md](EVALUATION.md). DEV run 1 (20 cases × 2
+arms) is reported in [eval/results/dev/REPORT_run1.md](../eval/results/dev/REPORT_run1.md):
+the single-prompt baseline caught 9/13 bugs to the pipeline's 5/13, because no agent
+owned correctness and what the pipeline noticed was filed as "untested" or
+speculation. Changes approved from it, each its own PR:
+
+- **#121** an undefined name in a whole file blocks (ruff F821/F822/F823), unless a
+  star import or module `__getattr__` could define it.
+- **#123** grounding never treats an existing defect as precedent; a policy backstop
+  drops a finding that calls a safer added line inconsistent.
+- **#125** measurement amendments H1-H3: one-to-one matching, per-agent credit only for
+  surviving findings, recall at blocking severity.
+- **8h** a sixth agent, **Correctness**, on `gpt-oss-120b`, owning logic defects; a
+  test-coverage finding on the same defect merges into it ("also noted by test
+  coverage"). The token budget became per model, as Groq's buckets are.
+
+### Capacity with the correctness agent
+
+Correctness is a second `gpt-oss-120b` call per review. Measured on four DEV reviews
+(two benchmark, two testbed): **1.12-1.40K tokens, mean 1.26K**, and **1.7-2.3 s**,
+running in parallel with Security (1.8-2.6 s), so it is not usually the slowest agent.
+Wall-clock review time in that sample moved by machine load more than by the agent;
+DEV round 2 gives p50/p95 over 60 runs.
+
+| Model | Per review | Binding limit | Reviews/day |
+|---|---|---|---|
+| `gpt-oss-20b` | ~4.2K (unchanged; 2.1K without retrieval, 5.3K with) | 200K TPD | **~48** |
+| `gpt-oss-120b` | ~2.3K (Security ~1.0K + Correctness ~1.3K; was ~0.9K) | 200K TPD | ~87 (was 225) |
+| `gpt-oss-120b` | 2 calls | 1,000 RPD | 500 |
+
+**Estimated capacity: still about 48 full reviews a day**, bounded by `gpt-oss-20b`.
+The new agent uses `gpt-oss-120b` headroom that was mostly idle, as the note below
+suggested. On an evaluation day of 35 pipeline + 35 baseline runs, `gpt-oss-120b`
+spends ~35 × 2.3K + 35 × 1.4K ≈ 130K, leaving ~70K (~30 live reviews) on that model;
+`gpt-oss-20b` stays the limit for the dev stack.
 
 ---
 
@@ -1136,6 +1176,8 @@ Groq's 429 and agents fail over to Gemini, so the review still runs, served and
 labelled as Gemini. Moving one 20b agent onto 120b would roughly double headroom,
 because 120b's daily budget is mostly unused. Eval runs (Phase 8) must budget against
 the 48/day figure, not the 1,000 RPD figure.
+(Phase 8 put a second agent, Correctness, on 120b: see "Capacity with the correctness
+agent" above.)
 
 ### Known limitations
 

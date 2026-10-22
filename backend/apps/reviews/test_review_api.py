@@ -95,7 +95,7 @@ def test_status_returns_the_progress_snapshot(world):
 
     assert data["agents"]["security"] == "ok"
     assert data["agents"]["diff_intent"] == "pending"
-    assert (data["completed"], data["total"]) == (1, 5)
+    assert (data["completed"], data["total"]) == (1, 6)
 
 
 def test_status_of_another_organisations_review_is_not_found(world):
@@ -271,7 +271,7 @@ def test_progress_survives_the_end_of_the_review(world):
     assert pending.progress == {name: "ok" for name in AGENT_NAMES}
     finished = broadcast.call_args.args[1]
     assert finished["type"] == "review.finished"
-    assert finished["completed"] == 5
+    assert finished["completed"] == 6
 
 
 # ---------------------------------------------------------------------- diff

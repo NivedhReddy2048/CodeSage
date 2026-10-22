@@ -4,9 +4,10 @@ Each node takes the graph state and returns a partial update. None of them impor
 Django; retrieval arrives as a callable the caller supplies, so the package stays
 free of the ORM.
 
-Model tiering is driven by the shared 8000 TPM ceiling: the cheap agents run on
-`gpt-oss-20b`, Security gets `gpt-oss-120b`, and Static analysis uses no model at
-all because it runs real tools.
+Model tiering is driven by Groq's 8000 tokens-per-minute ceiling, which applies to
+each model separately: the cheap agents (intent, grounding, test coverage) run on
+`gpt-oss-20b`, Security and Correctness get `gpt-oss-120b`, and Static analysis uses
+no model at all because it runs real tools.
 """
 
 import logging
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 # Priority order when the budget is tight. Security first because a missed
 # vulnerability is the costliest omission; test coverage last because its absence
 # is the least likely to matter in a single PR.
-AGENT_PRIORITY = ("security", "grounding", "diff_intent", "test_coverage")
+AGENT_PRIORITY = ("security", "correctness", "grounding", "diff_intent", "test_coverage")
 
 
 def _call_model(
@@ -50,7 +51,7 @@ def _call_model(
     """
     run = AgentRun(name=agent, model=model, requested_model=model)
 
-    if not runtime.budget.reserve(agent, estimated):
+    if not runtime.budget.reserve(agent, estimated, pool=model):
         run.skipped_reason = runtime.budget.skipped[-1][1]
         return None, run
 
@@ -77,7 +78,9 @@ def _call_model(
     run.output_tokens = response.output_tokens
     run.succeeded = True
 
-    runtime.budget.record_actual(estimated, response.input_tokens + response.output_tokens)
+    runtime.budget.record_actual(
+        estimated, response.input_tokens + response.output_tokens, pool=model
+    )
     return response.content, run
 
 
@@ -310,6 +313,36 @@ def security(state):
         return {"findings": [], "runs": [run]}
 
     findings = _parse(raw, run, runtime.config.max_findings, "security")
+    anchored, dropped = anchor_with_drops(findings, prepared)
+    return {"findings": anchored, "runs": [run], "dropped": dropped}
+
+
+# --------------------------------------------------------------------- correctness
+
+
+def correctness(state):
+    """Logic defects in the added lines, on the biggest model available.
+
+    Added after DEV run 1 (issue #126): with no agent owning correctness, seven of
+    the eight benchmark bugs the pipeline missed were noticed only as "untested" by
+    test coverage or as speculation by security, and neither can block.
+    """
+    runtime = state["runtime"]
+    prepared = state["prepared"]
+
+    message = prompts.build_correctness_message(prepared, state.get("intent", ""))
+    raw, run = _call_model(
+        runtime,
+        "correctness",
+        runtime.config.primary_model,
+        prompts.CORRECTNESS_SYSTEM_PROMPT,
+        message,
+        estimate_tokens(message) + 600,
+    )
+    if raw is None:
+        return {"findings": [], "runs": [run]}
+
+    findings = _parse(raw, run, runtime.config.max_findings, "correctness")
     anchored, dropped = anchor_with_drops(findings, prepared)
     return {"findings": anchored, "runs": [run], "dropped": dropped}
 

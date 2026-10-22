@@ -611,7 +611,7 @@ def test_the_command_checks_dry_runs_and_reports(root, fake):
         "run_eval", "--suite", "dev", "--runs", "3", "--dry-run", "--root", str(root), stdout=out
     )
     assert "3 runs to do" in out.getvalue()
-    assert "~13K gpt-oss-20b" in out.getvalue()
+    assert "~10K gpt-oss-20b, ~7K gpt-oss-120b" in out.getvalue()
 
     fake(result(findings=[1]))
     go(root)
