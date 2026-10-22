@@ -329,16 +329,21 @@ def _run_ruff(workdir, written, complete=frozenset()):
             # names defined or used outside the hunks are invisible. Reporting those
             # would describe our own input, not the change.
             continue
+        syntax = is_syntax_code(code)
         findings.append(
             ToolFinding(
                 file=original,
                 line=(entry.get("location") or {}).get("row") or 1,
-                code=code,
+                # A codeless diagnostic is only ever a parse failure; name it.
+                code=code or "invalid-syntax",
                 message=entry.get("message") or "",
                 tool="ruff",
-                # A lint rule is a nit, even ruff's flake8-bandit (S) ports: only
-                # bandit's own severity rating can make a tool finding blocking.
-                severity="nit",
+                # A file that does not parse blocks the merge. Syntax diagnostics
+                # only reach here for files linted whole (partial reconstructions are
+                # filtered above), so this is the author's error, not ours. Every
+                # other lint rule is a nit, even ruff's flake8-bandit (S) ports: only
+                # bandit's own severity rating can make a security finding block.
+                severity="blocking" if syntax else "nit",
             )
         )
     return findings
@@ -393,11 +398,20 @@ JS_PATTERNS = (
         "new Function() compiles a string as code, with the same risks as eval().",
         "blocking",
     ),
+    # innerHTML-style sinks are nits on their own: most assign trusted markup, and a
+    # pattern cannot tell. When the Security agent flags the same line as XSS, the
+    # two merge in synthesis and the result is blocking.
     (
         re.compile(r"\.innerHTML\s*="),
         "js-inner-html",
         "Assigning to innerHTML with untrusted data is an XSS vector; prefer textContent.",
-        "blocking",
+        "nit",
+    ),
+    (
+        re.compile(r"\bdangerouslySetInnerHTML\s*="),
+        "js-dangerously-set-inner-html",
+        "dangerouslySetInnerHTML renders raw HTML; untrusted content here is an XSS vector.",
+        "nit",
     ),
     (
         re.compile(r"\bdocument\.write\s*\("),

@@ -25,7 +25,7 @@ from apps.agents.schema import (
     SchemaError,
     parse_findings,
 )
-from apps.agents.static_analysis import run_analysis
+from apps.agents.static_analysis import is_syntax_code, run_analysis
 from apps.agents.types import AgentRun, Category, Finding, Placement, ReviewConfig, Severity
 
 logger = logging.getLogger(__name__)
@@ -177,6 +177,7 @@ def static_analysis(state):
     run.succeeded = True
 
     added = {entry.path: entry.added_lines for entry in prepared.files}
+    new_files = {entry.path for entry in prepared.files if entry.is_new_file}
     texts = {
         entry.path: {n: line.text for n, line in new_file_lines(entry).items()}
         for entry in prepared.files
@@ -196,7 +197,7 @@ def static_analysis(state):
                 category=_tool_category(item),
                 # The tool and rule lead, so the finding names its rule wherever
                 # it is shown: "ruff F401: `os` imported but unused".
-                message=f"{item.tool} {item.code}: {item.message}".strip(),
+                message=_tool_message(item, contents, new_files),
                 agent="static_analysis",
                 rule=f"{item.tool} {item.code}".strip(),
                 evidence=texts.get(item.file, {}).get(item.line, ""),
@@ -207,6 +208,15 @@ def static_analysis(state):
 
     run.findings_count = len(findings)
     return {"findings": findings, "runs": [run]}
+
+
+def _tool_message(item, contents, new_files):
+    message = f"{item.tool} {item.code}: {item.message}".strip()
+    if item.tool == "ruff" and is_syntax_code(item.code) and item.file in new_files:
+        indent = uniform_indent(contents.get(item.file, ""))
+        if indent:
+            message += f" (the whole file is indented by {indent})"
+    return message
 
 
 def _sources(fetch_source, limit, prepared):
@@ -244,9 +254,36 @@ def _sources(fetch_source, limit, prepared):
 
 
 def _tool_category(item):
-    if item.tool == "bandit" or item.code.startswith(("S", "js-eval", "js-inner")):
+    if item.tool == "bandit" or item.code.startswith(
+        ("S", "js-eval", "js-new-function", "js-inner", "js-dangerously")
+    ):
         return Category.SECURITY
     return Category.CORRECTNESS
+
+
+def uniform_indent(content):
+    """ "3 spaces" when every non-blank line starts with the same indent, else "".
+
+    Testbed PR #8's first commit indented all of money.py by three spaces: ruff says
+    "Unexpected indentation" at 1:1, which reads like one stray line rather than a
+    whole file pasted in at the wrong depth.
+    """
+    lines = [line for line in content.splitlines() if line.strip()]
+    if not lines:
+        return ""
+    prefixes = {line[: len(line) - len(line.lstrip())] for line in lines}
+    if len(prefixes) != 1:
+        # Nested code indents further; what matters is the shallowest line.
+        shallowest = min(prefixes, key=len)
+        if not shallowest or not all(p.startswith(shallowest) for p in prefixes):
+            return ""
+        prefix = shallowest
+    else:
+        (prefix,) = prefixes
+    if not prefix or len(set(prefix)) != 1:
+        return ""
+    unit = "space" if prefix[0] == " " else "tab"
+    return f"{len(prefix)} {unit}{'s' if len(prefix) != 1 else ''}"
 
 
 # ------------------------------------------------------------------------ security
