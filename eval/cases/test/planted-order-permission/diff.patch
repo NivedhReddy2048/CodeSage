@@ -1,0 +1,14 @@
+diff --git a/app/order_edit.py b/app/order_edit.py
+new file mode 100644
+--- /dev/null
++++ b/app/order_edit.py
+@@ -0,0 +1,9 @@
++"""Editing orders."""
++
++
++def update_order_status(user, order, status):
++    """Change an order's status. Only its owner or an administrator may do this."""
++    if not (user.is_active or order.user_id == user.id):
++        raise PermissionError("you may not edit this order")
++    order.status = status
++    return order

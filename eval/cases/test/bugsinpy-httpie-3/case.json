@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-httpie-3",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "httpie",
+    "bug": 3,
+    "url": "https://github.com/jakubroztocil/httpie",
+    "license": "BSD-3-Clause",
+    "buggy_commit": "8c33e5e3d31d3cd6476c4d9bc963a4c529f883d2",
+    "fixed_commit": "589887939507ff26d36ec74bd2c045819cfa3d56",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "jakubroztocil/httpie",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy httpie bug 3",
+    "base_branch": "main",
+    "head_sha": "8c33e5e3d31d3cd6476c4d9bc963a4c529f883d2"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "httpie/sessions.py",
+      "lines": [
+        104,
+        104
+      ],
+      "category": "error-handling",
+      "kind": "deletion",
+      "note": "Removes the None check: an explicitly unset header (None) is then .decode()d and raises. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

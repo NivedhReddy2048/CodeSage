@@ -1,0 +1,35 @@
+{
+  "id": "planted-order-permission",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "planted",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 0,
+    "title": "Add app/order_edit.py",
+    "base_branch": "main",
+    "head_sha": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [
+    {
+      "id": "wrong-permission",
+      "file": "app/order_edit.py",
+      "lines": [
+        6,
+        7
+      ],
+      "category": "security",
+      "kind": "added",
+      "note": "Any active user passes the check; app/auth.py user_can_edit_order is the real rule."
+    }
+  ],
+  "notes": "Planted wrong permission check. Written for TEST before any DEV run."
+}

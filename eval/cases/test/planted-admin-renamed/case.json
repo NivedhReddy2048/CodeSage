@@ -1,0 +1,35 @@
+{
+  "id": "planted-admin-renamed",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "planted",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 0,
+    "title": "Add app/admin.py",
+    "base_branch": "main",
+    "head_sha": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [
+    {
+      "id": "no-such-method",
+      "file": "app/admin.py",
+      "lines": [
+        6,
+        6
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "UserRepository has find_by_id, not get_by_id: AttributeError on every call."
+    }
+  ],
+  "notes": "Grounding: only the existing UserRepository shows the method's real name. Written for TEST before any DEV run."
+}

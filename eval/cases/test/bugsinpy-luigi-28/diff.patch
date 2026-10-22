@@ -1,0 +1,12 @@
+diff --git a/luigi/contrib/hive.py b/luigi/contrib/hive.py
+--- a/luigi/contrib/hive.py
++++ b/luigi/contrib/hive.py
+@@ -138,7 +138,7 @@
+         if partition is None:
+             stdout = run_hive_cmd('use {0}; show tables like "{1}";'.format(database, table))
+ 
+-            return stdout and table.lower() in stdout
++            return stdout and table in stdout
+         else:
+             stdout = run_hive_cmd("""use %s; show partitions %s partition
+                                 (%s)""" % (database, table, self.partition_spec(partition)))

@@ -1,0 +1,40 @@
+{
+  "id": "bugsjs-karma-1",
+  "suite": "test",
+  "language": "javascript",
+  "clean": false,
+  "source": {
+    "kind": "bugsjs",
+    "project": "karma",
+    "bug": 1,
+    "url": "https://github.com/BugsJS/karma",
+    "license": "MIT",
+    "buggy_tag": "Bug-1-original",
+    "fixed_tag": "Bug-1-fix",
+    "buggy_commit": "4673116a6f7310a6390025618a4a6c7215e3b793",
+    "fixed_commit": "191df7cf8860046979753759256fa3310ded37de",
+    "dataset": "https://bugsjs.github.io/"
+  },
+  "context": {
+    "full_name": "BugsJS/karma",
+    "pr_number": 0,
+    "title": "Reversed BugsJS karma bug 1",
+    "base_branch": "master",
+    "head_sha": "4673116a6f7310a6390025618a4a6c7215e3b793"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "lib/reporter.js",
+      "lines": [
+        24,
+        24
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "The URL pattern now requires http://host/, missing relative /base and /absolute paths. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

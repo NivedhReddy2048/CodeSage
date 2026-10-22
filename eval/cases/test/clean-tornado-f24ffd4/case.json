@@ -1,0 +1,25 @@
+{
+  "id": "clean-tornado-f24ffd4",
+  "suite": "test",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "refactor",
+    "project": "tornadoweb/tornado",
+    "url": "https://github.com/tornadoweb/tornado/commit/f24ffd41ac8483466f0e400e0f3657c313f74f52",
+    "license": "Apache-2.0",
+    "commit": "f24ffd41ac8483466f0e400e0f3657c313f74f52",
+    "parent": "aa9d32d5e89b290dad69e0c6655b7497ea492e45",
+    "message": "Type hint HTTPFile attributes"
+  },
+  "context": {
+    "full_name": "tornadoweb/tornado",
+    "pr_number": 0,
+    "title": "Type hint HTTPFile attributes",
+    "base_branch": "main",
+    "head_sha": "f24ffd41ac8483466f0e400e0f3657c313f74f52"
+  },
+  "retrieval": null,
+  "bugs": [],
+  "notes": "An upstream refactor commit with no known bug. Clean means no KNOWN bug; any blocking finding counts as a false alarm. Only the source file's diff is reviewed; the commit changed 1 file(s)."
+}

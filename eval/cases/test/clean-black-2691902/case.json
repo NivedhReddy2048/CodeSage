@@ -1,0 +1,25 @@
+{
+  "id": "clean-black-2691902",
+  "suite": "test",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "refactor",
+    "project": "psf/black",
+    "url": "https://github.com/psf/black/commit/269190274b8dc134c9c107ada8f386594a8c62cf",
+    "license": "MIT",
+    "commit": "269190274b8dc134c9c107ada8f386594a8c62cf",
+    "parent": "8e0a9dee1bc5afa1ac089e1cffe2b4417f9a719c",
+    "message": "Clean up dead code in magic trailing comma logic (#4131)"
+  },
+  "context": {
+    "full_name": "psf/black",
+    "pr_number": 0,
+    "title": "Clean up dead code in magic trailing comma logic (#4131)",
+    "base_branch": "main",
+    "head_sha": "269190274b8dc134c9c107ada8f386594a8c62cf"
+  },
+  "retrieval": null,
+  "bugs": [],
+  "notes": "An upstream refactor commit with no known bug. Clean means no KNOWN bug; any blocking finding counts as a false alarm. Only the source file's diff is reviewed; the commit changed 1 file(s)."
+}

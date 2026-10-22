@@ -1,0 +1,14 @@
+diff --git a/tornado/httputil.py b/tornado/httputil.py
+--- a/tornado/httputil.py
++++ b/tornado/httputil.py
+@@ -664,7 +664,9 @@
+     * ``content_type``
+     """
+ 
+-    pass
++    filename: str
++    body: bytes
++    content_type: str
+ 
+ 
+ def _parse_request_range(

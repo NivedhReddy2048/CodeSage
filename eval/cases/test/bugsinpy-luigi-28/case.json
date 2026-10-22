@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-luigi-28",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "luigi",
+    "bug": 28,
+    "url": "https://github.com/spotify/luigi",
+    "license": "Apache-2.0",
+    "buggy_commit": "e37cb0ea1d97e6340840128a68c8d59bd05c28c3",
+    "fixed_commit": "e2be971226c34a193d7029c51206e488b6a037cd",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "spotify/luigi",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy luigi bug 28",
+    "base_branch": "main",
+    "head_sha": "e37cb0ea1d97e6340840128a68c8d59bd05c28c3"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "luigi/contrib/hive.py",
+      "lines": [
+        141,
+        141
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Case-sensitive table lookup; Hive lowercases names, so existing tables are reported missing. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

@@ -1,0 +1,25 @@
+{
+  "id": "clean-cli-d35864e",
+  "suite": "test",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "refactor",
+    "project": "httpie/cli",
+    "url": "https://github.com/httpie/cli/commit/d35864e79db4d0b8463904f381ca71033e243292",
+    "license": "BSD-3-Clause",
+    "commit": "d35864e79db4d0b8463904f381ca71033e243292",
+    "parent": "8a106781bec79dfdd81215c1efc45f9393050e1e",
+    "message": "Cleanup"
+  },
+  "context": {
+    "full_name": "httpie/cli",
+    "pr_number": 0,
+    "title": "Cleanup",
+    "base_branch": "main",
+    "head_sha": "d35864e79db4d0b8463904f381ca71033e243292"
+  },
+  "retrieval": null,
+  "bugs": [],
+  "notes": "An upstream refactor commit with no known bug. Clean means no KNOWN bug; any blocking finding counts as a false alarm. Only the source file's diff is reviewed; the commit changed 3 file(s)."
+}

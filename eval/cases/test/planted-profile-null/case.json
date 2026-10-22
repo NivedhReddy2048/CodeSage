@@ -1,0 +1,35 @@
+{
+  "id": "planted-profile-null",
+  "suite": "test",
+  "language": "javascript",
+  "clean": false,
+  "source": {
+    "kind": "planted",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 0,
+    "title": "Add web/profile.js",
+    "base_branch": "main",
+    "head_sha": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [
+    {
+      "id": "missing-null-check",
+      "file": "web/profile.js",
+      "lines": [
+        4,
+        5
+      ],
+      "category": "error-handling",
+      "kind": "added",
+      "note": "findUserById (Array.find) returns undefined for an unknown id; user.displayName then throws."
+    }
+  ],
+  "notes": "Planted missing null check. Written for TEST before any DEV run."
+}

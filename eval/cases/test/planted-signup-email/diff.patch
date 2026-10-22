@@ -1,0 +1,20 @@
+diff --git a/app/signup.py b/app/signup.py
+new file mode 100644
+--- /dev/null
++++ b/app/signup.py
+@@ -0,0 +1,15 @@
++"""Self-service sign-up."""
++
++import re
++
++from app.models import User
++
++
++def looks_like_email(value):
++    return re.match(r".+@.+", value or "") is not None
++
++
++def sign_up(users, user_id, email, display_name):
++    if not looks_like_email(email):
++        raise ValueError("invalid email address")
++    return users.add(User(id=user_id, email=email, display_name=display_name))

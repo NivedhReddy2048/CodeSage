@@ -1,0 +1,80 @@
+{
+  "id": "testbed-pr4",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "testbed",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed/pull/4",
+    "base_commit": "3c4019eb96fba99eb991f0011b5af168ee55a026"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 4,
+    "title": "Add reports module for customer order management",
+    "base_branch": "main",
+    "head_sha": "a389e0f6931aec243188f1f37a729ba80814e90c"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [
+    {
+      "id": "hard-coded-key",
+      "file": "app/reports.py",
+      "lines": [
+        3,
+        3
+      ],
+      "category": "security",
+      "kind": "added",
+      "note": "A live API key committed to source."
+    },
+    {
+      "id": "unclosed-connection",
+      "file": "app/reports.py",
+      "lines": [
+        7,
+        11
+      ],
+      "category": "resource-leak",
+      "kind": "added",
+      "note": "conn is opened and never closed."
+    },
+    {
+      "id": "sql-injection",
+      "file": "app/reports.py",
+      "lines": [
+        9,
+        10
+      ],
+      "category": "security",
+      "kind": "added",
+      "note": "customer_name is interpolated into the SQL string."
+    },
+    {
+      "id": "division-by-zero",
+      "file": "app/reports.py",
+      "lines": [
+        18,
+        18
+      ],
+      "category": "error-handling",
+      "kind": "added",
+      "note": "An empty orders list divides by zero."
+    },
+    {
+      "id": "missing-not-found",
+      "file": "app/reports.py",
+      "lines": [
+        28,
+        29
+      ],
+      "category": "error-handling",
+      "kind": "added",
+      "note": "find_customer returns None for an unknown email; it is indexed straight away."
+    }
+  ],
+  "notes": "Testbed PR #4, the original five planted bugs (two known misses). In TEST as decided, though it was reviewed live during development."
+}

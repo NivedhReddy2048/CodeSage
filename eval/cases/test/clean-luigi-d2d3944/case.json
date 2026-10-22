@@ -1,0 +1,25 @@
+{
+  "id": "clean-luigi-d2d3944",
+  "suite": "test",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "refactor",
+    "project": "spotify/luigi",
+    "url": "https://github.com/spotify/luigi/commit/d2d3944c251f267f5fbb9586445433cec53866c3",
+    "license": "Apache-2.0",
+    "commit": "d2d3944c251f267f5fbb9586445433cec53866c3",
+    "parent": "14b154c2dd0b529fc52bf4d0e99f970c68f99d08",
+    "message": "Rename to rpc_log_retries, and make it apply to all the logging involved"
+  },
+  "context": {
+    "full_name": "spotify/luigi",
+    "pr_number": 0,
+    "title": "Rename to rpc_log_retries, and make it apply to all the logging involved",
+    "base_branch": "main",
+    "head_sha": "d2d3944c251f267f5fbb9586445433cec53866c3"
+  },
+  "retrieval": null,
+  "bugs": [],
+  "notes": "An upstream refactor commit with no known bug. Clean means no KNOWN bug; any blocking finding counts as a false alarm. Only the source file's diff is reviewed; the commit changed 2 file(s)."
+}

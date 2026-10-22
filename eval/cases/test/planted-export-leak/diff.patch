@@ -1,0 +1,17 @@
+diff --git a/web/exporter.js b/web/exporter.js
+new file mode 100644
+--- /dev/null
++++ b/web/exporter.js
+@@ -0,0 +1,12 @@
++import fs from "fs";
++
++export function exportOrders(path, orders) {
++  const fd = fs.openSync(path, "w");
++  for (const order of orders) {
++    if (!order.id) {
++      throw new Error("order without an id");
++    }
++    fs.writeSync(fd, `${order.id},${order.totalCents}\n`);
++  }
++  fs.closeSync(fd);
++}

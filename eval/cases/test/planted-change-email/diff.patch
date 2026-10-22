@@ -1,0 +1,15 @@
+diff --git a/app/service.py b/app/service.py
+--- a/app/service.py
++++ b/app/service.py
+@@ -27,3 +27,11 @@
+             return False
+         user.is_active = False
+         return True
++
++    def change_email(self, user_id, email):
++        """Let a user change their email address."""
++        user = self.users.find_by_id(user_id)
++        if user is None:
++            return False
++        user.email = email
++        return True

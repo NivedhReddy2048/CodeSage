@@ -1,0 +1,11 @@
+diff --git a/web/profile.js b/web/profile.js
+new file mode 100644
+--- /dev/null
++++ b/web/profile.js
+@@ -0,0 +1,6 @@
++import { findUserById } from "./users";
++
++export function profileHeading(users, userId) {
++  const user = findUserById(users, userId);
++  return `${user.displayName} <${user.email}>`;
++}

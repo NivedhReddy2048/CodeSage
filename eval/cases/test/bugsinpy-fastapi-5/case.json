@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-fastapi-5",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "fastapi",
+    "bug": 5,
+    "url": "https://github.com/tiangolo/fastapi",
+    "license": "MIT",
+    "buggy_commit": "7cea84b74ca3106a7f861b774e9d215e5228728f",
+    "fixed_commit": "75a07f24bf01a31225ee687f3e2b3fc1981b67ab",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "tiangolo/fastapi",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy fastapi bug 5",
+    "base_branch": "main",
+    "head_sha": "7cea84b74ca3106a7f861b774e9d215e5228728f"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "fastapi/utils.py",
+      "lines": [
+        100,
+        100
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Reuses the original field objects instead of cloning them, so the response model leaks fields. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

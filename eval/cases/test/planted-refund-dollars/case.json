@@ -1,0 +1,35 @@
+{
+  "id": "planted-refund-dollars",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "planted",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 0,
+    "title": "Add app/refunds.py",
+    "base_branch": "main",
+    "head_sha": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [
+    {
+      "id": "units",
+      "file": "app/refunds.py",
+      "lines": [
+        8,
+        8
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Subtracts dollars from total_cents (app/models.py: Order.total_cents is integer cents)."
+    }
+  ],
+  "notes": "Grounding: the units are only clear from the existing Order model. Written for TEST before any DEV run."
+}

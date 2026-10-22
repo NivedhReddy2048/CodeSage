@@ -1,0 +1,25 @@
+{
+  "id": "clean-scrapy-ba10dcf",
+  "suite": "test",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "refactor",
+    "project": "scrapy/scrapy",
+    "url": "https://github.com/scrapy/scrapy/commit/ba10dcfd1a44fae0d48cba6bf6b49f2bd05c35a4",
+    "license": "BSD-3-Clause",
+    "commit": "ba10dcfd1a44fae0d48cba6bf6b49f2bd05c35a4",
+    "parent": "0ae27b8fa11a05ea99faffc2b0e1a3235f0c70a5",
+    "message": "Pin older Twisted in tests, update type hints. (#6882)"
+  },
+  "context": {
+    "full_name": "scrapy/scrapy",
+    "pr_number": 0,
+    "title": "Pin older Twisted in tests, update type hints. (#6882)",
+    "base_branch": "main",
+    "head_sha": "ba10dcfd1a44fae0d48cba6bf6b49f2bd05c35a4"
+  },
+  "retrieval": null,
+  "bugs": [],
+  "notes": "An upstream refactor commit with no known bug. Clean means no KNOWN bug; any blocking finding counts as a false alarm. Only the source file's diff is reviewed; the commit changed 4 file(s)."
+}

@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-sanic-1",
+  "suite": "test",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "sanic",
+    "bug": 1,
+    "url": "https://github.com/huge-success/sanic",
+    "license": "MIT",
+    "buggy_commit": "e7001b00747b659f7042b0534802b936ee8a53e0",
+    "fixed_commit": "44973125c15304b4262c51c78b5a86bd1daafa86",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "huge-success/sanic",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy sanic bug 1",
+    "base_branch": "main",
+    "head_sha": "e7001b00747b659f7042b0534802b936ee8a53e0"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "sanic/app.py",
+      "lines": [
+        656,
+        656
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Response middleware is appended instead of prepended, reversing its run order. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

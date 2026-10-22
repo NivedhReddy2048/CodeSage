@@ -1,0 +1,25 @@
+{
+  "id": "clean-sanic-2e5c288",
+  "suite": "test",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "refactor",
+    "project": "sanic-org/sanic",
+    "url": "https://github.com/sanic-org/sanic/commit/2e5c288feae62e13e2ca604a2854a9f3175395d3",
+    "license": "MIT",
+    "commit": "2e5c288feae62e13e2ca604a2854a9f3175395d3",
+    "parent": "f32ef20b74b75059518876150ae87d5307195db4",
+    "message": "Add convenience for annotated handlers (#2225)"
+  },
+  "context": {
+    "full_name": "sanic-org/sanic",
+    "pr_number": 0,
+    "title": "Add convenience for annotated handlers (#2225)",
+    "base_branch": "main",
+    "head_sha": "2e5c288feae62e13e2ca604a2854a9f3175395d3"
+  },
+  "retrieval": null,
+  "bugs": [],
+  "notes": "An upstream refactor commit with no known bug. Clean means no KNOWN bug; any blocking finding counts as a false alarm. Only the source file's diff is reviewed; the commit changed 2 file(s)."
+}

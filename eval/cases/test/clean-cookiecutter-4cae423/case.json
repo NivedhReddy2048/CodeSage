@@ -1,0 +1,25 @@
+{
+  "id": "clean-cookiecutter-4cae423",
+  "suite": "test",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "refactor",
+    "project": "cookiecutter/cookiecutter",
+    "url": "https://github.com/cookiecutter/cookiecutter/commit/4cae4233f89b8458b785c62db5feadc5454d5d56",
+    "license": "BSD-3-Clause",
+    "commit": "4cae4233f89b8458b785c62db5feadc5454d5d56",
+    "parent": "4d127f87e565dbb4b39513dfd5fc91161e32cb4b",
+    "message": "Type annotate vcs.clone function"
+  },
+  "context": {
+    "full_name": "cookiecutter/cookiecutter",
+    "pr_number": 0,
+    "title": "Type annotate vcs.clone function",
+    "base_branch": "main",
+    "head_sha": "4cae4233f89b8458b785c62db5feadc5454d5d56"
+  },
+  "retrieval": null,
+  "bugs": [],
+  "notes": "An upstream refactor commit with no known bug. Clean means no KNOWN bug; any blocking finding counts as a false alarm. Only the source file's diff is reviewed; the commit changed 1 file(s)."
+}
