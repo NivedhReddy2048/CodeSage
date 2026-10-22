@@ -12,10 +12,12 @@ The rules, all deterministic:
    of its depth and dropped, and so is a security-agent finding that is not about
    security. Test coverage's findings are about tests whatever category it chose.
 2. Per-agent ceiling. Test coverage is at most a nit: a missing test is worth
-   saying, not worth blocking a merge on. Of the tool findings, three kinds may
+   saying, not worth blocking a merge on. Of the tool findings, four kinds may
    block: bandit's own medium/high severity rating, a syntax error (the file does
-   not parse), and eval() / new Function() in JS. Every other lint rule is a nit;
-   innerHTML-style sinks block only by merging with a Security finding on the line.
+   not parse), an undefined name in a whole file (static analysis leaves it a nit
+   where a star import or module __getattr__ could define it), and eval() /
+   new Function() in JS. Every other lint rule is a nit; innerHTML-style sinks
+   block only by merging with a Security finding on the line.
 3. Evidence. Blocking needs the defect quoted from a line this PR added: evidence
    that matched an added line, or a linter's exact line. A finding on existing code,
    on no line at all, or placed only by the model's number or a snap, is a nit.
@@ -29,7 +31,7 @@ Every downgrade records why on the finding; every drop is returned with its reas
 import re
 from dataclasses import replace
 
-from apps.agents.static_analysis import is_syntax_code
+from apps.agents.static_analysis import is_blocking_lint
 from apps.agents.types import Category, Placement, Severity
 
 # Rule 2: the most an agent's finding can be.
@@ -118,8 +120,8 @@ def blocking_denied(finding):
         if finding.rule.startswith("bandit ") or finding.rule in BLOCKING_TOOL_RULES:
             return ""  # on the exact added line, which the tool named
         tool, _, code = finding.rule.partition(" ")
-        if tool == "ruff" and is_syntax_code(code):
-            return ""  # the file does not parse
+        if tool == "ruff" and is_blocking_lint(code):
+            return ""  # the file does not parse, or a name it uses does not exist
         return "lint rule"
 
     if finding.placement == Placement.EXISTING:
