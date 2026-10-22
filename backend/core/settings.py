@@ -62,6 +62,7 @@ LOCAL_APPS = [
     "apps.notifications",
     "apps.analytics",
     "apps.audit",
+    "apps.evaluation",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
@@ -255,6 +256,9 @@ GROQ_API_KEY = env("GROQ_API_KEY", default="")
 # beats documentation, so the primary is the largest production model the key can
 # actually call. qwen3.8-27b is faster but Groq labels it preview ("should not be
 # used in production") and it emits invalid JSON without json_object mode.
+# Phase 8: fixtures, the category map and cached results (docs/EVALUATION.md).
+EVAL_ROOT = Path(env("EVAL_ROOT", default=str(BASE_DIR.parent / "eval")))
+
 REVIEW_PRIMARY_MODEL = env("REVIEW_PRIMARY_MODEL", default="openai/gpt-oss-120b")
 
 # Thinking models are barred from the review path: gemini-3.8-flash took 96s and
