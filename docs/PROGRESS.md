@@ -60,7 +60,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **48 merged — bronze (16) reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **51 merged — bronze (16) reached** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -79,7 +79,22 @@ PR lands rather than one behind forever.
 
 ## Follow-ups: superseded comments, token blacklisting, severity gaps
 
-**Status:** In progress.
+**Status:** Done. Three PRs, each closing its own issue: #100 (closes #99), #102
+(closes #101) and #104 (closes #103).
+
+### Superseded inline comments (#99)
+
+On each re-review, this bot's earlier inline comments whose finding is gone, whose
+severity changed, or that GitHub marked outdated are edited: "Superseded by review of
+`<sha>`", followed by the old text struck through. Nothing is deleted. Only comments
+that still stand count as duplicates, so a changed verdict is posted. Verified live:
+the old Blocking comments on testbed PR #5 (:6) and PR #7 (:4, :15) now read as
+superseded.
+
+Threads are not resolved. GitHub answers `resolveReviewThread` with FORBIDDEN
+("Resource not accessible by integration") for this App, which has `contents: read`,
+`metadata: read` and `pull_requests: write`. The code tries once per review and falls
+back to the edit alone.
 
 ### Refresh-token blacklisting and auth audit events (#101)
 
@@ -103,6 +118,23 @@ PR lands rather than one behind forever.
 Every issued refresh token now leaves an `OutstandingToken` row and every rotation a
 `BlacklistedToken` row. Nothing prunes them otherwise, and the table grows with every
 sign-in and refresh.
+
+### Severity gaps (#103)
+
+#90 made every lint rule a nit and let only bandit block, which turned two real
+defects into nits:
+
+- **Syntax errors** on added lines (ruff `invalid-syntax` / E9) now block, with the
+  tool's line as evidence. They are reported only for files linted whole, never for a
+  partial reconstruction. When every line of a new file shares one indent, the message
+  says so. Regression: testbed PR #8's first commit `f701890` (all of `app/money.py`
+  indented by 3 spaces) was a nit in review 45. It is now blocking: "ruff
+  invalid-syntax: Unexpected indentation (the whole file is indented by 3 spaces)".
+- **JS:** `eval()` and `new Function()` on an added line block again. `innerHTML` and
+  the new `dangerouslySetInnerHTML` pattern are nits on their own, and become blocking
+  only by merging with a Security finding on the same line.
+- **JS/TS parse errors are not detected.** The pattern scan deliberately executes and
+  parses nothing (see `static_analysis.py`, "WHY NO ESLINT").
 
 ---
 
@@ -165,15 +197,12 @@ anchors.
   not tuning targets.
 - **Two planted bugs are still missed:** testbed PR #4's unclosed DB connection and its
   missing not-found check. That's for Phase 8 to measure.
-- **Stale inline comments stay.** Inline comments from earlier runs are never removed,
-  so a re-run leaves an outdated "Blocking" comment next to the corrected one. The
-  summary comment is always current.
+- ~~**Stale inline comments stay.**~~ Fixed in #100: they are marked superseded.
 - **Near-duplicates on adjacent lines.** One agent reporting a single issue twice, on
   adjacent lines with identical text, is not merged, by the same-line rule.
-- **JS/TS pattern scan.** Its `eval()` and `innerHTML` rules are nits now that only
-  bandit may make a tool finding blocking.
-- **Refresh tokens are rotated but not blacklisted,** so a used refresh token stays
-  valid until it expires.
+- ~~**JS/TS pattern scan.**~~ Fixed in #104: `eval()` / `new Function()` block again;
+  `innerHTML` blocks only together with a Security finding.
+- ~~**Refresh tokens are rotated but not blacklisted.**~~ Fixed in #102.
 
 ---
 

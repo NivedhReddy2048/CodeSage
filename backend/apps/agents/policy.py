@@ -12,8 +12,10 @@ The rules, all deterministic:
    of its depth and dropped, and so is a security-agent finding that is not about
    security. Test coverage's findings are about tests whatever category it chose.
 2. Per-agent ceiling. Test coverage is at most a nit: a missing test is worth
-   saying, not worth blocking a merge on. Of the linters, only bandit's own
-   medium/high severity rating may block; every other lint rule is a nit.
+   saying, not worth blocking a merge on. Of the tool findings, three kinds may
+   block: bandit's own medium/high severity rating, a syntax error (the file does
+   not parse), and eval() / new Function() in JS. Every other lint rule is a nit;
+   innerHTML-style sinks block only by merging with a Security finding on the line.
 3. Evidence. Blocking needs the defect quoted from a line this PR added: evidence
    that matched an added line, or a linter's exact line. A finding on existing code,
    on no line at all, or placed only by the model's number or a snap, is a nit.
@@ -27,10 +29,16 @@ Every downgrade records why on the finding; every drop is returned with its reas
 import re
 from dataclasses import replace
 
+from apps.agents.static_analysis import is_syntax_code
 from apps.agents.types import Category, Placement, Severity
 
 # Rule 2: the most an agent's finding can be.
 MAX_SEVERITY = {"test_coverage": Severity.NIT}
+
+# Tool rules that may block besides bandit and syntax errors: running a string as
+# code is dangerous wherever it appears. innerHTML-style sinks are deliberately not
+# here - they block only when the Security agent independently flags the line.
+BLOCKING_TOOL_RULES = frozenset({"pattern-scan js-eval", "pattern-scan js-new-function"})
 
 # Rule 1: the categories an agent may report in. Agents not listed are unrestricted.
 OWN_CATEGORIES = {"security": {Category.SECURITY}}
@@ -107,9 +115,12 @@ def blocking_denied(finding):
         return f"{finding.agent.replace('_', ' ')} is never blocking"
 
     if finding.agent == "static_analysis":
-        if not finding.rule.startswith("bandit "):
-            return "lint rule"
-        return ""  # bandit rated it medium/high, on the exact added line
+        if finding.rule.startswith("bandit ") or finding.rule in BLOCKING_TOOL_RULES:
+            return ""  # on the exact added line, which the tool named
+        tool, _, code = finding.rule.partition(" ")
+        if tool == "ruff" and is_syntax_code(code):
+            return ""  # the file does not parse
+        return "lint rule"
 
     if finding.placement == Placement.EXISTING:
         return "about code this PR did not change"
