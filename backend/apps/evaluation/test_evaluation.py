@@ -22,7 +22,7 @@ from apps.agents.types import (
     TraceEntry,
 )
 from apps.evaluation import cases as case_store
-from apps.evaluation import metrics, runner
+from apps.evaluation import matching, metrics, runner
 from apps.evaluation.matching import HEADLINE, LENIENT, load_categories, matches, on_the_line
 
 CATEGORIES_FILE = Path(__file__).resolve().parents[3] / "eval" / "categories.json"
@@ -140,12 +140,16 @@ def test_score_arithmetic_against_a_hand_computed_fixture():
         {"id": "C", "bugs": [], "clean": True},
         {"id": "D", "bugs": [], "clean": True},
     ]
-    hit_a1 = {**finding(5, file="a.py"), "agent": "security"}
+    hit_a1 = {**finding(5, file="a.py"), "agent": "security", "outcome": "kept"}
     hit_a2 = {
         **finding(41, category="correctness", file="a.py", severity="nit"),
         "agent": "test_coverage",
     }
-    hit_b1 = {**finding(3, category="error-handling", file="b.py"), "agent": "static_analysis"}
+    hit_b1 = {
+        **finding(3, category="error-handling", file="b.py"),
+        "agent": "static_analysis",
+        "outcome": "kept",
+    }
     stray = finding(99, file="c.py")
     results = {
         "A": [
@@ -163,6 +167,8 @@ def test_score_arithmetic_against_a_hand_computed_fixture():
 
     assert (score.recall.k, score.recall.n) == (2, 3)
     assert (score.recall_lenient.k, score.recall_lenient.n) == (2, 3)
+    # a1 and b1 are caught by blocking findings; a2's only hit is a nit.
+    assert (score.recall_blocking.k, score.recall_blocking.n) == (2, 3)
     # Pooled over valid runs: a1 2/3 + a2 1/3 + b1 3/3 = 6/9.
     assert (score.recall_pooled.k, score.recall_pooled.n) == (6, 9)
     assert (score.false_alarms.k, score.false_alarms.n) == (1, 2)
@@ -179,6 +185,88 @@ def test_score_arithmetic_against_a_hand_computed_fixture():
         "security": {"bugs_caught_any_run": 1, "unique": 1, "of": 3},
         "static_analysis": {"bugs_caught_any_run": 1, "unique": 1, "of": 3},
     }
+
+
+# ------------------------------------------- amendments H1-H3 (after DEV run 1)
+
+SYNTAX = {"id": "syntax", "file": "a.py", "lines": [1, 1], "category": "correctness"}
+OFF_BY_ONE = {"id": "off", "file": "a.py", "lines": [3, 3], "category": "correctness"}
+PR1 = [{"id": "pr1", "bugs": [SYNTAX, OFF_BY_ONE], "clean": False}]
+
+
+def test_h1_one_finding_credits_one_bug_the_one_it_is_on():
+    """testbed-pr1: one finding on :3, two bugs at :1 and :3, both within two lines."""
+    on_three = finding(3, category="correctness", file="a.py")
+
+    score = metrics.score(PR1, {"pr1": [run([on_three])]}, CATEGORIES, "baseline")
+
+    assert (score.recall.k, score.recall.n) == (1, 2)
+    assert (score.recall_lenient.k, score.recall_lenient.n) == (1, 2)
+    assert matching.assign([on_three], [SYNTAX, OFF_BY_ONE], matching.HEADLINE, CATEGORIES) == {
+        "off": on_three
+    }
+    assert (score.anchoring.k, score.anchoring.n) == (1, 1)  # it is on the off-by-one line
+
+
+def test_h1_a_finding_per_bug_still_catches_both():
+    findings = [finding(1, category="correctness", file="a.py"), finding(3, file="a.py")]
+    findings[1]["category"] = "correctness"
+
+    score = metrics.score(PR1, {"pr1": [run(findings)]}, CATEGORIES, "pipeline")
+
+    assert (score.recall.k, score.anchoring.k, score.anchoring.n) == (2, 2, 2)
+
+
+def test_h1_assignment_catches_as_many_bugs_as_it_can():
+    """The finding on :2 is near both; giving it to :1 would leave :3 uncaught."""
+    near_both = finding(2, category="correctness", file="a.py")
+    on_one = finding(1, category="correctness", file="a.py")
+
+    assigned = matching.assign(
+        [near_both, on_one], [SYNTAX, OFF_BY_ONE], matching.HEADLINE, CATEGORIES
+    )
+
+    assert assigned == {"syntax": on_one, "off": near_both}
+
+
+def test_h2_per_agent_counts_only_findings_that_survived():
+    dropped = {
+        **finding(3, category="correctness", file="a.py", severity="nit"),
+        "agent": "grounding",
+        "outcome": "dropped",
+    }
+    merged = {**finding(1, category="correctness", file="a.py"), "agent": "test_coverage"}
+    merged["outcome"] = "merged"
+    kept = {**finding(1, category="correctness", file="a.py"), "agent": "static_analysis"}
+    kept["outcome"] = "kept"
+
+    score = metrics.score(
+        PR1, {"pr1": [run([kept], raw=[dropped, merged, kept])]}, CATEGORIES, "pipeline"
+    )
+
+    assert set(score.per_agent) == {"static_analysis", "test_coverage"}
+    assert score.per_agent["static_analysis"]["bugs_caught_any_run"] == 1
+    # One surviving finding each, so each credits one bug (H1), not two.
+    assert score.per_agent["test_coverage"]["bugs_caught_any_run"] == 1
+
+
+def test_h3_blocking_recall_needs_a_blocking_finding():
+    nit = finding(3, category="correctness", file="a.py", severity="nit")
+    block = finding(1, category="correctness", file="a.py")
+
+    score = metrics.score(PR1, {"pr1": [run([nit, block])]}, CATEGORIES, "pipeline")
+
+    assert (score.recall.k, score.recall_blocking.k, score.recall_blocking.n) == (2, 1, 2)
+
+
+def test_h3_blocking_recall_is_a_majority_over_runs_too():
+    nit = finding(3, category="correctness", file="a.py", severity="nit")
+    block = finding(3, category="correctness", file="a.py")
+    runs = [run([block]), run([nit]), run([nit])]
+
+    score = metrics.score(PR1, {"pr1": runs}, CATEGORIES, "pipeline")
+
+    assert (score.recall.k, score.recall_blocking.k) == (1, 0)
 
 
 # ------------------------------------------------------------- fixture cases

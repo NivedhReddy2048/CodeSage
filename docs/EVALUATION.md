@@ -22,6 +22,11 @@ webhooks (`manage.py run_eval`):
 - **Headline:** same file, within ±2 lines of the bug, a finding category accepted by
   the frozen `eval/categories.json` for the bug's category, and anchored to a line.
 - **Lenient:** ±3 lines, any category, any placement.
+- **One-to-one** (amendment H1): within a run a finding credits at most one bug.
+- **Blocking recall** (amendment H3): a bug caught by a blocking finding, reported
+  beside recall at any severity.
+- **Per-agent contribution** (amendment H2) counts only raw findings that reached the
+  review, not ones anchoring, citation or policy dropped.
 
 **Counts, not percentages.** Every rate is k/n with a 95% Wilson interval. A bug
 counts as caught when more than half of its valid runs catch it.
@@ -45,6 +50,15 @@ sealed before any DEV result existed, and runs once, at an `eval-freeze-*` tag.
 - **No results existed** at either point.
 
 Full detail: [eval/tools/README.md](../eval/tools/README.md#seal-amendment-before-any-run).
+
+### Measurement amendment (after DEV run 1, before any TEST run)
+
+DEV run 1 exposed three scoring flaws, fixed for both arms in issue #124: one finding
+credited for two bugs (H1), per-agent credit for dropped findings (H2), and no recall
+figure at blocking severity (H3). Only scoring changed. TEST cases, ground truth and
+the category map did not, and no TEST run had happened. DEV run 1 under the amended
+rules: pipeline headline recall 6/13 → 5/13, baseline 10/13 → 9/13. Full detail:
+[eval/tools/README.md](../eval/tools/README.md#measurement-amendment-after-dev-run-1-before-any-test-run).
 
 ## Dataset
 
