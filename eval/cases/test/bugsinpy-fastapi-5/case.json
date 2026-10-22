@@ -16,7 +16,7 @@
   "context": {
     "full_name": "tiangolo/fastapi",
     "pr_number": 0,
-    "title": "Reversed BugsInPy fastapi bug 5",
+    "title": "Update fastapi/utils.py",
     "base_branch": "main",
     "head_sha": "7cea84b74ca3106a7f861b774e9d215e5228728f"
   },

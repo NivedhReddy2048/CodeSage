@@ -154,7 +154,9 @@ def main(candidates_path, stage):
                     "context": {
                         "full_name": c["repo"],
                         "pr_number": 0,
-                        "title": f"Reversed BugsInPy {project} bug {c['bug']}",
+                        # Neutral, the same for buggy and clean cases: nothing in the
+                        # title may hint at a bug (seal amendment, docs/EVALUATION.md).
+                        "title": f"Update {c['file']}",
                         "base_branch": "main",
                         "head_sha": c["buggy"],
                     },

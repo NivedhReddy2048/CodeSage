@@ -15,7 +15,7 @@
   "context": {
     "full_name": "expressjs/express",
     "pr_number": 0,
-    "title": "refactor: simplify `normalizeTypes` function (#6097)",
+    "title": "Update lib/utils.js",
     "base_branch": "main",
     "head_sha": "511d9dfca8f2329534ee9c75990163766b82c407"
   },

@@ -17,7 +17,7 @@
   },
   "retrieval": {
     "repository": "NivedhReddy2048/codesage-testbed",
-    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+    "index_commit": "a6ddd12ec663c1b8ce4cc2a6a40372aa03093b87"
   },
   "bugs": [],
   "notes": "Testbed PR #8 at its final commit: clean. The grounding nit (Decimal vs the integer-cents pattern in app/models.py:19-28) is a fair consistency remark, not a bug."

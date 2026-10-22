@@ -15,7 +15,7 @@
   "context": {
     "full_name": "nvbn/thefuck",
     "pr_number": 0,
-    "title": "#602: Little cleanup",
+    "title": "Update thefuck/rules/hostscli.py",
     "base_branch": "main",
     "head_sha": "9e8b4f594d2017262fe3c22d79cd44035bf92f33"
   },

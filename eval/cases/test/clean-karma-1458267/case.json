@@ -15,7 +15,7 @@
   "context": {
     "full_name": "karma-runner/karma",
     "pr_number": 0,
-    "title": "refactor(lib): small update in lib/emitter_wrapper",
+    "title": "Update lib/emitter_wrapper.js",
     "base_branch": "main",
     "head_sha": "145826764a76717f63d35e393238b56304575672"
   },

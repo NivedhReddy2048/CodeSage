@@ -16,7 +16,7 @@
   "context": {
     "full_name": "nvbn/thefuck",
     "pr_number": 0,
-    "title": "Reversed BugsInPy thefuck bug 3",
+    "title": "Update thefuck/shells/fish.py",
     "base_branch": "main",
     "head_sha": "ac343fb1bd7dadbb9e1a9fd7e3071f5778e338a4"
   },

@@ -16,9 +16,9 @@
     "dataset": "https://bugsjs.github.io/"
   },
   "context": {
-    "full_name": "BugsJS/karma",
+    "full_name": "karma-runner/karma",
     "pr_number": 0,
-    "title": "Reversed BugsJS karma bug 1",
+    "title": "Update lib/reporter.js",
     "base_branch": "master",
     "head_sha": "4673116a6f7310a6390025618a4a6c7215e3b793"
   },

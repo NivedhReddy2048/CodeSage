@@ -141,7 +141,8 @@ def main(stage):
                     "context": {
                         "full_name": repo,
                         "pr_number": 0,
-                        "title": title,
+                        # Not the commit message: titles are neutral for every case.
+                        "title": f"Update {path}",
                         "base_branch": "main",
                         "head_sha": c["sha"],
                     },

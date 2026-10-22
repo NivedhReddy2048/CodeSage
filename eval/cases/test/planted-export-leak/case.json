@@ -10,13 +10,13 @@
   "context": {
     "full_name": "NivedhReddy2048/codesage-testbed",
     "pr_number": 0,
-    "title": "Add web/exporter.js",
+    "title": "Update web/exporter.js",
     "base_branch": "main",
     "head_sha": "8934446375efcce89bb47fa88454c2bb4946cd67"
   },
   "retrieval": {
     "repository": "NivedhReddy2048/codesage-testbed",
-    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+    "index_commit": "a6ddd12ec663c1b8ce4cc2a6a40372aa03093b87"
   },
   "bugs": [
     {

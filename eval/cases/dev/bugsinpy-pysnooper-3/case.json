@@ -16,7 +16,7 @@
   "context": {
     "full_name": "cool-RR/PySnooper",
     "pr_number": 0,
-    "title": "Reversed BugsInPy PySnooper bug 3",
+    "title": "Update pysnooper/pysnooper.py",
     "base_branch": "main",
     "head_sha": "6e3d797be3fa0a746fb5b1b7c7fea78eb926c208"
   },

@@ -19,6 +19,12 @@ from build_bugsinpy import MAX_DIFF, MAX_FILE, hunks, reversed_diff  # noqa: E40
 
 TOKEN = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True).stdout.strip()
 AUTH = {"Authorization": f"Bearer {TOKEN}"}
+UPSTREAM = {
+    "express": "expressjs/express",
+    "hexo": "hexojs/hexo",
+    "karma": "karma-runner/karma",
+    "bower": "bower/bower",
+}
 PLAN = {"dev": {"express": 2}, "test": {"hexo": 1, "karma": 1, "bower": 1}}
 
 
@@ -143,9 +149,10 @@ def main(stage):
                         "dataset": "https://bugsjs.github.io/",
                     },
                     "context": {
-                        "full_name": f"BugsJS/{project}",
+                        # The upstream repository: "BugsJS" would name a bug dataset.
+                        "full_name": UPSTREAM[project],
                         "pr_number": 0,
-                        "title": f"Reversed BugsJS {project} bug {c['bug']}",
+                        "title": f"Update {c['file']}",
                         "base_branch": "master",
                         "head_sha": buggy_sha,
                     },

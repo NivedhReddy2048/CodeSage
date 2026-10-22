@@ -16,7 +16,7 @@
   "context": {
     "full_name": "cookiecutter/cookiecutter",
     "pr_number": 0,
-    "title": "Reversed BugsInPy cookiecutter bug 3",
+    "title": "Update cookiecutter/prompt.py",
     "base_branch": "main",
     "head_sha": "5c282f020a8db7e5e7c4e7b51b010556ca31fb7f"
   },
