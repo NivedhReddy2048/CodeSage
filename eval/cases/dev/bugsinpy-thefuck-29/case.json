@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-thefuck-29",
+  "suite": "dev",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "thefuck",
+    "bug": 29,
+    "url": "https://github.com/nvbn/thefuck",
+    "license": "MIT",
+    "buggy_commit": "4a2f869c6d6ef03d8d7ada1121cc6631d7ef979e",
+    "fixed_commit": "88831c424f569e6a55fc98883d3eeecc7d425b18",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "nvbn/thefuck",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy thefuck bug 29",
+    "base_branch": "main",
+    "head_sha": "4a2f869c6d6ef03d8d7ada1121cc6631d7ef979e"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "thefuck/types.py",
+      "lines": [
+        26,
+        28
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "update() lets kwargs override settings already set; it should only fill unset ones. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

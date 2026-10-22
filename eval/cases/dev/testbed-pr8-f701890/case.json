@@ -1,0 +1,36 @@
+{
+  "id": "testbed-pr8-f701890",
+  "suite": "dev",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "testbed",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed/pull/8",
+    "base_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 8,
+    "title": "Add money helper functions to handle decimals",
+    "base_branch": "main",
+    "head_sha": "f701890"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [
+    {
+      "id": "syntax",
+      "file": "app/money.py",
+      "lines": [
+        1,
+        1
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Every line of the new file is indented by 3 spaces: the file does not parse."
+    }
+  ],
+  "notes": "Testbed PR #8, first commit."
+}

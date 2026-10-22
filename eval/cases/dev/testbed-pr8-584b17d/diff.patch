@@ -1,0 +1,29 @@
+diff --git a/app/money.py b/app/money.py
+new file mode 100644
+index 0000000..702170c
+--- /dev/null
++++ b/app/money.py
+@@ -0,0 +1,23 @@
++"""Money helpers that avoid floating-point rounding errors."""
++
++from decimal import ROUND_HALF_UP, Decimal
++
++CENT = Decimal("0.01")
++
++
++def to_money(value: str | int | Decimal) -> Decimal:
++    """Convert a value to a Decimal rounded to whole cents."""
++    return Decimal(str(value)).quantize(CENT, rounding=ROUND_HALF_UP)
++
++
++def split_evenly(total: Decimal, parts: int) -> list[Decimal]:
++    """Split total into parts that differ by at most one cent and sum to total."""
++    if parts <= 0:
++        raise ValueError("parts must be a positive integer")
++    total = to_money(total)
++    cents = int(total * 100)
++    base, remainder = divmod(cents, parts)
++    return [
++        (Decimal(base + (1 if i < remainder else 0)) / 100).quantize(CENT)
++        for i in range(parts)
++    ]

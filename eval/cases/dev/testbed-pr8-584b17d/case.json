@@ -1,0 +1,24 @@
+{
+  "id": "testbed-pr8-584b17d",
+  "suite": "dev",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "testbed",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed/pull/8",
+    "base_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 8,
+    "title": "Add money helper functions to handle decimals",
+    "base_branch": "main",
+    "head_sha": "584b17d"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [],
+  "notes": "Testbed PR #8 at its final commit: clean. The grounding nit (Decimal vs the integer-cents pattern in app/models.py:19-28) is a fair consistency remark, not a bug."
+}

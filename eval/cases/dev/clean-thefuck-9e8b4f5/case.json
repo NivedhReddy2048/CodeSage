@@ -1,0 +1,25 @@
+{
+  "id": "clean-thefuck-9e8b4f5",
+  "suite": "dev",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "refactor",
+    "project": "nvbn/thefuck",
+    "url": "https://github.com/nvbn/thefuck/commit/9e8b4f594d2017262fe3c22d79cd44035bf92f33",
+    "license": "MIT",
+    "commit": "9e8b4f594d2017262fe3c22d79cd44035bf92f33",
+    "parent": "c2b597f22b48a94908eb8ee00b244b047a947b29",
+    "message": "#602: Little cleanup"
+  },
+  "context": {
+    "full_name": "nvbn/thefuck",
+    "pr_number": 0,
+    "title": "#602: Little cleanup",
+    "base_branch": "main",
+    "head_sha": "9e8b4f594d2017262fe3c22d79cd44035bf92f33"
+  },
+  "retrieval": null,
+  "bugs": [],
+  "notes": "An upstream refactor commit with no known bug. Clean means no KNOWN bug; any blocking finding counts as a false alarm. Only the source file's diff is reviewed; the commit changed 2 file(s)."
+}

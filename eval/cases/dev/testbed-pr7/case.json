@@ -1,0 +1,24 @@
+{
+  "id": "testbed-pr7",
+  "suite": "dev",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "testbed",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed/pull/7",
+    "base_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 7,
+    "title": "Use environment variable for API key",
+    "base_branch": "main",
+    "head_sha": "7693464cc1785cf581f001eba4cc2d316ee76127"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [],
+  "notes": "Clean testbed PR (a fix with no new bug); seen during development."
+}

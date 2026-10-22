@@ -41,3 +41,7 @@
 
 # SVG is text (XML) and benefits from real diffs, so it is intentionally left to the
 # text=auto rule above rather than marked binary.
+
+# Evaluation fixtures are data: stored byte-for-byte, never line-ending normalised,
+# so their case hashes and the diff/snapshot line check are identical on every OS.
+eval/cases/** -text

@@ -1,0 +1,36 @@
+{
+  "id": "testbed-pr2",
+  "suite": "dev",
+  "language": "javascript",
+  "clean": false,
+  "source": {
+    "kind": "testbed",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed/pull/2",
+    "base_commit": "35640117234758b17d0c886f6ad1da7d42a14d55"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 2,
+    "title": "Add order summary helper",
+    "base_branch": "main",
+    "head_sha": "2d463ca9e859f000eb5ee8faa219448249156e02"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [
+    {
+      "id": "missing-await",
+      "file": "web/orders.js",
+      "lines": [
+        8,
+        9
+      ],
+      "category": "concurrency",
+      "kind": "added",
+      "note": "fetchOrder is async; order is a Promise, so order.id is undefined."
+    }
+  ],
+  "notes": "Testbed PR; seen during development."
+}

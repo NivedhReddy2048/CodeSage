@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-thefuck-21",
+  "suite": "dev",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "thefuck",
+    "bug": 21,
+    "url": "https://github.com/nvbn/thefuck",
+    "license": "MIT",
+    "buggy_commit": "71dc2666ccf62e653291d9a7a08e2c6c3320425b",
+    "fixed_commit": "213791d3c2af379ffa37a140735998736b41912e",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "nvbn/thefuck",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy thefuck bug 21",
+    "base_branch": "main",
+    "head_sha": "71dc2666ccf62e653291d9a7a08e2c6c3320425b"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "thefuck/rules/git_fix_stash.py",
+      "lines": [
+        8,
+        9
+      ],
+      "category": "error-handling",
+      "kind": "added",
+      "note": "Indexes split()[1] without checking the length: a one-word command raises IndexError. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

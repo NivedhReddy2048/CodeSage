@@ -1,0 +1,40 @@
+{
+  "id": "bugsjs-express-9",
+  "suite": "dev",
+  "language": "javascript",
+  "clean": false,
+  "source": {
+    "kind": "bugsjs",
+    "project": "express",
+    "bug": 9,
+    "url": "https://github.com/BugsJS/express",
+    "license": "MIT",
+    "buggy_tag": "Bug-9-original",
+    "fixed_tag": "Bug-9-fix",
+    "buggy_commit": "8ba3f39b33042f59d50ef5b5fb87109d3f3a2a26",
+    "fixed_commit": "ae907ff5ea0d2a2a043ce17757264c1a062d94e5",
+    "dataset": "https://bugsjs.github.io/"
+  },
+  "context": {
+    "full_name": "BugsJS/express",
+    "pr_number": 0,
+    "title": "Reversed BugsJS express bug 9",
+    "base_branch": "master",
+    "head_sha": "8ba3f39b33042f59d50ef5b5fb87109d3f3a2a26"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "lib/application.js",
+      "lines": [
+        171,
+        171
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Sets mountpath from `path`, the wrong variable, instead of mount_path. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

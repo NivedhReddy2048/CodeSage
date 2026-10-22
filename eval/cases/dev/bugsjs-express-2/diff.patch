@@ -1,0 +1,12 @@
+diff --git a/lib/request.js b/lib/request.js
+--- a/lib/request.js
++++ b/lib/request.js
+@@ -358,7 +358,7 @@
+     : 'http';
+   var trust = this.app.get('trust proxy fn');
+ 
+-  if (!trust(this.connection.remoteAddress, 0)) {
++  if (!trust(this.connection.remoteAddress)) {
+     return proto;
+   }
+ 

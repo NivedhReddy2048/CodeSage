@@ -1,0 +1,40 @@
+{
+  "id": "bugsjs-express-2",
+  "suite": "dev",
+  "language": "javascript",
+  "clean": false,
+  "source": {
+    "kind": "bugsjs",
+    "project": "express",
+    "bug": 2,
+    "url": "https://github.com/BugsJS/express",
+    "license": "MIT",
+    "buggy_tag": "Bug-2-original",
+    "fixed_tag": "Bug-2-fix",
+    "buggy_commit": "bb4703e199cbbf62203730be275c81a0f7d68d47",
+    "fixed_commit": "4ccb6d60b90487c1752f72d2bfa71cc83a7ed2f2",
+    "dataset": "https://bugsjs.github.io/"
+  },
+  "context": {
+    "full_name": "BugsJS/express",
+    "pr_number": 0,
+    "title": "Reversed BugsJS express bug 2",
+    "base_branch": "master",
+    "head_sha": "bb4703e199cbbf62203730be275c81a0f7d68d47"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "lib/request.js",
+      "lines": [
+        361,
+        361
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Calls the trust-proxy function without the hop index argument. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

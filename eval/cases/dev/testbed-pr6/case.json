@@ -1,0 +1,24 @@
+{
+  "id": "testbed-pr6",
+  "suite": "dev",
+  "language": "python",
+  "clean": true,
+  "source": {
+    "kind": "testbed",
+    "url": "https://github.com/NivedhReddy2048/codesage-testbed/pull/6",
+    "base_commit": "18815292e7041bb602b672d4942134080db0f9b7"
+  },
+  "context": {
+    "full_name": "NivedhReddy2048/codesage-testbed",
+    "pr_number": 6,
+    "title": "Refactor get_orders_by_customer to close DB connection",
+    "base_branch": "main",
+    "head_sha": "d8a835e715ad79b32e9139e6cde3a88a66683664"
+  },
+  "retrieval": {
+    "repository": "NivedhReddy2048/codesage-testbed",
+    "index_commit": "8934446375efcce89bb47fa88454c2bb4946cd67"
+  },
+  "bugs": [],
+  "notes": "Clean testbed PR (a fix with no new bug); seen during development."
+}

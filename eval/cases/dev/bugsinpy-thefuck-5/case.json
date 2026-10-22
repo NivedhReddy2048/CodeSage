@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-thefuck-5",
+  "suite": "dev",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "thefuck",
+    "bug": 5,
+    "url": "https://github.com/nvbn/thefuck",
+    "license": "MIT",
+    "buggy_commit": "7c858fadb3458be829d3d43666ccb46c3ed5b8a0",
+    "fixed_commit": "c205683a8df8a57e2db1e9816a5a7ce3255b08fc",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "nvbn/thefuck",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy thefuck bug 5",
+    "base_branch": "main",
+    "head_sha": "7c858fadb3458be829d3d43666ccb46c3ed5b8a0"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "thefuck/rules/git_push.py",
+      "lines": [
+        9,
+        9
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "Matches any output containing 'set-upstream', so the rule fires on unrelated git errors. (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}

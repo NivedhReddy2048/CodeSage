@@ -1,0 +1,38 @@
+{
+  "id": "bugsinpy-thefuck-32",
+  "suite": "dev",
+  "language": "python",
+  "clean": false,
+  "source": {
+    "kind": "bugsinpy",
+    "project": "thefuck",
+    "bug": 32,
+    "url": "https://github.com/nvbn/thefuck",
+    "license": "MIT",
+    "buggy_commit": "cb33c912e5f2f4c2da6b70d708ff0437bfcd3b94",
+    "fixed_commit": "25cc98a21a3450a046caf418f08713c82a290805",
+    "dataset": "https://github.com/soarsmu/BugsInPy"
+  },
+  "context": {
+    "full_name": "nvbn/thefuck",
+    "pr_number": 0,
+    "title": "Reversed BugsInPy thefuck bug 32",
+    "base_branch": "main",
+    "head_sha": "cb33c912e5f2f4c2da6b70d708ff0437bfcd3b94"
+  },
+  "retrieval": null,
+  "bugs": [
+    {
+      "id": "fix",
+      "file": "thefuck/rules/ls_lah.py",
+      "lines": [
+        2,
+        2
+      ],
+      "category": "correctness",
+      "kind": "added",
+      "note": "`'ls' in command.script` matches any command containing 'ls' (e.g. `false`). (Lines the upstream fix changed, re-introduced here.)"
+    }
+  ],
+  "notes": "Reversed upstream fix; grounding disabled (repository not indexed)."
+}
