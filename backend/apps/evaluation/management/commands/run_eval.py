@@ -19,7 +19,11 @@ from apps.evaluation.matching import load_categories
 
 # Measured on the live pipeline (Oct 21-22): 3 gpt-oss-20b calls of ~1.48K tokens and
 # one gpt-oss-120b call of ~1.03K per multi-agent review.
-TOKENS_PER_RUN = {"pipeline": {"gpt-oss-20b": 4400, "gpt-oss-120b": 1030}}
+TOKENS_PER_RUN = {
+    "pipeline": {"gpt-oss-20b": 4400, "gpt-oss-120b": 1030},
+    # Estimated until day 1 measures it: one primary-model call, diff plus prompt.
+    "baseline": {"gpt-oss-120b": 1500},
+}
 
 
 class Command(BaseCommand):

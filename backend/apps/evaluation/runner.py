@@ -137,7 +137,13 @@ def run_pipeline_arm(case, config):
     )
 
 
-ARMS = {"pipeline": run_pipeline_arm}
+def run_baseline_arm(case, config):
+    from apps.agents.baseline import run_baseline
+
+    return run_baseline(case["diff"], context_for(case), config)
+
+
+ARMS = {"pipeline": run_pipeline_arm, "baseline": run_baseline_arm}
 
 
 def daily_limit_hit(result):
