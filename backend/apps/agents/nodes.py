@@ -70,6 +70,9 @@ def _call_model(
     run.provider = provider_name
     run.model = getattr(response, "model", "") or model
     run.used_fallback = used_fallback
+    run.provider_model = getattr(response, "provider_model", "")
+    run.system_fingerprint = getattr(response, "system_fingerprint", "")
+    run.rate_limits = dict(getattr(response, "rate_limits", {}) or {})
     run.input_tokens = response.input_tokens
     run.output_tokens = response.output_tokens
     run.succeeded = True

@@ -5,8 +5,11 @@ above them never needs to know which is which.
 """
 
 import logging
+import random
+import re
 import time
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 
 import requests
 
@@ -26,6 +29,68 @@ class ProviderError(Exception):
     """A provider could not produce a response."""
 
 
+# Groq's free tier: 8,000 tokens per minute per model, and one review's three parallel
+# 20b agents spend about 4.4k. A 429 is usually that bucket, which refills within a
+# minute - so it is waited out rather than failed over. A wait longer than this means a
+# daily limit, where failing over at once is the right call.
+MAX_RATE_LIMIT_WAIT = 30.0
+# Added to each wait so agents that were rejected together do not retry together.
+RATE_LIMIT_JITTER = 1.5
+
+RATE_LIMIT_HEADERS = (
+    "x-ratelimit-limit-requests",
+    "x-ratelimit-limit-tokens",
+    "x-ratelimit-remaining-requests",
+    "x-ratelimit-remaining-tokens",
+    "x-ratelimit-reset-requests",
+    "x-ratelimit-reset-tokens",
+)
+
+_DURATION = re.compile(r"(?:(\d+(?:\.\d+)?)h)?(?:(\d+(?:\.\d+)?)m(?!s))?(?:(\d+(?:\.\d+)?)s)?$")
+
+
+def parse_duration(value):
+    """Seconds from Groq's "7.66s", "2m59.56s", "1h2m3s", or a bare number; None."""
+    text = str(value or "").strip()
+    if not text:
+        return None
+    try:
+        return float(text)
+    except ValueError:
+        pass
+    if text.endswith("ms"):
+        try:
+            return float(text[:-2]) / 1000
+        except ValueError:
+            return None
+    match = _DURATION.match(text)
+    if not match or not any(match.groups()):
+        return None
+    hours, minutes, seconds = (float(part) if part else 0.0 for part in match.groups())
+    return hours * 3600 + minutes * 60 + seconds
+
+
+def _headers(response):
+    headers = getattr(response, "headers", None)
+    return headers if isinstance(headers, Mapping) else {}
+
+
+def retry_after(response):
+    """How long the provider asked us to wait, in seconds, or None if it did not say."""
+    headers = _headers(response)
+    for name in ("retry-after", "x-ratelimit-reset-tokens", "x-ratelimit-reset-requests"):
+        seconds = parse_duration(headers.get(name))
+        if seconds is not None:
+            return seconds
+    return None
+
+
+def rate_limit_snapshot(response):
+    """The x-ratelimit-* headers of a response, for the record."""
+    headers = _headers(response)
+    return {name: str(headers[name]) for name in RATE_LIMIT_HEADERS if name in headers}
+
+
 @dataclass
 class ProviderResponse:
     content: str
@@ -35,6 +100,12 @@ class ProviderResponse:
     # Callers record this rather than the model they asked for, which after a
     # failover is a different provider's model entirely.
     model: str = ""
+    # What the provider itself reported: its model field and version fingerprint (Groq's
+    # `system_fingerprint`), and its rate-limit headers. Telemetry, never used for
+    # pricing or routing.
+    provider_model: str = ""
+    system_fingerprint: str = ""
+    rate_limits: dict = field(default_factory=dict)
 
 
 class Provider:
@@ -59,6 +130,7 @@ class Provider:
         last_error = None
 
         for attempt in range(1, self.max_retries + 1):
+            asked = None
             try:
                 response = requests.post(url, timeout=self.timeout, **kwargs)
             except requests.Timeout:
@@ -71,9 +143,20 @@ class Provider:
                 last_error = f"HTTP {response.status_code}: {response.text[:200]}"
                 if response.status_code not in RETRYABLE_STATUS:
                     raise ProviderError(f"{self.name}: {last_error}")
+                if response.status_code == 429:
+                    asked = retry_after(response)
+                    if asked is not None and asked > MAX_RATE_LIMIT_WAIT:
+                        # A daily limit, not the per-minute bucket: nothing to wait for.
+                        raise ProviderError(
+                            f"{self.name}: rate limited for {asked:.0f}s ({last_error})"
+                        )
 
             if attempt < self.max_retries:
                 delay = self.backoff * (2 ** (attempt - 1))
+                if asked is not None:
+                    # Wait as long as the provider asked, not a fixed guess that is
+                    # usually too short for a per-minute window.
+                    delay = max(delay, asked) + random.uniform(0, RATE_LIMIT_JITTER)
                 logger.warning(
                     "%s attempt %s/%s failed (%s); retrying in %.1fs",
                     self.name,
@@ -120,6 +203,9 @@ class GroqProvider(Provider):
             input_tokens=usage.get("prompt_tokens") or 0,
             output_tokens=usage.get("completion_tokens") or 0,
             model=self.model,
+            provider_model=str(data.get("model") or ""),
+            system_fingerprint=str(data.get("system_fingerprint") or ""),
+            rate_limits=rate_limit_snapshot(response),
         )
 
 

@@ -199,6 +199,11 @@ class AgentRun:
     # Free-text detail for agents that are not a model call, e.g. which linters
     # static analysis actually ran and which it could not.
     detail: str = ""
+    # As reported by the provider that served the call: its model field, version
+    # fingerprint and rate-limit headers. For the evaluation record.
+    provider_model: str = ""
+    system_fingerprint: str = ""
+    rate_limits: dict = field(default_factory=dict)
 
 
 @dataclass
