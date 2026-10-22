@@ -80,6 +80,12 @@ You are given retrieved excerpts of existing code. Report only where the change:
 - duplicates or contradicts an existing helper
 - is inconsistent with an established pattern visible in the excerpts
 
+EXISTING CODE IS PRECEDENT ONLY WHEN IT IS NOT ITSELF A DEFECT. Never report a \
+change as inconsistent because it is safer or more correct than the existing code: \
+a parameterised query where the excerpts build SQL from strings, input validation, \
+closing a resource, handling an error. In that case the existing code is what is \
+wrong, and the change is not a finding.
+
 CITATIONS ARE MANDATORY AND CHECKED. Every finding must set "cited_file" and \
 "cited_line" to a location inside one of the retrieved excerpts. A finding whose \
 citation is not inside a retrieved excerpt is discarded, so do not guess a path or \

@@ -11,6 +11,9 @@ The rules, all deterministic:
    security defect ("could expose SQL injection", on the line that fixes it) is out
    of its depth and dropped, and so is a security-agent finding that is not about
    security. Test coverage's findings are about tests whatever category it chose.
+   Grounding may not fault a change for being safer than the code it cites
+   ("uses a parameterized query while existing code uses f-strings"): existing code
+   is precedent only when it is not itself a defect.
 2. Per-agent ceiling. Test coverage is at most a nit: a missing test is worth
    saying, not worth blocking a merge on. Of the tool findings, four kinds may
    block: bandit's own medium/high severity rating, a syntax error (the file does
@@ -74,6 +77,71 @@ def claims_security_defect(message):
     return False
 
 
+# Rule 1 for grounding. A consistency claim...
+_INCONSISTENT = re.compile(
+    r"\binconsisten\w*|\bdeviat\w*|\bdiffers? from\b|\bunlike (?:the )?(?:existing|other|rest)\b"
+    r"|\b(?:established|existing) (?:pattern|convention|style|approach)\b"
+    r"|\bdoes(?:n't| not) follow\b",
+    re.IGNORECASE,
+)
+# ...naming a construct that is unambiguously the safer way, which the quoted added
+# line really uses. The direction is read from the code, not the prose: "this does not
+# close the connection, unlike existing code which uses a context manager" names the
+# same construct and is a real finding, and its added line has no `with`.
+#
+# Validation is left out on purpose: "inconsistent with the existing
+# `is_valid_email`" is a duplication finding, which is grounding's job. The prompt
+# states the general rule; this is the backstop, because on testbed-pr5 gpt-oss-20b
+# still broke it with the rule in its prompt (issue #122).
+_INTERPOLATED = re.compile(r"""\b[fF]["']|\.format\(|["']\s*[%+]|\+\s*["']""")
+
+
+def _bound_sql(code):
+    """Is this line a query with bound parameters, and no string building?"""
+    if _INTERPOLATED.search(code):
+        return False
+    if re.search(r"\.execute(?:many)?\(\s*[^,()]+,", code):
+        return True
+    return bool(
+        re.search(r"\b(?:SELECT|INSERT|UPDATE|DELETE)\b", code, re.IGNORECASE)
+        and re.search(r"\?|%s|:\w+|\$\d", code)
+    )
+
+
+_SAFER = (
+    (
+        # A bound SQL query: a placeholder in the statement, or parameters passed.
+        re.compile(
+            r"\bparameteri[sz](?:ed|ation)\b|\bprepared statements?\b|\bbound parameters?\b"
+            r"|\bplaceholders?\b",
+            re.IGNORECASE,
+        ),
+        _bound_sql,
+    ),
+    (
+        # A resource that is closed.
+        re.compile(
+            r"\bcontext manager\b|\bwith[- ]statement\b|\bwith block\b"
+            r"|\bclos(?:es|ing|ed) (?:the |a |its )?(?:connection|file|cursor|handle|resource)s?\b",
+            re.IGNORECASE,
+        ),
+        lambda code: bool(re.match(r"\s*(?:async\s+)?with\b", code) or ".close()" in code),
+    ),
+    (
+        # Output that is escaped.
+        re.compile(r"\bescap(?:es|ed|ing)\b|\bsaniti[sz](?:es|ed|ing|ation)\b", re.IGNORECASE),
+        lambda code: bool(re.search(r"\b\w*(?:escape|saniti[sz]e)\w*\s*\(", code)),
+    ),
+)
+
+
+def faults_a_safer_change(finding):
+    """Does a grounding finding call the change inconsistent for doing the safer thing?"""
+    if finding.anchored_by != "evidence" or not _INCONSISTENT.search(finding.message):
+        return False
+    return any(named.search(finding.message) and uses(finding.evidence) for named, uses in _SAFER)
+
+
 SPECULATIVE = re.compile(
     r"\b(?:may|might|could|potentially|possibly|perhaps|presumably)\b"
     r"|\bif\b[^.;]*\b(?:untrusted|user[- ](?:controlled|supplied|provided)|"
@@ -98,6 +166,8 @@ def out_of_scope(finding):
     """Why this agent should not have reported this finding, or ""."""
     if finding.agent == "test_coverage" and claims_security_defect(finding.message):
         return "out of scope: test coverage making a security claim"
+    if finding.agent == "grounding" and faults_a_safer_change(finding):
+        return "out of scope: grounding faulting a change for being safer than existing code"
     allowed = OWN_CATEGORIES.get(finding.agent)
     if allowed is not None and finding.category not in allowed:
         return f"out of scope: {finding.agent} reporting {finding.category}"
