@@ -11,7 +11,7 @@ from itertools import count
 
 from django.utils import timezone
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.tokens import AccessToken
 
 from apps.accounts.models import Membership
 from apps.accounts.services import get_or_create_user_from_github
@@ -34,7 +34,9 @@ def add_member(person, organization, role=Membership.Role.MEMBER):
 
 
 def access_token(person):
-    return str(RefreshToken.for_user(person).access_token)
+    # An access token directly: minting a refresh token writes an OutstandingToken row
+    # (token_blacklist), which async socket tests cannot do from their event loop.
+    return str(AccessToken.for_user(person))
 
 
 def client(person, organization=None):

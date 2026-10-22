@@ -4,10 +4,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Lock,
+  LogIn,
+  LogOut,
   PlugZap,
   RefreshCw,
   RotateCw,
   ScrollText,
+  ShieldAlert,
   Unplug,
   UserCog,
   type LucideIcon,
@@ -44,6 +47,8 @@ export const AUDIT_ACTIONS = [
   { value: "repo.reindexed", label: "Re-index requested" },
   { value: "review.rerun", label: "Review re-run" },
   { value: "member.role_changed", label: "Member role changed" },
+  // A group: the API matches every auth.* event.
+  { value: "auth", label: "Auth (sign-in, sign-out, failed sign-in)" },
 ];
 
 type Filters = { action: string; actor: string; q: string; since: string; until: string };
@@ -57,6 +62,9 @@ const ACTION_STYLE: Record<string, { icon: LucideIcon; tone: string }> = {
   "repo.reindexed": { icon: RefreshCw, tone: "border-status-running-border bg-status-running-bg text-status-running" },
   "review.rerun": { icon: RotateCw, tone: "border-status-running-border bg-status-running-bg text-status-running" },
   "member.role_changed": { icon: UserCog, tone: "border-status-nit-border bg-status-nit-bg text-status-nit" },
+  "auth.signed_in": { icon: LogIn, tone: "border-status-ok-border bg-status-ok-bg text-status-ok" },
+  "auth.signed_out": { icon: LogOut, tone: "border-status-neutral-border bg-status-neutral-bg text-status-neutral" },
+  "auth.sign_in_failed": { icon: ShieldAlert, tone: "border-status-blocking-border bg-status-blocking-bg text-status-blocking" },
 };
 const NEUTRAL_ACTION = {
   icon: ScrollText,

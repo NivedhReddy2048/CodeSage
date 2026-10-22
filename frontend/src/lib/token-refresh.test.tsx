@@ -115,3 +115,125 @@ describe("token refresh", () => {
     expect(tokenExpiresSoon("a.not-base64!.c")).toBe(false);
   });
 });
+
+describe("refresh-token blacklisting (#101)", () => {
+  it("two different calls with an expired token share one refresh, and both succeed", async () => {
+    storeTokens(jwt(-60, "expired"), "refresh-1");
+    const calls = stubBackend();
+    const original = globalThis.fetch as unknown as (url: string, init?: RequestInit) => Promise<Response>;
+    let orgs = 0;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith("/api/orgs/")) {
+          orgs += 1;
+          const auth = ((init?.headers ?? {}) as Record<string, string>).Authorization;
+          if (auth !== `Bearer ${FRESH}`) calls.unauthorized += 1;
+          return new Response("[]", { status: auth === `Bearer ${FRESH}` ? 200 : 401 });
+        }
+        return original(url, init);
+      }),
+    );
+
+    const [me, organizations] = await Promise.all([api.currentUser(), api.organizations()]);
+
+    expect(me).toMatchObject({ github_login: "alice" });
+    expect(organizations).toEqual([]);
+    expect(calls.refresh).toBe(1);
+    expect(calls.unauthorized).toBe(0);
+    expect(orgs).toBe(1);
+  });
+
+  it("when another tab rotated the shared token first, this tab stays signed in", async () => {
+    storeTokens(jwt(-60, "expired"), "refresh-1");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith("/api/auth/token/refresh/")) {
+          // The other tab won the race: it stored a new pair, and our refresh-1
+          // is now blacklisted.
+          storeTokens(FRESH, "refresh-from-other-tab");
+          return new Response(JSON.stringify({ detail: "Token is blacklisted" }), { status: 401 });
+        }
+        const auth = ((init?.headers ?? {}) as Record<string, string>).Authorization;
+        return auth === `Bearer ${FRESH}`
+          ? new Response(JSON.stringify({ id: 1, github_login: "alice" }), { status: 200 })
+          : new Response("{}", { status: 401 });
+      }),
+    );
+
+    await expect(api.currentUser()).resolves.toMatchObject({ github_login: "alice" });
+    expect(getRefreshToken()).toBe("refresh-from-other-tab");
+  });
+
+  it("a refused refresh with no other tab involved still ends the session", async () => {
+    storeTokens(jwt(-60, "expired"), "refresh-1");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ detail: "Token is blacklisted" }), { status: 401 })),
+    );
+
+    await expect(api.currentUser()).rejects.toMatchObject({ status: 401 });
+    expect(getRefreshToken()).toBeNull();
+  });
+
+  it("signing out revokes the refresh token server-side and clears the session", async () => {
+    storeTokens(FRESH, "refresh-to-revoke");
+    const calls = stubBackend();
+    const posted: unknown[] = [];
+    const original = globalThis.fetch as unknown as (url: string, init?: RequestInit) => Promise<Response>;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith("/api/auth/logout/")) {
+          posted.push(JSON.parse(String(init?.body)));
+          return new Response(null, { status: 204 });
+        }
+        return original(url, init);
+      }),
+    );
+
+    function SignOut() {
+      const { user, signOut } = useAuth();
+      return user ? <button onClick={signOut}>Sign out</button> : <p>signed out</p>;
+    }
+    render(
+      <AuthProvider>
+        <SignOut />
+      </AuthProvider>,
+    );
+    (await screen.findByRole("button", { name: "Sign out" })).click();
+
+    expect(await screen.findByText("signed out")).toBeInTheDocument();
+    expect(posted).toEqual([{ refresh: "refresh-to-revoke" }]);
+    expect(getAccessToken()).toBeNull();
+    expect(getRefreshToken()).toBeNull();
+    expect(calls.unauthorized).toBe(0);
+  });
+
+  it("an unreachable backend never keeps anyone signed in", async () => {
+    storeTokens(FRESH, "refresh-x");
+    stubBackend();
+    const original = globalThis.fetch as unknown as (url: string, init?: RequestInit) => Promise<Response>;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init?: RequestInit) => {
+        if (url.endsWith("/api/auth/logout/")) throw new TypeError("Failed to fetch");
+        return original(url, init);
+      }),
+    );
+    function SignOut() {
+      const { user, signOut } = useAuth();
+      return user ? <button onClick={signOut}>Sign out</button> : <p>signed out</p>;
+    }
+    render(
+      <AuthProvider>
+        <SignOut />
+      </AuthProvider>,
+    );
+    (await screen.findByRole("button", { name: "Sign out" })).click();
+
+    expect(await screen.findByText("signed out")).toBeInTheDocument();
+    expect(getRefreshToken()).toBeNull();
+  });
+});

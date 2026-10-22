@@ -65,3 +65,7 @@ class MembershipSerializer(serializers.ModelSerializer):
 
 class MemberRoleSerializer(serializers.Serializer):
     role = serializers.ChoiceField(choices=Membership.Role.choices)
+
+
+class LogoutRequestSerializer(serializers.Serializer):
+    refresh = serializers.CharField(help_text="The refresh token to revoke.")

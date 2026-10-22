@@ -41,6 +41,9 @@ DJANGO_APPS = [
 THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework_simplejwt",
+    # Rotated and signed-out refresh tokens are recorded here and refused. Expired
+    # rows are pruned by `manage.py flushexpiredtokens` (run it in the build command).
+    "rest_framework_simplejwt.token_blacklist",
     "corsheaders",
     "drf_spectacular",
     "channels",
@@ -162,6 +165,9 @@ SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
     "ROTATE_REFRESH_TOKENS": True,
+    # Without this, rotation was cosmetic: a rotated refresh token still worked for
+    # its full lifetime (verified against the live backend while fixing #97).
+    "BLACKLIST_AFTER_ROTATION": True,
     "SIGNING_KEY": env("JWT_SIGNING_KEY", default=SECRET_KEY),
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",

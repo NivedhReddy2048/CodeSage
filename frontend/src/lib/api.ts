@@ -89,6 +89,11 @@ function refreshAccessToken(): Promise<boolean> {
       });
 
       if (!response.ok) {
+        // Another tab may have rotated the shared refresh token first; with
+        // blacklisting, ours is then refused. Its new tokens are already stored, so
+        // this tab is still signed in - clearing them would sign both tabs out.
+        const current = getRefreshToken();
+        if (current && current !== refresh) return true;
         clearTokens();
         return false;
       }
@@ -209,6 +214,10 @@ export const api = {
     }),
 
   currentUser: () => request<User>("/api/auth/me/"),
+
+  /** Revoke a refresh token server-side (blacklisted), so a copy of it is useless. */
+  logout: (refresh: string) =>
+    request<void>("/api/auth/logout/", { method: "POST", body: { refresh }, auth: false }),
 
   organizations: () => request<Organization[]>("/api/orgs/"),
 

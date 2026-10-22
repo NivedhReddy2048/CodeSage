@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 import { ApiError, api } from "@/lib/api";
-import { clearSession, clearTokens, getAccessToken } from "@/lib/tokens";
+import { clearSession, clearTokens, getAccessToken, getRefreshToken } from "@/lib/tokens";
 import type { User } from "@/lib/types";
 
 type AuthState = {
@@ -97,6 +97,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(() => {
+    // Revoke the refresh token on the server too, so a copied token stops working.
+    // Fire and forget: signing out is immediate and local either way, and a
+    // backend that cannot be reached must not keep anyone signed in.
+    const refresh = getRefreshToken();
+    if (refresh) void api.logout(refresh).catch(() => undefined);
     clearSession();
     setUser(null);
     setError(null);
