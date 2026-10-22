@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "_comment": "Frozen with the prompts before the first DEV run. For each ground-truth bug category, the finding categories that count as describing it under the headline rule. A missing null check is an error-handling defect, but a reviewer that calls it a correctness bug has found it; the reverse holds too. Security never matches anything but security: a finding has to say it is a vulnerability.",
+  "equivalent": {
+    "security": ["security"],
+    "correctness": ["correctness", "error-handling"],
+    "error-handling": ["error-handling", "correctness"],
+    "resource-leak": ["resource-leak", "error-handling", "correctness"],
+    "concurrency": ["concurrency", "correctness"],
+    "performance": ["performance", "correctness"],
+    "testing": ["testing"],
+    "style": ["style"],
+    "other": ["other", "correctness"]
+  }
+}
