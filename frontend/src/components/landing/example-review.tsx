@@ -59,6 +59,7 @@ export const EXAMPLE_TELEMETRY = [
   { agent: "diff_intent", ms: 900 },
   { agent: "static_analysis", ms: 400, note: "ran ruff, bandit" },
   { agent: "security", ms: 1600 },
+  { agent: "correctness", ms: 1500 },
   { agent: "grounding", ms: 2600 },
   { agent: "test_coverage", ms: 1400 },
 ];
@@ -85,7 +86,7 @@ export function ExampleReview() {
 
       <div className="border-t bg-surface-2/40 px-4 py-3">
         <p className="mb-2 text-xs font-medium tracking-[0.06em] text-fg-secondary uppercase">Per-agent telemetry</p>
-        <ul aria-label="Per-agent telemetry" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
+        <ul aria-label="Per-agent telemetry" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {EXAMPLE_TELEMETRY.map(({ agent, ms, note }) => (
             <li key={agent} className="rounded-lg border bg-surface-1 px-3 py-2">
               <span className="block truncate text-xs font-medium text-fg">{AGENT_LABELS[agent]}</span>

@@ -53,6 +53,7 @@ export const AGENT_LABELS: Record<string, string> = {
   diff_intent: "Diff/Intent",
   static_analysis: "Static analysis",
   security: "Security",
+  correctness: "Correctness",
   grounding: "Codebase grounding",
   test_coverage: "Test coverage",
   review: "Reviewer (v1)",

@@ -233,6 +233,7 @@ AGENT_LABELS = {
     "diff_intent": "Diff/Intent",
     "static_analysis": "Static analysis",
     "security": "Security",
+    "correctness": "Correctness",
     "grounding": "Codebase grounding",
     "test_coverage": "Test coverage",
 }

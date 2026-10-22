@@ -1,19 +1,21 @@
-"""The six-agent pipeline as a LangGraph graph (spec section 5).
+"""The review pipeline as a LangGraph graph (spec section 5): six agents, then synthesis.
 
-    START -> diff_intent -> [ static_analysis, security, grounding, test_coverage ]
+    START -> diff_intent -> [ static_analysis, security, correctness, grounding,
+                              test_coverage ]
                                             |
                                             v
                                         synthesis -> END
 
-`diff_intent` runs first because its classification is fed to the others. The four
-analysis agents then fan out concurrently: three are independent LLM calls and one
+`diff_intent` runs first because its classification is fed to the others. The five
+analysis agents then fan out concurrently: four are independent LLM calls and one
 is a local subprocess, so running them in sequence would make a review roughly as
-slow as the sum of its parts for no benefit.
+slow as the sum of its parts for no benefit. Correctness joined after Phase 8's DEV
+run 1 (issue #126); synthesis is deterministic and is not counted as an agent.
 
 Verified against langgraph 1.2.16 rather than assumed, since the documentation moved
 host: fan-out really is concurrent (three 0.4s nodes completed in 0.42s), and
 `Annotated[list, operator.add]` reducers merge concurrent writes without loss, which
-is what lets four agents append findings at once.
+is what lets five agents append findings at once.
 """
 
 import logging
@@ -56,9 +58,16 @@ class GraphState(TypedDict, total=False):
     trace: list
 
 
-# The agents a progress counter counts: "3/5 agents complete". Synthesis is not
+# The agents a progress counter counts: "3/6 agents complete". Synthesis is not
 # one of them - it is the merge step, and it runs after the last of these.
-AGENT_NAMES = ("diff_intent", "static_analysis", "security", "grounding", "test_coverage")
+AGENT_NAMES = (
+    "diff_intent",
+    "static_analysis",
+    "security",
+    "correctness",
+    "grounding",
+    "test_coverage",
+)
 
 
 class Runtime:
@@ -169,6 +178,7 @@ def build_graph():
     graph.add_node("diff_intent", _tracked("diff_intent", nodes.diff_intent))
     graph.add_node("static_analysis", _tracked("static_analysis", nodes.static_analysis))
     graph.add_node("security", _tracked("security", nodes.security))
+    graph.add_node("correctness", _tracked("correctness", nodes.correctness))
     graph.add_node("grounding", _tracked("grounding", nodes.grounding))
     graph.add_node("test_coverage", _tracked("test_coverage", nodes.test_coverage))
     graph.add_node("synthesis", _synthesis_node)
@@ -177,7 +187,7 @@ def build_graph():
 
     # Fan out, then fan in. Several edges from one node make its targets run
     # concurrently; several edges into synthesis make it wait for all of them.
-    parallel = ("static_analysis", "security", "grounding", "test_coverage")
+    parallel = ("static_analysis", "security", "correctness", "grounding", "test_coverage")
     for name in parallel:
         graph.add_edge("diff_intent", name)
         graph.add_edge(name, "synthesis")
@@ -237,7 +247,7 @@ def _synthesis_node(state):
 
 
 def run_pipeline(diff, context, config=None, retrieve=None, on_progress=None, fetch_source=None):
-    """Run the six-agent pipeline. The phase 5 entry point.
+    """Run the review pipeline: six agents, then synthesis. The phase 5 entry point.
 
     `on_progress(agent, state, status)` is called as each agent starts
     (`state="started"`) and finishes (`state="finished"`, status ok/failed/skipped).

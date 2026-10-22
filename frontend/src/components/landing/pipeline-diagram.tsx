@@ -5,10 +5,10 @@ import { cn } from "@/lib/utils";
 /**
  * How a review runs, as the code runs it (backend/apps/agents/graph.py):
  *
- *   PR diff -> Diff/Intent -> [static analysis, security, grounding, test coverage]
- *           -> synthesis -> GitHub
+ *   PR diff -> Diff/Intent -> [static analysis, security, correctness, grounding,
+ *                              test coverage] -> synthesis -> GitHub
  *
- * Diff/Intent runs first and alone; the four analysis agents then run in parallel.
+ * Diff/Intent runs first and alone; the five analysis agents then run in parallel.
  * Each line of copy below is a claim about that code - keep them in step with it.
  */
 
@@ -17,6 +17,7 @@ type Stage = { title: string; detail: string[]; highlight?: boolean };
 const AGENTS: Stage[] = [
   { title: "Static analysis", detail: ["ruff + bandit on Python", "a pattern scan on JS/TS"] },
   { title: "Security", detail: ["injection, secrets, unsafe", "deserialisation, auth checks"] },
+  { title: "Correctness", detail: ["wrong conditions and variables,", "off-by-one, unhandled cases"] },
   {
     title: "Codebase grounding",
     detail: ["pgvector + Postgres full-text,", "fused by reciprocal rank fusion"],
@@ -38,8 +39,9 @@ export const PIPELINE_BADGES = [
 
 /* ---- Desktop: an SVG with data pulses along each lane ------------------------ */
 
-const LANES = [66, 162, 258, 354]; // agent row centres
-const MID = 210;
+const LANES = [70, 150, 230, 310, 390]; // agent row centres
+const MID = 230;
+const LANE_PERIOD = 3.6; // seconds for one pulse to cross; pulses are staggered evenly
 
 function Node({
   x,
@@ -89,7 +91,7 @@ function lanePath(cy: number) {
 function DiagramSvg() {
   return (
     <svg
-      viewBox="0 0 1080 420"
+      viewBox="0 0 1080 460"
       aria-hidden="true"
       className="hidden h-auto w-full lg:block"
       focusable="false"
@@ -112,8 +114,8 @@ function DiagramSvg() {
         {LANES.map((cy, index) => (
           <circle key={cy} r={3.5} className="fill-brand-accent">
             <animateMotion
-              dur="3.6s"
-              begin={`-${index * 0.9}s`}
+              dur={`${LANE_PERIOD}s`}
+              begin={`-${(index * LANE_PERIOD) / LANES.length}s`}
               repeatCount="indefinite"
               path={lanePath(cy)}
               keyPoints="0;1"
@@ -124,17 +126,17 @@ function DiagramSvg() {
         ))}
       </g>
 
-      <Node x={10} y={180} w={120} h={60} stage={DIFF} />
-      <Node x={170} y={180} w={140} h={60} stage={INTENT} />
+      <Node x={10} y={MID - 30} w={120} h={60} stage={DIFF} />
+      <Node x={170} y={MID - 30} w={140} h={60} stage={INTENT} />
       {AGENTS.map((stage, index) => (
-        <Node key={stage.title} x={370} y={LANES[index] - 36} w={270} h={72} stage={stage} />
+        <Node key={stage.title} x={370} y={LANES[index] - 32} w={270} h={64} stage={stage} />
       ))}
-      <Node x={700} y={166} w={160} h={88} stage={SYNTHESIS} />
-      <Node x={920} y={166} w={150} h={88} stage={GITHUB} />
+      <Node x={700} y={MID - 44} w={160} h={88} stage={SYNTHESIS} />
+      <Node x={920} y={MID - 44} w={150} h={88} stage={GITHUB} />
 
       {/* "in parallel" bracket label above the fan */}
       <text x={505} y={18} textAnchor="middle" className="fill-fg-secondary text-[11px] font-medium tracking-[0.06em] uppercase">
-        Four agents in parallel
+        Five agents in parallel
       </text>
     </svg>
   );
@@ -172,7 +174,7 @@ function DiagramList() {
       </li>
       <li className={step}>
         <p className="mb-2 pt-1.5 text-xs font-medium tracking-[0.06em] text-fg-secondary uppercase">
-          Then four agents in parallel
+          Then five agents in parallel
         </p>
         <ul className="grid gap-3 sm:grid-cols-2">
           {AGENTS.map((stage) => (

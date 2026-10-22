@@ -136,6 +136,7 @@ def test_runs_served_by_the_fallback_never_carry_the_primary_model_name():
     assert {run.name for run in llm_runs} == {
         "diff_intent",
         "security",
+        "correctness",
         "grounding",
         "test_coverage",
     }
@@ -169,7 +170,7 @@ def test_each_agent_holds_the_fallback_to_its_own_schema():
 
     assert INTENT_SCHEMA in seen
     assert GROUNDING_SCHEMA in seen
-    assert seen.count(RESPONSE_SCHEMA) == 2  # security and test coverage
+    assert seen.count(RESPONSE_SCHEMA) == 3  # security, correctness and test coverage
 
     by_name = {run.name: run for run in result.agent_runs}
     assert by_name["diff_intent"].succeeded

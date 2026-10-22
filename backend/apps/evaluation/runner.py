@@ -1,10 +1,11 @@
 """Running cases through an arm, with a cache, a quota budget and a validity rule.
 
-QUOTA. Groq limits apply per organisation and the binding one is gpt-oss-20b's
-~200K tokens/day; a multi-agent run spends ~4.4K of it, the live dev stack shares
-the rest. So multi-agent runs are capped per UTC day (35 by default, leaving
-~10 reviews of headroom), at least `pace` seconds apart (8K tokens/minute), and every
-attempt - valid or not - is appended to a ledger the cap is counted from.
+QUOTA. Groq limits apply per organisation and per model: ~200K tokens/day each, and
+8K tokens/minute. A multi-agent run spends ~3.4K gpt-oss-20b and ~2.4K gpt-oss-120b
+(DEV run 1, plus the correctness agent), and the live dev stack shares the rest. So
+multi-agent runs are capped per UTC day (35 by default), at least `pace` seconds
+apart, and every attempt - valid or not - is appended to a ledger the cap is counted
+from.
 
 CACHE. A result is reused when its case hash and pipeline version both match, so an
 interrupted run resumes without spending quota twice and only changed cases re-run.

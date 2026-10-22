@@ -61,7 +61,7 @@ def broadcast(review_id, event):
 class ProgressReporter:
     """The `on_progress` callback handed to the pipeline for one review.
 
-    The four analysis agents run on parallel threads and report at the same time,
+    The five analysis agents run on parallel threads and report at the same time,
     so the read-modify-write of the state is under a lock.
     """
 

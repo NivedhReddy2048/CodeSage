@@ -117,7 +117,7 @@ describe("login page", () => {
     renderLogin();
 
     const pipeline = screen.getByRole("list", { name: "Review pipeline, in order" });
-    expect(pipeline).toHaveTextContent(/Diff\/Intent.*Then four agents in parallel.*Synthesis.*GitHub/);
+    expect(pipeline).toHaveTextContent(/Diff\/Intent.*Then five agents in parallel.*Correctness.*Synthesis.*GitHub/);
     expect(pipeline).toHaveTextContent("ruff + bandit on Python a pattern scan on JS/TS");
     expect(document.body.textContent).not.toMatch(/tree-sitter|eslint/i);
     expect(screen.getByText("Groq → Gemini fallback → labelled degraded mode")).toBeInTheDocument();
@@ -151,7 +151,7 @@ describe("example review", () => {
     expect(screen.getByText("Example")).toBeInTheDocument();
     expect(screen.getByText(/range\(len\(users\) \+ 1\) runs one index past the end/)).toBeInTheDocument();
     expect(screen.getByText("app/exports.py:22-31", { selector: "code" })).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Per-agent telemetry" }).children).toHaveLength(5);
+    expect(screen.getByRole("list", { name: "Per-agent telemetry" }).children).toHaveLength(6);
   });
 
   it("makes no network requests at all", () => {

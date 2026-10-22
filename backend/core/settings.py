@@ -265,13 +265,13 @@ REVIEW_PRIMARY_MODEL = env("REVIEW_PRIMARY_MODEL", default="openai/gpt-oss-120b"
 # gemini-flash-latest 143s to emit one token (spec section 14).
 REVIEW_FALLBACK_MODEL = env("REVIEW_FALLBACK_MODEL", default="gemini-flash-lite-latest")
 
-# Phase 5 model tiering. Groq reports 8000 TPM and the bucket looks shared across
-# models, so the big model is reserved for the security pass and the cheap one
-# handles classification, grounding and test coverage.
+# Model tiering. Groq reports 8000 TPM per model: the big model runs the security and
+# correctness passes, and the cheap one handles classification, grounding and test
+# coverage.
 REVIEW_CHEAP_MODEL = env("REVIEW_CHEAP_MODEL", default="openai/gpt-oss-20b")
 
-# Total tokens one review may spend across all six agents, with headroom under the
-# 8000 TPM ceiling so a review degrades predictably instead of 429-ing part way.
+# Tokens one review may spend on each model, with headroom under that model's 8000
+# TPM ceiling so a review degrades predictably instead of 429-ing part way.
 REVIEW_TOKEN_BUDGET = env.int("REVIEW_TOKEN_BUDGET", default=6500)
 
 # Live Groq rate-limit headers report 8000 tokens/minute, so an unbounded diff would

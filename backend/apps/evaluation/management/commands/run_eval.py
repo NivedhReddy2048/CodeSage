@@ -17,12 +17,13 @@ from apps.evaluation import cases as case_store
 from apps.evaluation import metrics, runner
 from apps.evaluation.matching import load_categories
 
-# Measured on the live pipeline (Oct 21-22): 3 gpt-oss-20b calls of ~1.48K tokens and
-# one gpt-oss-120b call of ~1.03K per multi-agent review.
+# Measured in DEV run 1 (40 runs): the pipeline spent 3.35K gpt-oss-20b tokens a run
+# (intent, test coverage, and grounding on retrieval cases) and 1.01K gpt-oss-120b on
+# security; the baseline 1.37K. Correctness (issue #126) is estimated at the
+# baseline's cost until DEV round 2 measures it.
 TOKENS_PER_RUN = {
-    "pipeline": {"gpt-oss-20b": 4400, "gpt-oss-120b": 1030},
-    # Estimated until day 1 measures it: one primary-model call, diff plus prompt.
-    "baseline": {"gpt-oss-120b": 1500},
+    "pipeline": {"gpt-oss-20b": 3350, "gpt-oss-120b": 1010 + 1370},
+    "baseline": {"gpt-oss-120b": 1370},
 }
 
 
