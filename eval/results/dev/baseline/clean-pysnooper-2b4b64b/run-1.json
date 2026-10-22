@@ -1,0 +1,52 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 0,
+      "input_tokens": 829,
+      "latency_ms": 1024,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 146,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "980",
+        "x-ratelimit-remaining-tokens": "6790",
+        "x-ratelimit-reset-requests": "28m48s",
+        "x-ratelimit-reset-tokens": "9.075s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_90620edd96",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "clean-pysnooper-2b4b64b",
+  "case_hash": "a4984e8778b01986",
+  "duration_ms": 1025,
+  "estimated_cost_inr": "0.0202",
+  "estimated_cost_usd": "0.000212",
+  "final_findings": [],
+  "finished_at": "2026-10-22T15:36:08.251219+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:36:07.226103+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

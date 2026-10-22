@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 1,
+      "input_tokens": 801,
+      "latency_ms": 1665,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 539,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "994",
+        "x-ratelimit-remaining-tokens": "6836",
+        "x-ratelimit-reset-requests": "8m38.4s",
+        "x-ratelimit-reset-tokens": "8.729s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_69334c0be3",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "bugsinpy-thefuck-29",
+  "case_hash": "4f2e05e46ad0c20a",
+  "duration_ms": 1665,
+  "estimated_cost_inr": "0.0422",
+  "estimated_cost_usd": "0.000444",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "correctness",
+      "file": "thefuck/types.py",
+      "line": 27,
+      "message": "The updated logic reverses the order of merging settings: it starts with the existing settings (self) and then updates with kwargs, causing kwargs to overwrite existing values. The original implementation kept existing settings and only applied kwargs for unset keys. This change alters the method's contract and can lead to incorrect behavior.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "finished_at": "2026-10-22T15:21:37.778887+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "correctness",
+      "cited_line": 27,
+      "downgraded": "",
+      "evidence": "conf = dict(self)",
+      "file": "thefuck/types.py",
+      "line": 27,
+      "message": "The updated logic reverses the order of merging settings: it starts with the existing settings (self) and then updates with kwargs, causing kwargs to overwrite existing values. The original implementation kept existing settings and only applied kwargs for unset keys. This change alters the method's contract and can lead to incorrect behavior.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:21:36.112846+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

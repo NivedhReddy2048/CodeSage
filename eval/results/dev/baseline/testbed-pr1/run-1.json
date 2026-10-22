@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 1,
+      "input_tokens": 783,
+      "latency_ms": 1980,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 383,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "974",
+        "x-ratelimit-remaining-tokens": "6836",
+        "x-ratelimit-reset-requests": "37m26.4s",
+        "x-ratelimit-reset-tokens": "8.729s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_64b2f1c926",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "testbed-pr1",
+  "case_hash": "9646ffbcf59a2316",
+  "duration_ms": 1980,
+  "estimated_cost_inr": "0.0330",
+  "estimated_cost_usd": "0.000347",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "correctness",
+      "file": "test.py",
+      "line": 3,
+      "message": "The loop iterates one past the end of the list (range(len(users) + 1)), which will raise an IndexError when accessing users[i] on the last iteration.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "finished_at": "2026-10-22T15:42:26.569864+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "correctness",
+      "cited_line": 3,
+      "downgraded": "",
+      "evidence": "for i in range(len(users) + 1):",
+      "file": "test.py",
+      "line": 3,
+      "message": "The loop iterates one past the end of the list (range(len(users) + 1)), which will raise an IndexError when accessing users[i] on the last iteration.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:42:24.589157+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

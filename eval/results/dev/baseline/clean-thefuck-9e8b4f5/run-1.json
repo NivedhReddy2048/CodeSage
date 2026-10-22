@@ -1,0 +1,106 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 2,
+      "input_tokens": 1011,
+      "latency_ms": 2830,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 981,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "978",
+        "x-ratelimit-remaining-tokens": "6138",
+        "x-ratelimit-reset-requests": "31m40.8s",
+        "x-ratelimit-reset-tokens": "13.965s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_dee443f41b",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "clean-thefuck-9e8b4f5",
+  "case_hash": "083f40ec6057cd62",
+  "duration_ms": 2830,
+  "estimated_cost_inr": "0.0703",
+  "estimated_cost_usd": "0.000740",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "correctness",
+      "file": "thefuck/rules/hostscli.py",
+      "line": 22,
+      "message": "get_new_command returns a list (['hostscli websites']) but the framework expects a string command; returning a list will cause type errors when the replacement is applied.",
+      "placement": "existing",
+      "rule": "",
+      "severity": "nit"
+    },
+    {
+      "agent": "baseline",
+      "category": "correctness",
+      "file": "thefuck/rules/hostscli.py",
+      "line": 24,
+      "message": "After handling the misspelled command, get_new_command does not return any value, so it falls through and returns None, which is invalid for a rule that must provide a corrected command string.",
+      "placement": "existing",
+      "rule": "",
+      "severity": "nit"
+    }
+  ],
+  "finished_at": "2026-10-22T15:38:14.184679+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "correctness",
+      "cited_line": 22,
+      "downgraded": "about code this PR did not change",
+      "evidence": "return ['hostscli websites']",
+      "file": "thefuck/rules/hostscli.py",
+      "line": 22,
+      "message": "get_new_command returns a list (['hostscli websites']) but the framework expects a string command; returning a list will cause type errors when the replacement is applied.",
+      "outcome": "kept",
+      "placement": "existing",
+      "reason": "",
+      "rule": "",
+      "severity": "nit"
+    },
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "correctness",
+      "cited_line": 24,
+      "downgraded": "about code this PR did not change",
+      "evidence": "misspelled_command = re.findall(\n",
+      "file": "thefuck/rules/hostscli.py",
+      "line": 24,
+      "message": "After handling the misspelled command, get_new_command does not return any value, so it falls through and returns None, which is invalid for a rule that must provide a corrected command string.",
+      "outcome": "kept",
+      "placement": "existing",
+      "reason": "",
+      "rule": "",
+      "severity": "nit"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:38:11.353832+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 1,
+      "input_tokens": 837,
+      "latency_ms": 1866,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 484,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "972",
+        "x-ratelimit-remaining-tokens": "6182",
+        "x-ratelimit-reset-requests": "40m19.2s",
+        "x-ratelimit-reset-tokens": "13.635s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_4200b3f836",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "testbed-pr2",
+  "case_hash": "6868d2af1935bf18",
+  "duration_ms": 1866,
+  "estimated_cost_inr": "0.0395",
+  "estimated_cost_usd": "0.000416",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "correctness",
+      "file": "web/orders.js",
+      "line": 8,
+      "message": "Missing await when calling async fetchOrder; 'order' will be a Promise, so accessing order.id and order.total will be undefined and cause runtime errors.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "finished_at": "2026-10-22T15:44:34.087579+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "correctness",
+      "cited_line": 8,
+      "downgraded": "",
+      "evidence": "const order = fetchOrder(orderId);",
+      "file": "web/orders.js",
+      "line": 8,
+      "message": "Missing await when calling async fetchOrder; 'order' will be a Promise, so accessing order.id and order.total will be undefined and cause runtime errors.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:44:32.220542+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

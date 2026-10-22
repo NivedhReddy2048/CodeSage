@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 1,
+      "input_tokens": 854,
+      "latency_ms": 1165,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 261,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "996",
+        "x-ratelimit-remaining-tokens": "6788",
+        "x-ratelimit-reset-requests": "5m45.6s",
+        "x-ratelimit-reset-tokens": "9.09s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_4727af4560",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "bugsinpy-thefuck-21",
+  "case_hash": "aa41b0537273ec6f",
+  "duration_ms": 1166,
+  "estimated_cost_inr": "0.0271",
+  "estimated_cost_usd": "0.000285",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "correctness",
+      "file": "thefuck/rules/git_fix_stash.py",
+      "line": 8,
+      "message": "Accesses index 1 of the split script without verifying that the script contains at least two parts, which can raise an IndexError for commands like \"git\" or empty input.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "finished_at": "2026-10-22T15:19:33.707222+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "correctness",
+      "cited_line": 8,
+      "downgraded": "",
+      "evidence": "return (command.script.split()[1] == 'stash'",
+      "file": "thefuck/rules/git_fix_stash.py",
+      "line": 8,
+      "message": "Accesses index 1 of the split script without verifying that the script contains at least two parts, which can raise an IndexError for commands like \"git\" or empty input.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:19:32.540882+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

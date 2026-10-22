@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 1,
+      "input_tokens": 778,
+      "latency_ms": 1444,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 381,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "988",
+        "x-ratelimit-remaining-tokens": "7080",
+        "x-ratelimit-reset-requests": "17m16.8s",
+        "x-ratelimit-reset-tokens": "6.9s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_f73454f048",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "bugsinpy-thefuck-5",
+  "case_hash": "549377ae7de1b361",
+  "duration_ms": 1445,
+  "estimated_cost_inr": "0.0328",
+  "estimated_cost_usd": "0.000345",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "correctness",
+      "file": "thefuck/rules/git_push.py",
+      "line": 9,
+      "message": "The match condition was broadened from checking for the exact phrase 'git push --set-upstream' to checking for any occurrence of 'set-upstream' in the command output, which can cause false positives and trigger the rule on unrelated messages containing that substring.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "finished_at": "2026-10-22T15:27:52.352106+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "correctness",
+      "cited_line": 9,
+      "downgraded": "",
+      "evidence": "and 'set-upstream' in command.output)",
+      "file": "thefuck/rules/git_push.py",
+      "line": 9,
+      "message": "The match condition was broadened from checking for the exact phrase 'git push --set-upstream' to checking for any occurrence of 'set-upstream' in the command output, which can cause false positives and trigger the rule on unrelated messages containing that substring.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:27:50.906908+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

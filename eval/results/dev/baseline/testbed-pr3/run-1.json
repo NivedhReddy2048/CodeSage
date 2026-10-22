@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 1,
+      "input_tokens": 911,
+      "latency_ms": 2175,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 502,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "970",
+        "x-ratelimit-remaining-tokens": "6464",
+        "x-ratelimit-reset-requests": "43m12s",
+        "x-ratelimit-reset-tokens": "11.52s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_bb691ea66b",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "testbed-pr3",
+  "case_hash": "73e08ebe2b6de839",
+  "duration_ms": 2175,
+  "estimated_cost_inr": "0.0416",
+  "estimated_cost_usd": "0.000438",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "error-handling",
+      "file": "app/lookup.py",
+      "line": 9,
+      "message": "The function assumes 'users' is always an iterable. If None or a non-iterable is passed, iterating will raise a TypeError, causing the lookup to crash.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "finished_at": "2026-10-22T15:46:40.131530+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "error-handling",
+      "cited_line": 9,
+      "downgraded": "",
+      "evidence": "for user in users:",
+      "file": "app/lookup.py",
+      "line": 9,
+      "message": "The function assumes 'users' is always an iterable. If None or a non-iterable is passed, iterating will raise a TypeError, causing the lookup to crash.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:46:37.955522+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

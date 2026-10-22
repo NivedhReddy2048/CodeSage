@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 1,
+      "input_tokens": 797,
+      "latency_ms": 1063,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 215,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "998",
+        "x-ratelimit-remaining-tokens": "6840",
+        "x-ratelimit-reset-requests": "2m52.8s",
+        "x-ratelimit-reset-tokens": "8.7s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_5082008e34",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "bugsinpy-pysnooper-3",
+  "case_hash": "651b0d6274fb48e7",
+  "duration_ms": 1063,
+  "estimated_cost_inr": "0.0237",
+  "estimated_cost_usd": "0.000249",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "correctness",
+      "file": "pysnooper/pysnooper.py",
+      "line": 26,
+      "message": "The variable 'output_path' is not defined in this scope; the original code used 'output' which holds the path string or PathLike object. This will raise a NameError when the write function is called, breaking functionality.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "finished_at": "2026-10-22T15:17:29.584291+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "correctness",
+      "cited_line": 26,
+      "downgraded": "",
+      "evidence": "with open(output_path, 'a') as output_file:",
+      "file": "pysnooper/pysnooper.py",
+      "line": 26,
+      "message": "The variable 'output_path' is not defined in this scope; the original code used 'output' which holds the path string or PathLike object. This will raise a NameError when the write function is called, breaking functionality.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:17:28.515983+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}

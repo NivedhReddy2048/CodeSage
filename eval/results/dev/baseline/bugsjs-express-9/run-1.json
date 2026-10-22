@@ -1,0 +1,80 @@
+{
+  "agents": [
+    {
+      "detail": "",
+      "error": "",
+      "findings_count": 1,
+      "input_tokens": 779,
+      "latency_ms": 1358,
+      "model": "openai/gpt-oss-120b",
+      "name": "baseline",
+      "output_tokens": 265,
+      "provider": "groq",
+      "provider_model": "openai/gpt-oss-120b",
+      "rate_limits": {
+        "x-ratelimit-limit-requests": "1000",
+        "x-ratelimit-limit-tokens": "8000",
+        "x-ratelimit-remaining-requests": "984",
+        "x-ratelimit-remaining-tokens": "6840",
+        "x-ratelimit-reset-requests": "23m2.4s",
+        "x-ratelimit-reset-tokens": "8.7s"
+      },
+      "requested_model": "openai/gpt-oss-120b",
+      "skipped_reason": "",
+      "succeeded": true,
+      "system_fingerprint": "fp_64b2f1c926",
+      "used_fallback": false
+    }
+  ],
+  "arm": "baseline",
+  "attempts": 1,
+  "case": "bugsjs-express-9",
+  "case_hash": "e1f93602e614221d",
+  "duration_ms": 1359,
+  "estimated_cost_inr": "0.0262",
+  "estimated_cost_usd": "0.000276",
+  "final_findings": [
+    {
+      "agent": "baseline",
+      "category": "correctness",
+      "file": "lib/application.js",
+      "line": 171,
+      "message": "The added line assigns mount_app.mountpath = path; but the variable 'path' is not defined in this scope (original code used mount_path). This will cause a ReferenceError and break app mounting logic.",
+      "placement": "inline",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "finished_at": "2026-10-22T15:32:01.095439+00:00",
+  "harness_commit": "e7cb665556dc136ce841a18f568963707855577c",
+  "invalid_reasons": [],
+  "models": {
+    "cheap": "openai/gpt-oss-20b",
+    "primary": "openai/gpt-oss-120b"
+  },
+  "pipeline_version": "2b0a0fd217778a48",
+  "raw_findings": [
+    {
+      "agent": "baseline",
+      "anchored_by": "evidence",
+      "category": "correctness",
+      "cited_line": 171,
+      "downgraded": "",
+      "evidence": "mount_app.mountpath = path;",
+      "file": "lib/application.js",
+      "line": 171,
+      "message": "The added line assigns mount_app.mountpath = path; but the variable 'path' is not defined in this scope (original code used mount_path). This will cause a ReferenceError and break app mounting logic.",
+      "outcome": "kept",
+      "placement": "inline",
+      "reason": "",
+      "rule": "",
+      "severity": "blocking"
+    }
+  ],
+  "run": 1,
+  "skipped_files": [],
+  "started_at": "2026-10-22T15:31:59.736175+00:00",
+  "suite": "dev",
+  "truncated": false,
+  "valid": true
+}
