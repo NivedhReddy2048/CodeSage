@@ -164,6 +164,26 @@ def is_partial_context_artefact(code):
     return is_syntax_code(code) or code in PARTIAL_CONTEXT_RULES
 
 
+# Undefined names. On a whole file these are not style: the line raises NameError
+# the first time it runs (bugsinpy-pysnooper-3 wrote to `output_path`, a name that
+# does not exist). They block like a syntax error - unless the module can supply
+# names ruff cannot see, through a star import or a module-level __getattr__.
+UNDEFINED_NAME_RULES = frozenset({"F821", "F822", "F823"})
+_DYNAMIC_NAMES = re.compile(
+    r"^[ \t]*from\s+\S+\s+import\s+\*|^def\s+__getattr__\s*\(", re.MULTILINE
+)
+
+
+def has_dynamic_names(content):
+    """Can this module define names ruff cannot see?"""
+    return bool(_DYNAMIC_NAMES.search(content or ""))
+
+
+def is_blocking_lint(code):
+    """The ruff rules that may block: the file does not parse, or a name is undefined."""
+    return is_syntax_code(code) or code in UNDEFINED_NAME_RULES
+
+
 def is_syntax_code(code):
     """Is this diagnostic ruff complaining that the file does not parse?
 
@@ -210,8 +230,11 @@ def run_analysis(files, complete=()):
     if python:
         with tempfile.TemporaryDirectory(prefix="codesage-sa-") as workdir:
             written = _write(python, workdir)
+            dynamic = frozenset(
+                path for path, content in python.items() if has_dynamic_names(content)
+            )
             runners = {
-                "ruff": lambda: _run_ruff(workdir, written, frozenset(complete)),
+                "ruff": lambda: _run_ruff(workdir, written, frozenset(complete), dynamic),
                 "bandit": lambda: _run_bandit(workdir, written),
             }
             for tool in PYTHON_TOOLS:
@@ -290,8 +313,12 @@ def _parse_json_output(tool, result):
         raise ToolUnavailable("produced no report") from exc
 
 
-def _run_ruff(workdir, written, complete=frozenset()):
-    """ruff with --isolated, so no configuration file anywhere can apply."""
+def _run_ruff(workdir, written, complete=frozenset(), dynamic=frozenset()):
+    """ruff with --isolated, so no configuration file anywhere can apply.
+
+    `dynamic` names the files that can define names ruff cannot see; an undefined
+    name there stays a nit.
+    """
     command = tool_command("ruff")
     if command is None:
         raise ToolUnavailable("not installed")
@@ -329,7 +356,7 @@ def _run_ruff(workdir, written, complete=frozenset()):
             # names defined or used outside the hunks are invisible. Reporting those
             # would describe our own input, not the change.
             continue
-        syntax = is_syntax_code(code)
+        undefined = code in UNDEFINED_NAME_RULES and original not in dynamic
         findings.append(
             ToolFinding(
                 file=original,
@@ -338,12 +365,13 @@ def _run_ruff(workdir, written, complete=frozenset()):
                 code=code or "invalid-syntax",
                 message=entry.get("message") or "",
                 tool="ruff",
-                # A file that does not parse blocks the merge. Syntax diagnostics
-                # only reach here for files linted whole (partial reconstructions are
-                # filtered above), so this is the author's error, not ours. Every
-                # other lint rule is a nit, even ruff's flake8-bandit (S) ports: only
-                # bandit's own severity rating can make a security finding block.
-                severity="blocking" if syntax else "nit",
+                # A file that does not parse, or a name that does not exist, blocks
+                # the merge. Both only reach here for files linted whole (partial
+                # reconstructions are filtered above), so this is the author's
+                # error, not ours. Every other lint rule is a nit, even ruff's
+                # flake8-bandit (S) ports: only bandit's own severity rating can make
+                # a security finding block.
+                severity="blocking" if is_syntax_code(code) or undefined else "nit",
             )
         )
     return findings
