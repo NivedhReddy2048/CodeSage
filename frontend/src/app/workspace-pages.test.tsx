@@ -184,6 +184,36 @@ describe("audit log", () => {
       "text-status-blocking",
     );
   });
+
+  it("filters to auth events as a group, and pills each one", async () => {
+    const { navigation } = await import("@/test/mocks");
+    navigation.search = new URLSearchParams("action=auth");
+    const entry = (id: number, action: string, action_label: string) => ({
+      id,
+      action,
+      action_label,
+      actor_login: "alice",
+      target_type: "",
+      target_id: "",
+      target_label: "alice",
+      metadata: { ip: "203.0.113.7" },
+      created_at: "2026-10-22T10:00:00Z",
+    });
+    apiMock.auditLog.mockResolvedValue({
+      count: 2,
+      next: null,
+      previous: null,
+      results: [entry(1, "auth.signed_in", "Signed in"), entry(2, "auth.sign_in_failed", "Sign-in failed")],
+    });
+    render(<AuditLogPage />, { wrapper: Providers });
+
+    expect(await screen.findByText("Signed in")).toBeInTheDocument();
+    expect(apiMock.auditLog).toHaveBeenCalledWith(expect.objectContaining({ action: "auth" }));
+    expect(screen.getByRole("option", { name: "Auth (sign-in, sign-out, failed sign-in)" })).toBeInTheDocument();
+    expect(within(screen.getByRole("table")).getByText("Sign-in failed").closest("span")).toHaveClass(
+      "text-status-blocking",
+    );
+  });
 });
 
 describe("settings", () => {

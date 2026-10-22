@@ -77,6 +77,35 @@ PR lands rather than one behind forever.
 
 ---
 
+## Follow-ups: superseded comments, token blacklisting, severity gaps
+
+**Status:** In progress.
+
+### Refresh-token blacklisting and auth audit events (#101)
+
+- `rest_framework_simplejwt.token_blacklist` is installed with
+  `BLACKLIST_AFTER_ROTATION=True`. A rotated refresh token is refused (401). Before
+  this, a replayed one got 200 against the live backend.
+- `POST /api/auth/logout/` blacklists the refresh token. The frontend's sign-out calls
+  it, fire and forget, then clears the session exactly as #65/#66 did.
+- Two tabs share one refresh token. When both refresh at once, the loser's old token is
+  blacklisted, so the client checks whether another tab already stored a new pair
+  before treating that 401 as a sign-out. The single-flight refresh from #98 is the
+  only caller of `/token/refresh/` in a tab: the proactive refresh, the 401 fallback
+  and the socket's `ensureFreshToken`.
+- The audit log records `auth.signed_in`, `auth.signed_out` and `auth.sign_in_failed`
+  (an OAuth failure, or replay of a revoked refresh token) with actor, time, IP (first
+  X-Forwarded-For hop) and user agent. Each event is filed under every organisation the
+  user belongs to. A failed sign-in GitHub never identified has no organisation and is
+  visible in the Django admin only. The Action filter has an "Auth" group.
+
+**Phase 7 prerequisite: run `python manage.py flushexpiredtokens` in the build command.**
+Every issued refresh token now leaves an `OutstandingToken` row and every rotation a
+`BlacklistedToken` row. Nothing prunes them otherwise, and the table grows with every
+sign-in and refresh.
+
+---
+
 ## Review quality and UI fixes from the testbed run
 
 **Status:** Done. Seven PRs, each closing its own issue: #86, #88, #90, #92, #94, #96 and

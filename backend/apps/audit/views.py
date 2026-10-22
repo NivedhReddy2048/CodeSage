@@ -53,7 +53,9 @@ class AuditLogView(ListAPIView):
     @extend_schema(
         parameters=[
             OpenApiParameter(
-                "action", OpenApiTypes.STR, description="Exact action, e.g. repo.connected"
+                "action",
+                OpenApiTypes.STR,
+                description="Exact action (repo.connected), or a group (auth)",
             ),
             OpenApiParameter("actor", OpenApiTypes.STR, description="Actor GitHub login"),
             OpenApiParameter("q", OpenApiTypes.STR, description="Search the target label"),
@@ -78,8 +80,12 @@ class AuditLogView(ListAPIView):
         queryset = AuditLogEntry.objects.filter(organization=self.organization)
         params = self.request.query_params
 
-        if params.get("action"):
-            queryset = queryset.filter(action=params["action"])
+        action = params.get("action")
+        if action and "." not in action:
+            # A group: "auth" is every auth.* event (signed in, out, failed).
+            queryset = queryset.filter(action__startswith=f"{action}.")
+        elif action:
+            queryset = queryset.filter(action=action)
         if params.get("actor"):
             queryset = queryset.filter(actor_login__iexact=params["actor"])
         if params.get("q"):

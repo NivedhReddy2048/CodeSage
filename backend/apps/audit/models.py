@@ -34,9 +34,19 @@ class AuditLogEntry(models.Model):
         REPO_REINDEXED = "repo.reindexed", "Re-index requested"
         REVIEW_RERUN = "review.rerun", "Review re-run"
         MEMBER_ROLE_CHANGED = "member.role_changed", "Member role changed"
+        AUTH_SIGNED_IN = "auth.signed_in", "Signed in"
+        AUTH_SIGNED_OUT = "auth.signed_out", "Signed out"
+        AUTH_SIGN_IN_FAILED = "auth.sign_in_failed", "Sign-in failed"
 
+    # Null only for an auth event nobody can be attributed to (a failed sign-in
+    # before GitHub said who it was): there is no organisation to file it under, so
+    # it is visible in the Django admin rather than any workspace's log.
     organization = models.ForeignKey(
-        Organization, on_delete=models.CASCADE, related_name="audit_entries"
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="audit_entries",
+        null=True,
+        blank=True,
     )
     # SET_NULL: removing a user must not erase what they did. The login is copied
     # into `actor_login` so the entry still reads correctly afterwards.

@@ -4,20 +4,24 @@ from rest_framework import generics, status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView
 
 from apps.accounts import github
-from apps.accounts.models import Membership, Organization
+from apps.accounts.models import Membership, Organization, User
 from apps.accounts.serializers import (
     AuthTokenResponseSerializer,
     GitHubCallbackSerializer,
     GitHubStartResponseSerializer,
+    LogoutRequestSerializer,
     MemberRoleSerializer,
     MembershipSerializer,
     OrganizationSerializer,
     UserSerializer,
 )
 from apps.accounts.services import get_or_create_user_from_github
+from apps.audit.services import Action, record_auth
 
 
 class GitHubLoginStartView(APIView):
@@ -67,11 +71,13 @@ class GitHubCallbackView(APIView):
         except github.GitHubOAuthError as exc:
             # A failed exchange is the caller's problem (stale code, replayed state),
             # not a server fault, so this is a 400 rather than a 502.
+            record_auth(None, Action.AUTH_SIGN_IN_FAILED, request, reason=str(exc)[:200])
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
 
         user, created = get_or_create_user_from_github(profile)
 
         refresh = RefreshToken.for_user(user)
+        record_auth(user, Action.AUTH_SIGNED_IN, request, first_sign_in=created)
         return Response(
             {
                 "access": str(refresh.access_token),
@@ -80,6 +86,71 @@ class GitHubCallbackView(APIView):
                 "created": created,
             }
         )
+
+
+class LogoutView(APIView):
+    """Sign out server-side: the refresh token is blacklisted, so a copy is useless.
+
+    Authenticated by the refresh token itself rather than the access token, which
+    may already have expired by the time someone presses "Sign out". Always 204: a
+    token that is invalid or already revoked has nothing left to revoke, and saying
+    which would tell a caller whether a token they hold is still live.
+    """
+
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    @extend_schema(
+        request=LogoutRequestSerializer,
+        responses={204: OpenApiResponse(description="Signed out (or nothing to revoke).")},
+    )
+    def post(self, request):
+        raw = str(request.data.get("refresh") or "")
+        try:
+            token = RefreshToken(raw)
+        except TokenError:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        user = User.objects.filter(pk=token.get("user_id")).first()
+        token.blacklist()
+        record_auth(user, Action.AUTH_SIGNED_OUT, request)
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class AuditedTokenRefreshView(TokenRefreshView):
+    """Token refresh that records a refused replay of a revoked refresh token.
+
+    A blacklisted token comes back only if someone kept a copy: the same browser
+    racing itself, or a stolen token. Either way its owner's workspaces should see
+    it, so it is audited as a failed sign-in before the 401 goes out.
+    """
+
+    def post(self, request, *args, **kwargs):
+        try:
+            return super().post(request, *args, **kwargs)
+        except InvalidToken:
+            owner = _revoked_token_owner(str(request.data.get("refresh") or ""))
+            if owner is not None:
+                record_auth(
+                    owner,
+                    Action.AUTH_SIGN_IN_FAILED,
+                    request,
+                    reason="revoked refresh token presented again",
+                )
+            raise
+
+
+def _revoked_token_owner(raw):
+    """The user a validly signed but blacklisted refresh token belongs to, or None."""
+    from rest_framework_simplejwt.state import token_backend
+    from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken
+
+    try:
+        payload = token_backend.decode(raw, verify=True)
+    except Exception:  # noqa: BLE001 - forged, expired or garbage: nobody to attribute
+        return None
+    if not BlacklistedToken.objects.filter(token__jti=payload.get("jti")).exists():
+        return None
+    return User.objects.filter(pk=payload.get("user_id")).first()
 
 
 class CurrentUserView(APIView):
