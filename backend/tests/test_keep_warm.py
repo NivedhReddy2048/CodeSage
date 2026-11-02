@@ -59,3 +59,8 @@ def test_the_awake_window_fits_the_free_hours_with_room_for_other_services():
     assert awake_minutes == 16 * 60 + 10
     assert round(monthly_hours) == 501
     assert monthly_hours < 750 - 200  # leaves ~249 h for the account's other services
+
+
+def test_the_runner_image_is_pinned():
+    """ubuntu-latest moves (to Ubuntu 26 next); the ping should not move with it."""
+    assert re.findall(r"runs-on:\s*(\S+)", WORKFLOW.read_text()) == ["ubuntu-24.04"]
