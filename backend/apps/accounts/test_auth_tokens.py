@@ -170,24 +170,53 @@ def test_a_failed_oauth_sign_in_is_audited_without_an_organisation():
 
 
 @pytest.mark.django_db
-def test_replaying_a_revoked_refresh_token_is_audited_as_a_failed_sign_in():
-    """Someone kept a copy: the owner's workspaces should know."""
+def test_replaying_a_revoked_refresh_token_is_audited_as_a_rejected_refresh():
+    """Someone kept a copy: the owner's workspaces should know, under its own name.
+
+    It is not a failed sign-in (nobody tried to sign in), so it is not filed as one.
+    """
     client = APIClient()
     token = sign_in(client)["refresh"]
     refresh(client, token)  # rotated, so `token` is now blacklisted
 
     assert refresh(client, token).status_code == 401
 
-    (entry,) = entries("auth.sign_in_failed")
+    assert entries("auth.sign_in_failed") == []
+    (entry,) = entries("auth.refresh_rejected")
     assert entry.actor_login == "octocat"
     assert entry.organization is not None
+    assert entry.get_action_display() == "Session refresh rejected"
     assert entry.metadata["reason"] == "revoked refresh token presented again"
+
+
+@pytest.mark.django_db
+def test_older_refresh_replays_filed_as_failed_sign_ins_show_the_new_label():
+    """Append-only: the old rows stay as written, and are labelled right when shown."""
+    from apps.audit.views import AuditLogEntrySerializer
+
+    client = APIClient()
+    sign_in(client)
+    owner = entries("auth.signed_in")[0].actor
+    organization = owner.memberships.get().organization
+    legacy = AuditLogEntry.objects.create(
+        organization=organization,
+        actor=owner,
+        action="auth.sign_in_failed",
+        metadata={"reason": "revoked refresh token presented again"},
+    )
+    genuine = AuditLogEntry.objects.create(
+        organization=organization, action="auth.sign_in_failed", metadata={"reason": "bad code"}
+    )
+
+    assert AuditLogEntrySerializer(legacy).data["action_label"] == "Session refresh rejected"
+    assert AuditLogEntrySerializer(genuine).data["action_label"] == "Sign-in failed"
 
 
 @pytest.mark.django_db
 def test_a_garbage_refresh_token_is_refused_without_an_audit_entry():
     assert refresh(APIClient(), "garbage").status_code == 401
     assert entries("auth.sign_in_failed") == []
+    assert entries("auth.refresh_rejected") == []
 
 
 @pytest.mark.django_db

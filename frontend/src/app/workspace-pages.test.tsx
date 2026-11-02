@@ -231,19 +231,26 @@ describe("audit log", () => {
       created_at: "2026-10-22T10:00:00Z",
     });
     apiMock.auditLog.mockResolvedValue({
-      count: 2,
+      count: 3,
       next: null,
       previous: null,
-      results: [entry(1, "auth.signed_in", "Signed in"), entry(2, "auth.sign_in_failed", "Sign-in failed")],
+      results: [
+        entry(1, "auth.signed_in", "Signed in"),
+        entry(2, "auth.sign_in_failed", "Sign-in failed"),
+        entry(3, "auth.refresh_rejected", "Session refresh rejected"),
+      ],
     });
     render(<AuditLogPage />, { wrapper: Providers });
 
     expect(await screen.findByText("Signed in")).toBeInTheDocument();
     expect(apiMock.auditLog).toHaveBeenCalledWith(expect.objectContaining({ action: "auth" }));
-    expect(screen.getByRole("option", { name: "Auth (sign-in, sign-out, failed sign-in)" })).toBeInTheDocument();
-    expect(within(screen.getByRole("table")).getByText("Sign-in failed").closest("span")).toHaveClass(
-      "text-status-blocking",
-    );
+    expect(
+      screen.getByRole("option", { name: "Auth (sign-in, sign-out, failed sign-in, rejected refresh)" }),
+    ).toBeInTheDocument();
+    const table = within(screen.getByRole("table"));
+    expect(table.getByText("Sign-in failed").closest("span")).toHaveClass("text-status-blocking");
+    // A replayed refresh token is its own event, not a failed sign-in.
+    expect(table.getByText("Session refresh rejected").closest("span")).toHaveClass("text-status-blocking");
   });
 });
 

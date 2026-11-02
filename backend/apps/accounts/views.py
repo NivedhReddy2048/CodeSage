@@ -21,7 +21,7 @@ from apps.accounts.serializers import (
     UserSerializer,
 )
 from apps.accounts.services import get_or_create_user_from_github
-from apps.audit.services import Action, record_auth
+from apps.audit.services import REVOKED_REFRESH_REASON, Action, record_auth
 
 
 class GitHubLoginStartView(APIView):
@@ -121,7 +121,7 @@ class AuditedTokenRefreshView(TokenRefreshView):
 
     A blacklisted token comes back only if someone kept a copy: the same browser
     racing itself, or a stolen token. Either way its owner's workspaces should see
-    it, so it is audited as a failed sign-in before the 401 goes out.
+    it, so it is audited as a rejected session refresh before the 401 goes out.
     """
 
     def post(self, request, *args, **kwargs):
@@ -132,9 +132,9 @@ class AuditedTokenRefreshView(TokenRefreshView):
             if owner is not None:
                 record_auth(
                     owner,
-                    Action.AUTH_SIGN_IN_FAILED,
+                    Action.AUTH_REFRESH_REJECTED,
                     request,
-                    reason="revoked refresh token presented again",
+                    reason=REVOKED_REFRESH_REASON,
                 )
             raise
 
