@@ -9,8 +9,15 @@ full-text), so findings carry real file and line citations rather than generic a
 Architecture, tech-stack rationale and free-tier constraints: [docs/PROJECT_SPEC.md](docs/PROJECT_SPEC.md).
 Build status: [docs/PROGRESS.md](docs/PROGRESS.md).
 
-> Scaffold stage (phase 0). The full README — architecture diagram, deployment
-> guide and engineering-tradeoffs section — is written in phase 7.
+**Live:** https://code-sage-lac.vercel.app. Sign in with GitHub, install the
+[CodeSage Review Bot](https://github.com/apps/codesage-review-bot) on a public
+repository, and open a pull request. It is a free demo: 5 reviews a day per
+workspace, public repositories only, and the backend
+(https://codesage-api-ihhi.onrender.com) sleeps overnight (IST), so the first
+request after a quiet spell takes about a minute while it wakes. PRs opened while
+it slept are reviewed when it wakes.
+
+How it is deployed, on free tiers only: [docs/DEPLOY.md](docs/DEPLOY.md).
 
 ## Layout
 
