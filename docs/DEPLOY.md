@@ -14,18 +14,31 @@ never in this repository. The local equivalents are in `backend/.env.example` an
 | Keep-warm ping | GitHub Actions schedule | n/a |
 
 Everything sits on the US west coast, so the API, the database and Redis are a few
-milliseconds apart. Choose names before you start: the Render service name fixes
-its URL (`https://<render-service>.onrender.com`), which the Vercel and GitHub App
-steps need before the service exists.
+milliseconds apart. Choose names before you start, but **expect Render to add a
+suffix**: if the name is taken, the URL becomes `https://<name>-<random>.onrender.com`
+(ours is `codesage-api-ihhi`). Use the URL Render actually shows in Vercel's
+`NEXT_PUBLIC_API_URL` and in the GitHub App's webhook URL, and fix both if they
+were set from the name in advance.
+
+**The live deployment** (2026-11-02):
+
+| | |
+|---|---|
+| Frontend | https://code-sage-lac.vercel.app |
+| Backend | https://codesage-api-ihhi.onrender.com |
+| GitHub App | "CodeSage Review Bot", slug `codesage-review-bot` |
+
+See "Lessons from the first deploy" at the end for what differed from the plan.
 
 ---
 
 ## 1. Neon (Postgres)
 
 1. Create a project: Postgres 17, region **AWS US West 2 (Oregon)**.
-2. Compute: leave scale-to-zero on (fixed at 5 minutes on the free plan). Set
-   autoscaling to **0.25-0.5 CU**: compute-hours are CU x hours, and a small ceiling
-   keeps a busy day inside the monthly allowance (see "Monthly limits to watch").
+2. Compute: leave scale-to-zero on (fixed at 5 minutes on the free plan), and set a
+   **fixed 0.25 CU** (what production runs). Compute-hours are CU x hours, so a fixed
+   minimum makes every awake hour cost exactly 0.25 and keeps a busy day inside the
+   monthly allowance (see "Monthly limits to watch").
 3. Connection details: switch **Connection pooling on** and copy the pooled string.
    The host contains `-pooler`, and the string ends in `sslmode=require`.
 4. pgvector needs no manual step: the first migration runs `CREATE EXTENSION vector`,
@@ -138,7 +151,10 @@ Celery worker, so every `process_ehr_document.delay()` adds a message to its
 
 ## 3. Vercel (frontend)
 
-1. Import the repository; **Root Directory** `frontend`, framework Next.js.
+1. Import the repository as **one project, the frontend only**: **Root Directory**
+   `frontend`, framework Next.js. Vercel may detect the backend too and offer to set
+   up "Services" (several apps from one repository); decline it. The backend is
+   Render's.
 2. Functions run in **`pdx1`** (Portland, next to Oregon). This is set in
    `frontend/vercel.json`, so there is nothing to choose in the dashboard.
 3. Environment variables (Production):
@@ -147,6 +163,10 @@ Celery worker, so every `process_ehr_document.delay()` adds a message to its
 |---|---|
 | `NEXT_PUBLIC_API_URL` | `https://<render-service>.onrender.com` (no trailing slash) |
 | `NEXT_PUBLIC_DEMO_REVIEWS_PER_WORKSPACE` | the backend's `DEMO_REVIEWS_PER_WORKSPACE_PER_DAY` (5) |
+
+Create both as type **Config**, not **Secret**. They are public by design (they are
+compiled into the browser bundle), and a Secret cannot be edited later: changing
+one means deleting and recreating it.
 
 **`NEXT_PUBLIC_DEMO_REVIEWS_PER_WORKSPACE` must match the backend's
 `DEMO_REVIEWS_PER_WORKSPACE_PER_DAY` on Render.** The landing page shows this number
@@ -181,6 +201,8 @@ GitHub, Settings, Developer settings, **OAuth Apps**, New:
 
 GitHub, Settings, Developer settings, **GitHub Apps**, New. This is a separate
 identity from the OAuth App: it receives webhooks and comments as `<slug>[bot]`.
+App names are global on GitHub and "CodeSage" was taken; ours is **"CodeSage
+Review Bot"** (slug `codesage-review-bot`, so `GITHUB_APP_SLUG=codesage-review-bot`).
 
 - Homepage URL: the Vercel URL.
 - Webhook: **active**. URL `https://<render-service>.onrender.com/api/webhooks/github/`.
@@ -226,7 +248,7 @@ New, **Web Service**, from the GitHub repository:
 
 | Setting | Value |
 |---|---|
-| Name | `<render-service>` (fixes the URL used above) |
+| Name | `<render-service>` (Render may add a suffix; see the top of this guide) |
 | Region | Oregon |
 | Instance type | Free |
 | Runtime | Python 3 (no `render.yaml`) |
@@ -416,3 +438,28 @@ at least 5 minutes after the last query:
 (~119K of 200K), which leaves room for roughly 15-20 live reviews. Lower
 `DEMO_REVIEWS_PER_DAY` (and, if needed, `DEMO_REVIEWS_PER_WORKSPACE_PER_DAY`) on
 Render for that day, then put them back.
+
+---
+
+## Lessons from the first deploy
+
+What the 2026-11-02 deploy taught that the plan above did not already say. Each
+one is also folded into its step.
+
+- **The Render URL got a suffix.** `codesage-api` was taken, so the service is
+  `codesage-api-ihhi.onrender.com`. Use the URL Render shows, not the name you typed,
+  in Vercel's `NEXT_PUBLIC_API_URL` and in the GitHub App's webhook URL.
+- **The `REDIS_URL` guard earned its keep.** The first deploy pasted the Key Value
+  URL without `/1`; production refused to start with the database-0 error instead
+  of quietly sharing CareBridge's database. Append `/1` and redeploy.
+- **Vercel: one project, the frontend only.** Decline the "Services" multi-app
+  offer when Vercel detects the backend in the same repository.
+- **Vercel: `NEXT_PUBLIC_*` variables are type Config, not Secret.** A Secret cannot
+  be edited afterwards; it has to be deleted and recreated.
+- **`TRUSTED_PROXY_HOPS=3`**, not 1: client, then Cloudflare, then Render's internal
+  proxy (see "Client IP behind Render"). 3 is now the production default.
+- **The GitHub App name may be taken.** Ours is "CodeSage Review Bot".
+- **Neon runs at a fixed 0.25 CU**, so compute-hours are predictable.
+- **Render: "Save and deploy" for environment-only changes.** It restarts with the
+  new variables on the existing build. "Save, rebuild, and deploy" spends build
+  minutes from the shared 500 for nothing when no code changed.

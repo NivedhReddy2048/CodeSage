@@ -16,7 +16,7 @@ pull requests, each closing its own issue. Architecture lives in
 | 4 | Agent pipeline v1 | `phase-4a` agents pkg, `4b` reviews app, `4c` push+page | **Done** |
 | 5 | Full 6-agent pipeline | `phase-5a` retrieval, `5b` graph, `5c` wiring; hardening `5d` honest output, `5e` grounding + inline | **Done** |
 | 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **Done** |
-| 7 | Deploy + CI | Part 2: `phase-7a` runtime, `7b` data services, `7c` webhook catch-up, `7d` free-demo guardrails, `7e` keep-warm + DEPLOY.md, `7f` audit label | **Deploy-ready**: accounts and services next, by hand, per [DEPLOY.md](DEPLOY.md); then README and the fork smoke test |
+| 7 | Deploy + CI | Part 2: `phase-7a` runtime, `7b` data services, `7c` webhook catch-up, `7d` free-demo guardrails, `7e` keep-warm + DEPLOY.md, `7f` audit label; live fixes #145-#151 | **Done**: live at https://code-sage-lac.vercel.app |
 | 8 | Evaluation | `phase-8a` harness, `8b` DEV set, `8c` TEST set, `8d` baseline; after DEV run 1: `8e` undefined names, `8f` grounding precedent, `8g` measurement amendments, `8h` correctness agent | In progress: DEV round 2 next |
 | R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | **Done** |
 
@@ -60,7 +60,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **71 merged — bronze (16) reached; silver at 128** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **76 merged — bronze (16) reached; silver at 128** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -76,6 +76,40 @@ counts merged PRs *including* the one making the edit, so it is correct the mome
 PR lands rather than one behind forever.
 
 ---
+
+## Phase 7 — Live
+
+| | |
+|---|---|
+| Frontend (Vercel, pdx1) | https://code-sage-lac.vercel.app |
+| Backend (Render free, Oregon) | https://codesage-api-ihhi.onrender.com (the `-ihhi` suffix because `codesage-api` was taken) |
+| GitHub App | "CodeSage Review Bot", `codesage-review-bot`, installed only on `NivedhReddy2048/codesage-demo` |
+| Data | Neon (us-west-2, fixed 0.25 CU), `carebridge-redis` database 1 |
+
+**Production smoke test, passed.** codesage-demo PR #1 adds `app/invoices.py` with an
+f-string SQL query. The first review succeeded in 6 s and flagged it blocking. It
+also showed three things to fix, each now a PR:
+
+- **#145**: the summary said "2 already on the diff from an earlier run" on the
+  *first* review. Findings sharing line 8 had been folded into one comment, and
+  counted as an earlier run's. Now one comment carries every finding on its line,
+  and the summary tells "same line" apart from "an earlier review of this PR".
+- **#147**: the audit log recorded a proxy's address until `TRUSTED_PROXY_HOPS` was 3
+  (client, Cloudflare, Render's proxy, app). 3 is the default now, and a private or
+  Cloudflare address is flagged in the entry and the log.
+- The one SQL injection appeared as three blocking findings (correctness, security
+  with ruff S608, bandit B608). That is agent code, so it waits for the
+  round-2 tuning batch (cross-category duplicate merging).
+
+Also from the live run: **#149** pins that a 600-character installation token (GitHub's
+new format) passes through whole. The audit found no length assumption to fix.
+**#151** pins keep-warm to `ubuntu-24.04`. DEPLOY.md gained "Lessons from the first
+deploy": the URL suffix, the `/1` guard catching a missing `/1`, Vercel's
+frontend-only import and Config-type variables, the App name, the fixed 0.25 CU, and
+"Save and deploy" for environment-only changes.
+
+Still open from the original phase 7 prompt: the README's architecture diagram and
+engineering-tradeoffs section.
 
 ## Phase 7 — Deploy-ready (Part 2)
 
