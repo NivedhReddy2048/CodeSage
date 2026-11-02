@@ -264,7 +264,7 @@ Environment variables. Required:
 
 Optional, with defaults that suit this deploy: `GITHUB_APP_SLUG`,
 `DJANGO_ALLOWED_HOSTS` (Render's `RENDER_EXTERNAL_HOSTNAME` is added automatically),
-`TRUSTED_PROXY_HOPS` (1), `DEMO_REVIEWS_PER_WORKSPACE_PER_DAY` (5),
+`TRUSTED_PROXY_HOPS` (3, see below), `DEMO_REVIEWS_PER_WORKSPACE_PER_DAY` (5),
 `DEMO_REVIEWS_PER_DAY` (35), `DEMO_MAX_REPOS_PER_WORKSPACE` (3),
 `INGESTION_MAX_CHUNKS_PER_REPO` (2000), `CATCHUP_INTERVAL_SECONDS` (1800),
 `DJANGO_LOG_LEVEL`. The full list, with what each one does, is at the end of
@@ -284,16 +284,55 @@ Budget: 500 pipeline minutes a month, **shared with every service on the account
 could deploy around 40 times a month on 120 minutes. The Root Directory filter
 above keeps non-backend merges from counting.
 
+### Client IP behind Render: `TRUSTED_PROXY_HOPS=3`
+
+Measured on the live service, not documented by Render. A request reaches the app as
+
+```
+client  ->  Cloudflare (172.64.0.0/13 and its other ranges)  ->  Render's internal proxy (10.x)  ->  app
+```
+
+and each proxy appends the address it saw to `X-Forwarded-For`, so the header
+ends `..., <client>, <Cloudflare edge>, <Render proxy>`. Counting from the right:
+
+| `TRUSTED_PROXY_HOPS` | Audit log showed |
+|---|---|
+| 1 | `10.196.x`: Render's internal proxy |
+| 2 | `172.71.x`: a Cloudflare edge |
+| **3** | **the real client** |
+
+3 is now the production default. A wrong value is not silent any more: when the
+address read is private or internal, inside Cloudflare's published ranges, or the
+header is shorter than the hop count, the app logs a warning and the audit entry
+carries an `ip warning` detail naming the likely fix. A count that is too HIGH reads
+an entry the client wrote itself, which can look like any public address; the only
+tell is a header shorter than the count, which is flagged too. So after any change
+on Render's side, repeat the `ifconfig.me` comparison.
+
+**`CF-Connecting-IP` and `True-Client-IP` are not trusted.** Both are just headers.
+Cloudflare overwrites them on requests it handles, but the app cannot see which hop
+set them. If Render ever routed traffic without Cloudflare in front, a client's own
+`CF-Connecting-IP` would arrive untouched.
+
+A proposal, not implemented: the request can be shown to have come through
+Cloudflare. The entry Render's own proxy appended second from the right is the
+address of whoever connected to Render. If that entry is inside Cloudflare's
+published ranges, Cloudflare handled the request, and its `CF-Connecting-IP` is the
+address Cloudflare saw. That address is the same `X-Forwarded-For` entry that
+`TRUSTED_PROXY_HOPS=3` already reads, so trusting the header would add nothing.
+The one use worth having is a cross-check: when the second-from-right entry is a
+Cloudflare address and `CF-Connecting-IP` differs from the third, flag the entry.
+Two caveats keep this a proposal: the ranges must stay current (the list is in
+`apps/audit/services.py`, last changed by Cloudflare in 2023), and a request sent from
+a Cloudflare Worker also comes through Cloudflare.
+
 ### After the first deploy
 
 1. `curl https://<render-service>.onrender.com/api/health/` returns
    `{"status": "ok", ...}`.
 2. **Check the client IP the audit log records.** Sign in through Vercel, open
    **Audit log**, and compare the sign-in's IP with what `https://ifconfig.me` reports
-   for you. If they match, `TRUSTED_PROXY_HOPS=1` is right. If the log shows a
-   private or Render address, Render appended more than one hop, so set
-   `TRUSTED_PROXY_HOPS=2` and check again. Render does not document its hop count,
-   and the setting reads from the right, so a client can never forge the value.
+   for you. See "Client IP behind Render" below; the answer was 3.
 3. Connect a public repository you own (a fork, never someone else's upstream),
    open a test PR, and watch the `<slug>[bot]` comment arrive and turn into the
    review.

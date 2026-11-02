@@ -217,3 +217,93 @@ def test_no_request_means_no_ip():
     from apps.audit.services import client_ip
 
     assert client_ip(None) == ""
+
+
+# ----------------------------------------------- hop-count misconfiguration
+
+# What production saw: the client, then Cloudflare's edge, then Render's proxy. The
+# client is a public address: documentation ranges (203.0.113.0/24) are not global.
+RENDER_CHAIN = "93.184.216.34, 172.71.10.20, 10.196.4.5"
+
+
+@pytest.mark.parametrize(
+    ("hops", "recorded", "warning"),
+    [
+        (1, "10.196.4.5", "private or internal address"),  # Render's proxy
+        (2, "172.71.10.20", "Cloudflare edge address"),  # Cloudflare
+        (3, "93.184.216.34", ""),  # the client: what production needs
+    ],
+)
+def test_a_hop_count_that_stops_at_a_proxy_is_flagged(settings, hops, recorded, warning):
+    from apps.audit.services import client_ip, client_ip_warning
+
+    settings.TRUSTED_PROXY_HOPS = hops
+    request = _request(RENDER_CHAIN)
+
+    ip = client_ip(request)
+
+    assert ip == recorded
+    if warning:
+        assert warning in client_ip_warning(request, ip)
+        assert f"TRUSTED_PROXY_HOPS ({hops})" in client_ip_warning(request, ip)
+    else:
+        assert client_ip_warning(request, ip) == ""
+
+
+def test_a_cloudflare_ipv6_edge_address_is_flagged(settings):
+    from apps.audit.services import client_ip_warning
+
+    settings.TRUSTED_PROXY_HOPS = 1
+
+    edge = "2606:4700:10::ac43:1"
+
+    assert "Cloudflare" in client_ip_warning(_request(edge), edge)
+
+
+def test_a_header_shorter_than_the_hop_count_is_flagged(settings):
+    from apps.audit.services import client_ip, client_ip_warning
+
+    settings.TRUSTED_PROXY_HOPS = 3
+    request = _request("93.184.216.34")
+
+    assert "X-Forwarded-For has 1 entries but TRUSTED_PROXY_HOPS is 3" in client_ip_warning(
+        request, client_ip(request)
+    )
+
+
+def test_local_development_is_never_flagged(settings):
+    """No proxy: 127.0.0.1 is the honest answer, not a misconfiguration."""
+    from apps.audit.services import client_ip, client_ip_warning
+
+    settings.TRUSTED_PROXY_HOPS = 0
+    request = _request(None, remote="127.0.0.1")
+
+    assert client_ip_warning(request, client_ip(request)) == ""
+
+
+@pytest.mark.django_db
+def test_a_flagged_address_is_in_the_entry_and_the_log(settings, caplog):
+    from apps.audit.services import record_auth
+
+    settings.TRUSTED_PROXY_HOPS = 1
+    alice, _org = factories.user("alice")
+
+    with caplog.at_level("WARNING", logger="apps.audit.services"):
+        (entry,) = record_auth(alice, Action.AUTH_SIGNED_IN, _request(RENDER_CHAIN))
+
+    assert entry.metadata["ip"] == "10.196.4.5"
+    assert "TRUSTED_PROXY_HOPS (1) is probably too low" in entry.metadata["ip_warning"]
+    assert "Client IP looks wrong" in caplog.text
+
+
+@pytest.mark.django_db
+def test_a_correct_address_adds_no_warning(settings):
+    from apps.audit.services import record_auth
+
+    settings.TRUSTED_PROXY_HOPS = 3
+    alice, _org = factories.user("alice")
+
+    (entry,) = record_auth(alice, Action.AUTH_SIGNED_IN, _request(RENDER_CHAIN))
+
+    assert entry.metadata["ip"] == "93.184.216.34"
+    assert "ip_warning" not in entry.metadata
