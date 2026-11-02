@@ -43,7 +43,12 @@ SEVERITY_LABEL = {"blocking": "Blocking", "nit": "Nit"}
 @dataclass
 class InlineOutcome:
     posted: int = 0
+    # Findings on a line that already carries a CodeSage comment from an EARLIER
+    # review of this PR, so not posted again.
     duplicates: int = 0
+    # Findings of THIS review that share a line with another of its findings, and
+    # so ride in that line's one inline comment rather than getting their own.
+    shared: int = 0
     failed: int = 0
     # Earlier comments edited to "Superseded by review of ...", and how many of
     # their threads GitHub let us resolve.
@@ -164,17 +169,32 @@ def already_covered(locations, path, line):
     return (path, line) in locations
 
 
-def render_comment(finding):
+def _headline(finding):
     label = SEVERITY_LABEL.get(finding.severity, finding.severity)
     category = f" · {finding.category}" if finding.category else ""
-    return (
-        f"**{label}{category}** — {finding.message}\n\n"
-        f"<sub>CodeSage · {finding.agent.replace('_', ' ')}</sub>\n{MARKER}"
-    )
+    return f"**{label}{category}** — {finding.message}"
+
+
+def render_comment(finding, also=()):
+    """One line's comment: its leading finding, then any others on the same line.
+
+    The leading finding comes first because the body's opening label is what a
+    later review reads back as this comment's severity (comment_severity).
+    """
+    body = f"{_headline(finding)}\n\n<sub>CodeSage · {finding.agent.replace('_', ' ')}</sub>"
+    if also:
+        others = "\n".join(
+            f"- {_headline(other)} <sub>({other.agent.replace('_', ' ')})</sub>" for other in also
+        )
+        body += f"\n\nAlso on this line:\n{others}"
+    return f"{body}\n{MARKER}"
 
 
 def post_inline_comments(github, installation_id, pull_request, head_sha, findings, limit):
     """Post one inline comment per new finding location, deduplicated.
+
+    Findings that share a line share its comment (counted in `shared`); a line an
+    earlier review of this PR already commented on gets nothing new (`duplicates`).
 
     `findings` are stored ReviewFinding rows, already ordered blocking-first by
     synthesis, so the cap keeps the most important ones.
@@ -192,25 +212,30 @@ def post_inline_comments(github, installation_id, pull_request, head_sha, findin
     )
     existing = existing_locations(standing)
 
-    pending = []
-    seen = set(existing)
+    # One comment per line, carrying every finding on it, in the order synthesis
+    # ranked them (blocking first). A line an earlier review already commented on
+    # is skipped: that is the only real "already on the diff".
+    by_line = {}
     for finding in findings:
         if getattr(finding, "placement", "inline") in {"existing", "general"}:
             continue
         key = (finding.file_path, finding.line)
-        if already_covered(seen, *key):
+        if already_covered(existing, *key):
             outcome.duplicates += 1
             continue
-        seen.add(key)
-        pending.append(
-            {
-                "path": finding.file_path,
-                "line": finding.line,
-                "side": "RIGHT",
-                "body": render_comment(finding),
-            }
-        )
-    pending = pending[:limit]
+        by_line.setdefault(key, []).append(finding)
+
+    groups = list(by_line.values())[:limit]
+    outcome.shared = sum(len(group) - 1 for group in groups)
+    pending = [
+        {
+            "path": group[0].file_path,
+            "line": group[0].line,
+            "side": "RIGHT",
+            "body": render_comment(group[0], also=group[1:]),
+        }
+        for group in groups
+    ]
     if not pending:
         return outcome
 

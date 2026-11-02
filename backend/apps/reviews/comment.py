@@ -182,8 +182,16 @@ def _render_inline_note(inline):
     parts = []
     if inline.posted:
         parts.append(f"{inline.posted} new inline comment{'s' if inline.posted != 1 else ''}")
+    shared = getattr(inline, "shared", 0)
+    if shared and inline.posted:
+        # This review's findings that share a line ride in that line's one comment.
+        parts.append(
+            f"{shared} more finding{'s' if shared != 1 else ''} "
+            f"in {'those comments' if inline.posted != 1 else 'that comment'} (same line)"
+        )
     if inline.duplicates:
-        parts.append(f"{inline.duplicates} already on the diff from an earlier run")
+        # Only a comment that really exists from an earlier review of this PR.
+        parts.append(f"{inline.duplicates} already on the diff from an earlier review of this PR")
     if superseded:
         parts.append(f"{superseded} earlier comment{'s' if superseded != 1 else ''} superseded")
     return f"_Inline on the changed lines: {', '.join(parts)}._"
