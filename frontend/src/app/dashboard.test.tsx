@@ -27,7 +27,7 @@ vi.mock("@/components/auth-provider", () => ({
 
 import AuditLogPage from "@/app/(app)/audit/page";
 import DashboardPage from "@/app/(app)/page";
-import { NotificationBell } from "@/components/notification-bell";
+import { NOTIFICATION_POLL_MS, NotificationBell } from "@/components/notification-bell";
 import { OrganizationProvider } from "@/components/organization-provider";
 import { ApiError } from "@/lib/api";
 import type { AnalyticsOverview } from "@/lib/types";
@@ -240,6 +240,46 @@ describe("notification bell", () => {
 
     const bell = await screen.findByRole("button", { name: "Notifications, 12 unread" });
     expect(within(bell).getByText("9+")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("stops polling while the tab is hidden and catches up when it returns", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const hidden = vi.spyOn(document, "hidden", "get");
+    try {
+      apiMock.notifications.mockResolvedValue({ unread_count: 0, results: [] });
+      hidden.mockReturnValue(false);
+      render(<NotificationBell />);
+      await waitFor(() => expect(apiMock.notifications).toHaveBeenCalledTimes(1));
+
+      hidden.mockReturnValue(true);
+      document.dispatchEvent(new Event("visibilitychange"));
+      await vi.advanceTimersByTimeAsync(NOTIFICATION_POLL_MS * 5);
+      expect(apiMock.notifications).toHaveBeenCalledTimes(1);
+
+      hidden.mockReturnValue(false);
+      document.dispatchEvent(new Event("visibilitychange"));
+      await waitFor(() => expect(apiMock.notifications).toHaveBeenCalledTimes(2));
+      await vi.advanceTimersByTimeAsync(NOTIFICATION_POLL_MS);
+      expect(apiMock.notifications).toHaveBeenCalledTimes(3);
+    } finally {
+      hidden.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("a tab opened in the background does not poll at all", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const hidden = vi.spyOn(document, "hidden", "get").mockReturnValue(true);
+    try {
+      apiMock.notifications.mockResolvedValue({ unread_count: 0, results: [] });
+      render(<NotificationBell />);
+      await vi.advanceTimersByTimeAsync(NOTIFICATION_POLL_MS * 3);
+
+      expect(apiMock.notifications).not.toHaveBeenCalled();
+    } finally {
+      hidden.mockRestore();
+      vi.useRealTimers();
+    }
   });
 
   it("an empty bell says so", async () => {
