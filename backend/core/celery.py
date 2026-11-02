@@ -28,3 +28,20 @@ def catch_up_on_startup(**_kwargs):
     from apps.repos import catchup
 
     catchup.schedule(force=True)
+
+
+@worker_ready.connect
+def recover_on_startup(**_kwargs):
+    """A worker that just started may have been killed mid-review: re-queue those.
+
+    Startup only, by design: while a worker runs, a long review is not a stuck one.
+    Queued rather than run here, so it runs after whatever was already waiting.
+    """
+    try:
+        from apps.reviews.tasks import recover_stuck_reviews_task
+
+        recover_stuck_reviews_task.delay()
+    except Exception:  # noqa: BLE001 - recovery failing must not stop the worker starting
+        import logging
+
+        logging.getLogger(__name__).exception("Could not queue startup review recovery")

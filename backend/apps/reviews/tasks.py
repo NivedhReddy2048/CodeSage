@@ -27,5 +27,18 @@ def review_pull_request_task(pull_request_id, installation_id, review_id=None):
     from apps.reviews.models import Review
 
     existing = Review.objects.filter(pk=review_id).first() if review_id else None
+    if existing is not None and existing.status != Review.Status.PENDING:
+        # Already taken: startup recovery re-queued a review whose original message
+        # was still in the queue, and whichever ran first did the work.
+        logger.info("Review %s is %s, not pending; skipping", existing.pk, existing.status)
+        return {"review_id": existing.pk, "status": existing.status, "skipped": True}
     review = review_pull_request(pull_request, installation_id, review=existing)
     return {"review_id": review.pk, "status": review.status}
+
+
+@shared_task(name="reviews.recover_stuck")
+def recover_stuck_reviews_task():
+    """Re-queue reviews a restart interrupted (see apps/reviews/recovery.py)."""
+    from apps.reviews.recovery import recover_stuck_reviews
+
+    return dict(recover_stuck_reviews())
