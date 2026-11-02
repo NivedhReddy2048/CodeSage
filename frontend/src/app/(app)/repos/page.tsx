@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { toast } from "sonner";
 
+import { useDemoLimits } from "@/components/demo-limits";
 import { IngestionStatus } from "@/components/ingestion-status";
 import { useOrganization } from "@/components/organization-provider";
 import { PageHeader } from "@/components/page-header";
@@ -98,6 +99,7 @@ export default function ReposPage() {
   const { canManage } = useOrganization();
   const connected = useResource(() => api.repositories(), "connected");
   const installable = useResource(() => api.installableRepositories(), "installable");
+  const demo = useDemoLimits();
 
   const [actionError, setActionError] = useState<string | null>(null);
   // Per-repository, so one button spinning does not disable the others.
@@ -119,6 +121,10 @@ export default function ReposPage() {
   }
 
   const available = installable.data?.repositories.filter((repo) => !repo.connected) ?? [];
+  // The free demo's limits, mirrored from the server (which enforces them): public
+  // repositories only, and a few per workspace.
+  const repoLimit = demo.data?.repositories.limit ?? 3;
+  const atRepoLimit = (connected.data?.length ?? 0) >= repoLimit;
 
   return (
     <>
@@ -257,9 +263,12 @@ export default function ReposPage() {
                     </p>
                     <RepoMeta privateRepo={repo.private} branch={repo.default_branch} />
                   </div>
-                  {canManage ? (
+                  {canManage && repo.private ? (
+                    <span className="shrink-0 text-xs text-fg-secondary">Public repositories only</span>
+                  ) : canManage ? (
                     <Button
                       size="sm"
+                      title={atRepoLimit ? `The free demo allows ${repoLimit} repositories per workspace` : undefined}
                       onClick={() =>
                         void act(
                           repo.github_id,
@@ -268,7 +277,7 @@ export default function ReposPage() {
                           `Connected ${repo.full_name}; indexing has started`,
                         )
                       }
-                      disabled={busyId === repo.github_id}
+                      disabled={busyId === repo.github_id || atRepoLimit}
                     >
                       {busyId === repo.github_id ? "Connecting..." : "Connect"}
                     </Button>
@@ -277,6 +286,11 @@ export default function ReposPage() {
               ))}
             </ul>
           )}
+          {canManage && atRepoLimit && available.length ? (
+            <p className="mt-4 text-xs text-fg-secondary">
+              The free demo allows {repoLimit} repositories per workspace. Disconnect one to connect another.
+            </p>
+          ) : null}
           {!canManage ? (
             <p className="mt-4 text-xs text-fg-secondary">
               Connecting and disconnecting repositories needs the owner or admin role.

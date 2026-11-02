@@ -256,6 +256,12 @@ class RepositoryConnectView(OrganizationScopedMixin, APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        # Decided from GitHub's answer, not the request: a private flag is not
+        # something the caller gets to assert.
+        refusal = services.connect_refusal(organization, github_id, bool(match.get("private")))
+        if refusal:
+            return Response({"detail": refusal}, status=status.HTTP_400_BAD_REQUEST)
+
         repository, created = Repository.objects.update_or_create(
             organization=organization,
             github_id=github_id,

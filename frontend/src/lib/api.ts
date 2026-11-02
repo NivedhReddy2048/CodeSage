@@ -19,6 +19,7 @@ import type {
   AppNotification,
   AuditEntry,
   ConnectedRepository,
+  DemoLimits,
   IngestionJob,
   IngestionState,
   GitHubStartResponse,
@@ -222,6 +223,8 @@ export const api = {
   organizations: () => request<Organization[]>("/api/orgs/"),
 
   repositories: () => request<ConnectedRepository[]>("/api/repos/"),
+
+  demoLimits: () => request<DemoLimits>("/api/demo/"),
 
   installableRepositories: () =>
     request<InstallableResponse>("/api/repos/installable/"),

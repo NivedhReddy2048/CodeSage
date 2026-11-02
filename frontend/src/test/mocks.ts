@@ -37,3 +37,17 @@ export const organizations = [
   { id: 10, name: "alice", slug: "alice", is_personal: true, role: "owner" as const, created_at: "" },
   { id: 20, name: "acme", slug: "acme", is_personal: false, role: "member" as const, created_at: "" },
 ];
+
+/** GET /api/demo/ for a workspace well under its caps. */
+export const demoLimits = {
+  reviews: {
+    workspace: { used: 1, limit: 5 },
+    global: { used: 4, limit: 35 },
+    limited: false,
+    scope: null,
+    resets_at: "2026-11-03T00:00:00Z",
+  },
+  repositories: { used: 1, limit: 3 },
+  max_chunks_per_repo: 2000,
+  public_only: true,
+};

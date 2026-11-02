@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from apps.repos import services as repo_services
 from apps.reviews import progress
 from apps.reviews.models import Review
-from apps.reviews.rerun import RerunRefused, request_rerun
+from apps.reviews.rerun import DailyLimitReached, RerunRefused, request_rerun
 from apps.reviews.serializers import (
     ReviewListSerializer,
     ReviewSerializer,
@@ -246,6 +246,8 @@ class ReviewRerunView(APIView):
 
         try:
             fresh = request_rerun(review, request.user)
+        except DailyLimitReached as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_429_TOO_MANY_REQUESTS)
         except RerunRefused as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
 
@@ -265,4 +267,40 @@ class RepositoryReviewListView(ListAPIView):
             .filter(pull_request__repository_id=self.kwargs["pk"])
             .annotate(finding_count=Count("findings"))
             .order_by("-created_at")[:50]
+        )
+
+
+class DemoLimitsView(APIView):
+    """The free demo's limits and today's usage, for the banner and dashboard note."""
+
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        responses={200: OpenApiTypes.OBJECT},
+        description=(
+            "Reviews used today by the caller's workspace and across the demo, against "
+            "the daily caps; whether a cap is reached and when it resets (00:00 UTC); "
+            "and the repository and indexing limits."
+        ),
+    )
+    def get(self, request):
+        from django.conf import settings
+
+        from apps.repos.models import Repository
+        from apps.reviews import quota
+
+        organization = repo_services.current_organization(request.user)
+        connected = (
+            Repository.objects.filter(organization=organization).count() if organization else 0
+        )
+        return Response(
+            {
+                "reviews": quota.usage(organization),
+                "repositories": {
+                    "used": connected,
+                    "limit": settings.DEMO_MAX_REPOS_PER_WORKSPACE,
+                },
+                "max_chunks_per_repo": settings.INGESTION_MAX_CHUNKS_PER_REPO,
+                "public_only": True,
+            }
         )

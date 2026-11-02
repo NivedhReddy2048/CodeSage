@@ -3,11 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { ThemeProvider } from "next-themes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { navigation, nextNavigationMock, organizations, resetNavigation, user } from "@/test/mocks";
+import { demoLimits, navigation, nextNavigationMock, organizations, resetNavigation, user } from "@/test/mocks";
 
 vi.mock("next/navigation", () => nextNavigationMock());
 
 const apiMock = vi.hoisted(() => ({
+  demoLimits: vi.fn(),
   organizations: vi.fn(),
   analytics: vi.fn(),
   reviews: vi.fn(),
@@ -73,6 +74,7 @@ const overview: AnalyticsOverview = {
 const empty = { count: 0, next: null, previous: null, results: [] };
 
 beforeEach(() => {
+  apiMock.demoLimits.mockResolvedValue(demoLimits);
   resetNavigation();
   apiMock.organizations.mockResolvedValue(organizations);
   apiMock.analytics.mockResolvedValue(overview);

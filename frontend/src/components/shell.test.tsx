@@ -3,11 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { ThemeProvider } from "next-themes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { navigation, nextNavigationMock, organizations, resetNavigation, user } from "@/test/mocks";
+import { demoLimits, navigation, nextNavigationMock, organizations, resetNavigation, user } from "@/test/mocks";
 
 vi.mock("next/navigation", () => nextNavigationMock());
 
 const apiMock = vi.hoisted(() => ({
+  demoLimits: vi.fn(),
   organizations: vi.fn(),
   repositories: vi.fn(),
   reviews: vi.fn(),
@@ -45,6 +46,7 @@ function Providers({ children }: { children: React.ReactNode }) {
 }
 
 beforeEach(() => {
+  apiMock.demoLimits.mockResolvedValue(demoLimits);
   resetNavigation();
   apiMock.notifications.mockResolvedValue({ unread_count: 0, results: [] });
   apiMock.organizations.mockResolvedValue(organizations);

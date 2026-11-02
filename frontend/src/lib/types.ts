@@ -315,3 +315,17 @@ export type AppNotification = {
   read_at: string | null;
   created_at: string;
 };
+
+/** GET /api/demo/: the free demo's caps and today's usage. */
+export type DemoLimits = {
+  reviews: {
+    workspace: { used: number; limit: number };
+    global: { used: number; limit: number };
+    limited: boolean;
+    scope: "workspace" | "global" | null;
+    resets_at: string;
+  };
+  repositories: { used: number; limit: number };
+  max_chunks_per_repo: number;
+  public_only: boolean;
+};

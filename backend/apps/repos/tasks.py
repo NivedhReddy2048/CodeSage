@@ -24,6 +24,16 @@ ACK_COMMENT_BODY = (
     "when it completes."
 )
 
+def limit_comment_body(refused):
+    """The one comment a PR gets when the daily free-demo cap refuses its review."""
+    return (
+        "**Daily free-demo limit reached; this PR will be reviewed after the limit "
+        "resets.**\n\n"
+        f"{refused.detail} The limit resets at 00:00 UTC (05:30 IST). CodeSage then "
+        "reviews this PR's latest commit on its own; there is nothing to do."
+    )
+
+
 # Actions that mean "there is code to look at". `reopened` is included because a
 # PR reopened after being closed has had no review on this branch state, and the
 # user's expectation is that reopening re-runs it. `edited` and `labeled` change no
@@ -152,6 +162,15 @@ def ensure_repository(payload, installation):
         )
         return None
 
+    # Attributing a webhook's repository connects it, so the free demo's limits
+    # apply here exactly as in the connect flow: public only, a few per workspace.
+    from apps.repos.services import connect_refusal
+
+    refusal = connect_refusal(organization, github_id, bool(repo.get("private")))
+    if refusal:
+        logger.info("Not attributing %s: %s", repo.get("full_name"), refusal)
+        return None
+
     row, _ = Repository.objects.update_or_create(
         organization=organization,
         github_id=github_id,
@@ -261,27 +280,47 @@ def handle_pull_request_event(event):
         },
     )
 
-    post_acknowledgement(pull_request, installation.installation_id)
-
     # Hand off to the reviewer. Imported here so the repos app does not import the
     # reviews app at module load.
+    from apps.reviews import quota
     from apps.reviews.tasks import review_pull_request_task
 
     # The row exists before the worker does anything, so a review that is never
     # picked up - no worker, a stale worker, a crash before its first write - still
     # shows on /reviews as pending (and later stalled) instead of leaving no trace.
-    review = Review.objects.create(
-        pull_request=pull_request,
-        status=Review.Status.PENDING,
-        head_sha=pull_request.head_sha,
-        trigger=(
-            Review.Trigger.CATCHUP
-            if event.action == catchup.CATCHUP_ACTION
-            else Review.Trigger.WEBHOOK
-        ),
-    )
+    # Created under the daily cap's lock (the free demo, apps/reviews/quota.py).
+    with quota.admission(repository.organization) as refused:
+        if refused is None:
+            review = Review.objects.create(
+                pull_request=pull_request,
+                status=Review.Status.PENDING,
+                head_sha=pull_request.head_sha,
+                trigger=(
+                    Review.Trigger.CATCHUP
+                    if event.action == catchup.CATCHUP_ACTION
+                    else Review.Trigger.WEBHOOK
+                ),
+            )
+
+    if refused is not None:
+        # One comment, edited on later pushes rather than repeated. The catch-up
+        # reviews the head once the cap resets.
+        logger.info(
+            "Daily %s cap (%s) refused a review of %s#%s",
+            refused.scope,
+            refused.limit,
+            repository.full_name,
+            pull_request.number,
+        )
+        post_acknowledgement(
+            pull_request, installation.installation_id, limit_comment_body(refused)
+        )
+        catchup.mark_deferred(repository.pk, pull_request.head_sha)
+        return
+
     # The catch-up asks Redis before Postgres whether a head has a review.
     catchup.mark_reviewed(repository.pk, pull_request.head_sha)
+    post_acknowledgement(pull_request, installation.installation_id)
 
     try:
         review_pull_request_task.delay(pull_request.pk, installation.installation_id, review.pk)
@@ -297,11 +336,12 @@ def handle_pull_request_event(event):
         review.save(update_fields=["status", "error", "finished_at"])
 
 
-def post_acknowledgement(pull_request, installation_id):
+def post_acknowledgement(pull_request, installation_id, body=ACK_COMMENT_BODY):
     """Post, or refresh, the bot's placeholder comment on a PR.
 
     On `synchronize` the comment already exists, so it is edited rather than
     duplicated — a PR that gets five pushes should still carry one bot comment.
+    The daily-limit notice uses the same slot, so it is one comment too.
     """
     repo_full_name = pull_request.repository.full_name
 
@@ -311,12 +351,12 @@ def post_acknowledgement(pull_request, installation_id):
                 installation_id,
                 repo_full_name,
                 pull_request.ack_comment_id,
-                ACK_COMMENT_BODY,
+                body,
             )
             return pull_request.ack_comment_id
 
         comment = github_app.create_issue_comment(
-            installation_id, repo_full_name, pull_request.number, ACK_COMMENT_BODY
+            installation_id, repo_full_name, pull_request.number, body
         )
     except GitHubAppError:
         logger.exception(

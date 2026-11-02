@@ -329,10 +329,13 @@ EMBEDDING_MAX_RETRIES = env.int("EMBEDDING_MAX_RETRIES", default=5)
 EMBEDDING_BACKOFF_SECONDS = env.float("EMBEDDING_BACKOFF_SECONDS", default=2.0)
 
 # Free-tier guardrails. Neon's free plan is 0.5 GB, and at 1536 dimensions each
-# embedding is about 6 KB, so the chunk cap is the main lever on storage: 4000 chunks
-# is roughly 24 MB of vectors per repository.
+# embedding is about 6 KB, so the chunk cap is the main lever on storage: 2000 chunks
+# is roughly 12 MB of vectors per repository.
 INGESTION_MAX_FILE_BYTES = env.int("INGESTION_MAX_FILE_BYTES", default=256 * 1024)
-INGESTION_MAX_CHUNKS_PER_REPO = env.int("INGESTION_MAX_CHUNKS_PER_REPO", default=4000)
+# 2000, not the 4000 the storage maths allows: the production App is public, so
+# this is what stops one large repository spending the embedding quota for
+# everyone (the free demo, phase 7d).
+INGESTION_MAX_CHUNKS_PER_REPO = env.int("INGESTION_MAX_CHUNKS_PER_REPO", default=2000)
 INGESTION_MAX_CHUNK_CHARS = env.int("INGESTION_MAX_CHUNK_CHARS", default=8000)
 INGESTION_MAX_ARCHIVE_BYTES = env.int("INGESTION_MAX_ARCHIVE_BYTES", default=100 * 1024 * 1024)
 
@@ -441,6 +444,13 @@ LLM_PRICING = {
 # Source: ECB reference rate via api.frankfurter.dev - 1 USD = 95.06 INR on 2026-10-15.
 USD_TO_INR = env.float("USD_TO_INR", default=95.06)
 USD_TO_INR_AS_OF = "2026-10-15"
+
+# The public free demo (apps/reviews/quota.py). Reviews per UTC day, per workspace
+# and across all of them; lower both on evaluation days, when the eval runs need
+# Groq's daily tokens. Repositories per workspace, and public repositories only.
+DEMO_REVIEWS_PER_WORKSPACE_PER_DAY = env.int("DEMO_REVIEWS_PER_WORKSPACE_PER_DAY", default=5)
+DEMO_REVIEWS_PER_DAY = env.int("DEMO_REVIEWS_PER_DAY", default=35)
+DEMO_MAX_REPOS_PER_WORKSPACE = env.int("DEMO_MAX_REPOS_PER_WORKSPACE", default=3)
 
 # The missed-webhook catch-up (apps/repos/catchup.py): at most one run per interval
 # while awake, plus one at worker startup; and it stops visiting an installation's

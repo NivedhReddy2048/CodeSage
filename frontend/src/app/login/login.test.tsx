@@ -58,6 +58,13 @@ describe("login page", () => {
     }
   });
 
+  it("says up front that this is a free demo with a daily cap", () => {
+    renderLogin();
+
+    expect(signInCard().getByText("Free demo, 5 reviews/day per workspace")).toBeInTheDocument();
+    expect(signInCard().getByText(/public repositories only/)).toBeInTheDocument();
+  });
+
   it("links to the repository in a new tab", () => {
     renderLogin();
 

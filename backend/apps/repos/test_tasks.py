@@ -464,3 +464,15 @@ def test_pull_request_str(owner):
         tasks.handle_webhook_event(store().pk)
 
     assert str(PullRequest.objects.get()) == "NivedhReddy2048/codesage-testbed#7"
+
+
+@pytest.mark.django_db
+def test_a_private_repository_is_not_attributed_from_a_webhook(owner):
+    body = payload()
+    body["repository"]["private"] = True
+
+    with mock.patch.object(tasks.github_app, "create_issue_comment") as comment:
+        tasks.handle_webhook_event(store(body=body).pk)
+
+    comment.assert_not_called()
+    assert not Repository.objects.exists()
