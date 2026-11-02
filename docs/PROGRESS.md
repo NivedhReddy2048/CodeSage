@@ -60,7 +60,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **76 merged — bronze (16) reached; silver at 128** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **77 merged — bronze (16) reached; silver at 128** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -108,8 +108,11 @@ deploy": the URL suffix, the `/1` guard catching a missing `/1`, Vercel's
 frontend-only import and Config-type variables, the App name, the fixed 0.25 CU, and
 "Save and deploy" for environment-only changes.
 
-Still open from the original phase 7 prompt: the README's architecture diagram and
-engineering-tradeoffs section.
+**#155: the final README.** It covers the live demo and its limits, two Mermaid
+diagrams (the review pipeline and production), the tech stack, engineering
+highlights with the repository's own numbers, the evaluation method (no results
+until they exist), and the known limitations. The detailed local setup moved to
+[DEVELOPMENT.md](DEVELOPMENT.md).
 
 ## Phase 7 — Deploy-ready (Part 2)
 
