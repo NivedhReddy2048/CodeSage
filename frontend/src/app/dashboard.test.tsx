@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ThemeProvider } from "next-themes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -28,7 +28,7 @@ vi.mock("@/components/auth-provider", () => ({
 
 import AuditLogPage from "@/app/(app)/audit/page";
 import DashboardPage from "@/app/(app)/page";
-import { NOTIFICATION_POLL_MS, NotificationBell } from "@/components/notification-bell";
+import { NOTIFICATION_IDLE_MS, NOTIFICATION_POLL_MS, NotificationBell } from "@/components/notification-bell";
 import { OrganizationProvider } from "@/components/organization-provider";
 import { ApiError } from "@/lib/api";
 import type { AnalyticsOverview } from "@/lib/types";
@@ -265,6 +265,67 @@ describe("notification bell", () => {
       expect(apiMock.notifications).toHaveBeenCalledTimes(3);
     } finally {
       hidden.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it("stops polling after ten minutes without input, and resumes on the next keypress", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      apiMock.notifications.mockResolvedValue({ unread_count: 0, results: [] });
+      render(<NotificationBell />);
+      await waitFor(() => expect(apiMock.notifications).toHaveBeenCalledTimes(1));
+
+      // Polls at 1..9 minutes; at 10 minutes without input it stops instead.
+      await vi.advanceTimersByTimeAsync(NOTIFICATION_IDLE_MS);
+      expect(apiMock.notifications).toHaveBeenCalledTimes(10);
+      await vi.advanceTimersByTimeAsync(NOTIFICATION_POLL_MS * 30);
+      expect(apiMock.notifications).toHaveBeenCalledTimes(10);
+
+      fireEvent.keyDown(window, { key: "a" });
+      expect(apiMock.notifications).toHaveBeenCalledTimes(11); // refreshed at once
+      await vi.advanceTimersByTimeAsync(NOTIFICATION_POLL_MS);
+      expect(apiMock.notifications).toHaveBeenCalledTimes(12); // and polling again
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it.each([
+    ["mouse", (target: Window) => fireEvent.mouseMove(target)],
+    ["touch", (target: Window) => fireEvent.touchStart(target)],
+  ])("%s input wakes an idle bell too", async (_kind, interact) => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      apiMock.notifications.mockResolvedValue({ unread_count: 0, results: [] });
+      render(<NotificationBell />);
+      await waitFor(() => expect(apiMock.notifications).toHaveBeenCalledTimes(1));
+      await vi.advanceTimersByTimeAsync(NOTIFICATION_IDLE_MS + NOTIFICATION_POLL_MS * 5);
+      const idle = apiMock.notifications.mock.calls.length;
+
+      interact(window);
+
+      expect(apiMock.notifications).toHaveBeenCalledTimes(idle + 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps polling while someone keeps using the page", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      apiMock.notifications.mockResolvedValue({ unread_count: 0, results: [] });
+      render(<NotificationBell />);
+      await waitFor(() => expect(apiMock.notifications).toHaveBeenCalledTimes(1));
+
+      for (let minute = 0; minute < 30; minute += 5) {
+        fireEvent.mouseMove(window);
+        await vi.advanceTimersByTimeAsync(NOTIFICATION_POLL_MS * 5);
+      }
+
+      // Input every 5 minutes: never idle, so one poll a minute for 30 minutes.
+      expect(apiMock.notifications).toHaveBeenCalledTimes(31);
+    } finally {
       vi.useRealTimers();
     }
   });

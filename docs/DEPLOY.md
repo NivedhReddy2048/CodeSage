@@ -148,6 +148,13 @@ Celery worker, so every `process_ehr_document.delay()` adds a message to its
 | `NEXT_PUBLIC_API_URL` | `https://<render-service>.onrender.com` (no trailing slash) |
 | `NEXT_PUBLIC_DEMO_REVIEWS_PER_WORKSPACE` | the backend's `DEMO_REVIEWS_PER_WORKSPACE_PER_DAY` (5) |
 
+**`NEXT_PUBLIC_DEMO_REVIEWS_PER_WORKSPACE` must match the backend's
+`DEMO_REVIEWS_PER_WORKSPACE_PER_DAY` on Render.** The landing page shows this number
+before anyone signs in, when the backend may still be asleep, so it cannot ask the
+API. Nothing keeps the two in sync: change both together, and redeploy Vercel after
+changing it, because `NEXT_PUBLIC_` values are baked in at build time. Signed-in
+pages read the real cap from `GET /api/demo/`, so only the landing page can drift.
+
 The WebSocket URL is derived from `NEXT_PUBLIC_API_URL` (`https` becomes `wss`).
 Note the deployment's domain (`https://<vercel-app>.vercel.app`): the next three
 steps need it.
@@ -349,7 +356,8 @@ days without repository activity.
 
 **What wakes Neon.** Any authenticated API request (JWT authentication loads the
 user); the notification bell's poll, once a minute but only while the tab is
-visible; webhook deliveries; review and indexing runs; the catch-up, but only for
+visible and someone has touched the mouse, keyboard or screen in the last 10
+minutes; webhook deliveries; review and indexing runs; the catch-up, but only for
 news (an unknown head SHA, the cached repository list expiring every 6 hours, the
 daily index check per repository); `migrate` and `flushexpiredtokens` on each
 deploy; and the Django admin. The keep-warm ping, the health endpoint, an idle
@@ -362,8 +370,8 @@ at least 5 minutes after the last query:
 |---|---|---|
 | Idle: no visitors, no PRs | catch-up refreshes, ~4 short wakes a day | **~3** |
 | Light demo: about 1 h a day in the app, a few reviews | ~1.5 h a day | **~12-15** |
-| Heavy: a tab visible 8 h a day, 35 reviews and re-indexing | ~9-10 h a day, sometimes above 0.25 CU | **~70-100** |
-| Pathological: a visible tab left open 24/7 | always | ~186 (over the limit) |
+| Heavy: someone active in the app 8 h a day, 35 reviews and re-indexing | ~9-10 h a day, sometimes above 0.25 CU | **~70-100** |
+| A visible tab forgotten on a screen | 10 minutes, then the bell stops polling | adds nothing after that (it was ~186 a month before the idle stop) |
 
 **Groq on evaluation days.** A TEST run spends about 35 x 3.4K `gpt-oss-20b` tokens
 (~119K of 200K), which leaves room for roughly 15-20 live reviews. Lower
