@@ -68,7 +68,7 @@ def test_production_turns_on_the_secure_defaults():
     assert values["SESSION_COOKIE_SECURE"] is True
     assert values["CSRF_COOKIE_SECURE"] is True
     assert values["SECURE_HSTS_SECONDS"] == 31_536_000
-    assert values["TRUSTED_PROXY_HOPS"] == 1
+    assert values["TRUSTED_PROXY_HOPS"] == 3  # measured on Render: CF, Render proxy, app
     assert values["static"] == "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 

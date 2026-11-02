@@ -492,12 +492,13 @@ WEBSOCKET_ALLOWED_ORIGINS = env.list("WEBSOCKET_ALLOWED_ORIGINS", default=CORS_A
 # Behind Render's proxy (phase 7)
 # ---------------------------------------------------------------------------
 
-# How many proxies sit in front of the app and append to X-Forwarded-For. Render
-# terminates TLS and appends the address it saw, so the client is the entry that
-# many places from the RIGHT; anything further left was written by the client and
-# can be forged. 0 (local) ignores the header and uses the socket peer. Verify on
-# the first deploy (docs/DEPLOY.md): Render does not document its hop count.
-TRUSTED_PROXY_HOPS = env.int("TRUSTED_PROXY_HOPS", default=1 if PRODUCTION else 0)
+# How many proxies sit in front of the app and append to X-Forwarded-For. Each
+# appends the address it saw, so the client is the entry that many places from the
+# RIGHT; anything further left was written by the client and can be forged. 0
+# (local) ignores the header and uses the socket peer. On Render it is 3, measured
+# on the live service: client -> Cloudflare -> Render's internal proxy -> app.
+# A wrong value is flagged in the audit log (apps/audit/services.py).
+TRUSTED_PROXY_HOPS = env.int("TRUSTED_PROXY_HOPS", default=3 if PRODUCTION else 0)
 
 if TRUSTED_PROXY_HOPS:
     # Trusted only behind a proxy that sets it; otherwise a client could claim HTTPS.
