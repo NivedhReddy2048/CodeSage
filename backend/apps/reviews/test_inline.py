@@ -158,7 +158,59 @@ def test_two_findings_on_one_line_post_once():
     )
 
     assert outcome.posted == 1
-    assert outcome.duplicates == 1
+    assert (outcome.shared, outcome.duplicates) == (1, 0)
+
+
+def test_three_findings_on_one_line_in_a_first_review_share_one_comment():
+    """codesage-demo PR #1: one line, several findings, no earlier review at all.
+
+    All three reach the diff, in one comment led by the blocking one, and the
+    summary says they share it, not that they were "already on the diff".
+    """
+    from apps.reviews import comment as summary
+    from apps.reviews.inline import comment_severity
+
+    github = FakeGitHub()
+    findings = [
+        finding(line=8, message="SQL injection: the query is an f-string."),
+        finding(line=8, message="Untrusted input reaches execute()."),
+        finding(line=8, severity="nit", message="Use a parameterised query helper."),
+    ]
+
+    outcome = post_inline_comments(github, 1, pr(), HEAD, findings, 15)
+
+    assert (outcome.posted, outcome.shared, outcome.duplicates) == (1, 2, 0)
+    (posted,) = github.reviews[0]["comments"]
+    assert posted["line"] == 8
+    body = posted["body"]
+    assert body.startswith("**Blocking · security** — SQL injection: the query is an f-string.")
+    assert "Also on this line:" in body
+    assert "Untrusted input reaches execute()." in body
+    assert "Use a parameterised query helper." in body
+    assert body.count(MARKER) == 1
+    assert comment_severity(body) == "blocking"
+    note = summary._render_inline_note(outcome)
+    assert note == (
+        "_Inline on the changed lines: 1 new inline comment, "
+        "2 more findings in that comment (same line)._"
+    )
+    assert "earlier" not in note
+
+
+def test_only_a_real_earlier_comment_counts_as_already_on_the_diff():
+    """Second review of the same head: the line is covered by the first review's comment."""
+    from apps.reviews import comment as summary
+
+    github = FakeGitHub()
+    findings = [finding(line=8), finding(line=8, message="also"), finding(line=20)]
+    post_inline_comments(github, 1, pr(), HEAD, findings, 15)
+
+    rerun = post_inline_comments(github, 1, pr(), HEAD, findings, 15)
+
+    assert (rerun.posted, rerun.shared, rerun.duplicates) == (0, 0, 3)
+    assert summary._render_inline_note(rerun) == (
+        "_Inline on the changed lines: 3 already on the diff from an earlier review of this PR._"
+    )
 
 
 def test_a_rejected_batch_falls_back_to_one_at_a_time():
