@@ -1,5 +1,6 @@
 # LOCAL DEVELOPMENT ONLY.
-# Production uses Neon (Postgres + pgvector) and Upstash (Redis) — see spec section 10.
+# Production uses Neon (Postgres + pgvector) and a shared Render Key Value (Redis);
+# see docs/DEPLOY.md.
 
 services:
   postgres:
