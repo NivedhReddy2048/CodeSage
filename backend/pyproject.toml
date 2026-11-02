@@ -11,6 +11,10 @@ DJANGO_SETTINGS_MODULE = "core.settings"
 python_files = ["test_*.py", "tests.py"]
 testpaths = ["tests", "apps"]
 addopts = "-q --cov --cov-report=term-missing:skip-covered"
+filterwarnings = [
+    # WhiteNoise checks STATIC_ROOT at startup; the suite never runs collectstatic.
+    "ignore:No directory at:UserWarning",
+]
 
 [tool.coverage.run]
 source = ["apps", "core"]

@@ -50,7 +50,6 @@ class IngestionJobSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
 
-    @extend_schema_field(serializers.BooleanField())
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data["error_summary"] = ingestion_public_reason(data["error"])
@@ -58,6 +57,7 @@ class IngestionJobSerializer(serializers.ModelSerializer):
             data["error"] = ""
         return data
 
+    @extend_schema_field(serializers.BooleanField())
     def get_is_active(self, job):
         """Whether the frontend should keep polling."""
         return job.status in (IngestionJob.Status.PENDING, IngestionJob.Status.RUNNING)

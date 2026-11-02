@@ -143,6 +143,44 @@ def test_escaped_newlines_in_the_env_var_are_unescaped(app_settings, rsa_keypair
     assert claims["iss"] == "5366297"
 
 
+def test_a_multiline_pem_in_the_env_var_is_used_as_is(app_settings, rsa_keypair):
+    """Render's env editor keeps real newlines, so the PEM can be pasted unchanged."""
+    private_pem, public_pem = rsa_keypair
+    app_settings.GITHUB_APP_PRIVATE_KEY = f"\n{private_pem}\n"
+
+    claims = jwt.decode(github_app.build_app_jwt(), public_pem, algorithms=["RS256"])
+
+    assert claims["iss"] == "5366297"
+
+
+def test_a_base64_pem_in_the_env_var_is_decoded(app_settings, rsa_keypair):
+    """base64 survives any editor; wrapped output (base64 without -w0) works too."""
+    import base64
+    import textwrap
+
+    private_pem, public_pem = rsa_keypair
+    encoded = base64.b64encode(private_pem.encode()).decode()
+    app_settings.GITHUB_APP_PRIVATE_KEY = "\n".join(textwrap.wrap(encoded, 76))
+
+    claims = jwt.decode(github_app.build_app_jwt(), public_pem, algorithms=["RS256"])
+
+    assert claims["iss"] == "5366297"
+
+
+@pytest.mark.parametrize(
+    ("value", "message"),
+    [
+        ("not a key, not base64!", "neither a PEM nor base64"),
+        ("aGVsbG8gd29ybGQ=", "base64, but not of a PEM"),  # base64("hello world")
+    ],
+)
+def test_an_env_var_that_is_not_a_key_says_so(app_settings, value, message):
+    app_settings.GITHUB_APP_PRIVATE_KEY = value
+
+    with pytest.raises(GitHubAppError, match=message):
+        github_app.build_app_jwt()
+
+
 def test_missing_key_configuration_is_an_error(app_settings):
     app_settings.GITHUB_APP_PRIVATE_KEY = ""
     app_settings.GITHUB_APP_PRIVATE_KEY_PATH = ""

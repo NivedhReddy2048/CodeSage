@@ -99,14 +99,25 @@ def test_signing_out_twice_audits_once():
 
 
 @pytest.mark.django_db
-def test_a_sign_in_is_audited_in_the_users_organisation_with_the_ip():
+def test_a_sign_in_is_audited_in_the_users_organisation_with_the_ip(settings):
+    """Behind Render (one trusted hop) the client is the entry the proxy appended.
+
+    The first entry here is what a client typed into its own X-Forwarded-For; it
+    must not reach the audit log.
+    """
+    settings.TRUSTED_PROXY_HOPS = 1
     client = APIClient()
-    sign_in(client, HTTP_X_FORWARDED_FOR="203.0.113.7, 10.0.0.1", HTTP_USER_AGENT="Edge")
+    sign_in(
+        client,
+        HTTP_X_FORWARDED_FOR="198.51.100.66, 203.0.113.7",
+        REMOTE_ADDR="10.0.0.1",
+        HTTP_USER_AGENT="Edge",
+    )
 
     (entry,) = entries("auth.signed_in")
     assert entry.actor.github_login == "octocat"
     assert entry.organization == entry.actor.memberships.get().organization
-    assert entry.metadata["ip"] == "203.0.113.7"  # the client, not the proxy
+    assert entry.metadata["ip"] == "203.0.113.7"  # the client, not the proxy or a forgery
     assert entry.metadata["user_agent"] == "Edge"
     assert entry.metadata["first_sign_in"] is True
     assert entry.created_at is not None
