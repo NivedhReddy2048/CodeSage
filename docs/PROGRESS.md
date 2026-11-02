@@ -60,7 +60,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **69 merged — bronze (16) reached; silver at 128** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **71 merged — bronze (16) reached; silver at 128** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -131,6 +131,24 @@ cache key. Setup steps, the budget maths and the limits to watch are in
 - **Every webhook re-saves its repository and installation rows**, so invalidating
   the catch-up's cached repository list on any save cost a database query per run.
   It is now dropped only by changes that alter the list.
+
+### Follow-ups
+
+- **#141: startup recovery.** A review the worker was killed in the middle of
+  stayed pending/running for good, and the catch-up counted its SHA as reviewed.
+  On worker startup only, reviews stuck past 15 minutes are re-queued on their own
+  row, at most once per head SHA, audited as a re-run with source
+  `startup-recovery`; a second interruption or a moved-on PR is failed with the
+  reason. The review task ignores a message for a review that is no longer
+  pending, so a queued original and its recovery copy cannot both run.
+- **#143: the bell idles.** Hiding the tab already paused it, but a tab visible on a
+  forgotten screen still polled all day (~186 Neon CU-hours a month). It now stops
+  after 10 minutes without mouse, keyboard or touch input, and refreshes and resumes
+  on the next one. DEPLOY.md says outright that Vercel's
+  `NEXT_PUBLIC_DEMO_REVIEWS_PER_WORKSPACE` must match the backend cap.
+- **A read-only secret scan** (gitleaks 8.30.1, then TruffleHog without verification)
+  of CodeSage, codesage-testbed, CareBridge, OpsHub and smart-placement-platform,
+  over every ref. Nothing was changed; the findings were reported, by type only.
 
 ### Verified on Linux
 

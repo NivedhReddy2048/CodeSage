@@ -21,6 +21,9 @@ import type { AppNotification } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 export const NOTIFICATION_POLL_MS = 60_000;
+/** No mouse, keyboard or touch input for this long and the bell stops polling. */
+export const NOTIFICATION_IDLE_MS = 10 * 60_000;
+const INPUT_EVENTS = ["mousemove", "mousedown", "keydown", "touchstart", "wheel"] as const;
 
 const KIND_ICON = {
   "review.finished": { icon: CircleCheck, tone: "text-status-ok" },
@@ -32,8 +35,9 @@ const KIND_ICON = {
 /**
  * The bell: unread count on the button (in its accessible name, not only the dot),
  * the latest notifications in a menu, and mark-as-read on open or all at once. It
- * polls once a minute while the tab is visible, and again whenever it is opened or
- * the tab comes back, so the count is fresh without holding a second socket open.
+ * polls once a minute while the tab is visible and someone has used it in the last
+ * ten minutes, and again whenever it is opened or they come back, so the count is
+ * fresh without holding a second socket open.
  */
 /**
  * The title with the repository's full name, for the tooltip: titles shorten it
@@ -61,35 +65,53 @@ export function NotificationBell() {
       .catch(() => undefined); // The bell going quiet is not worth an error state.
   }, []);
 
-  // Polls only while the tab is visible. A tab left open in the background would
-  // otherwise query the database every minute, all day, and keep Neon's
-  // scale-to-zero compute from ever sleeping. Coming back refreshes at once.
+  // Polls only while someone is plausibly looking: the tab is visible AND there was
+  // user input in the last NOTIFICATION_IDLE_MS. Each poll is a database query, so
+  // a tab left open in the background, or visible on a forgotten screen, would
+  // otherwise keep Neon's scale-to-zero compute awake all day. Coming back (to the
+  // tab, or to the mouse or keyboard) refreshes at once and resumes polling.
   useEffect(() => {
     let timer: ReturnType<typeof setInterval> | null = null;
-    const start = () => {
-      if (timer === null) timer = setInterval(load, NOTIFICATION_POLL_MS);
-    };
+    let lastInput = Date.now();
+
     const stop = () => {
       if (timer !== null) clearInterval(timer);
       timer = null;
+    };
+    const tick = () => {
+      if (Date.now() - lastInput >= NOTIFICATION_IDLE_MS) {
+        stop();
+        return;
+      }
+      load();
+    };
+    const resume = () => {
+      if (document.hidden || timer !== null) return;
+      load();
+      timer = setInterval(tick, NOTIFICATION_POLL_MS);
+    };
+    // Fires constantly while the mouse moves, so it only records a time unless the
+    // bell was idle.
+    const onInput = () => {
+      lastInput = Date.now();
+      resume();
     };
     const onVisibilityChange = () => {
       if (document.hidden) {
         stop();
       } else {
-        load();
-        start();
+        lastInput = Date.now();
+        resume();
       }
     };
 
-    if (!document.hidden) {
-      load();
-      start();
-    }
+    resume();
     document.addEventListener("visibilitychange", onVisibilityChange);
+    for (const name of INPUT_EVENTS) window.addEventListener(name, onInput, { passive: true });
     return () => {
       stop();
       document.removeEventListener("visibilitychange", onVisibilityChange);
+      for (const name of INPUT_EVENTS) window.removeEventListener(name, onInput);
     };
   }, [load]);
 
