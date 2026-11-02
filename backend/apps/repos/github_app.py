@@ -188,7 +188,12 @@ def _token_cache_key(installation_id):
 
 
 def get_installation_token(installation_id):
-    """Return a valid installation access token, minting one only when needed."""
+    """Return a valid installation access token, minting one only when needed.
+
+    The token is opaque and its length is not fixed: GitHub is moving to a longer
+    `ghs_` format (up to about 520 characters). Nothing may store it in a sized
+    field, key anything by it, pattern-match it or log it (tests/test_long_tokens.py).
+    """
     cache_key = _token_cache_key(installation_id)
     cached = cache.get(cache_key)
     if cached:
