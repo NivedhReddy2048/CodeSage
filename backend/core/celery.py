@@ -10,6 +10,7 @@ in the README.
 import os
 
 from celery import Celery
+from celery.signals import worker_ready
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings")
 
@@ -19,3 +20,11 @@ app = Celery("codesage")
 # place to look rather than two.
 app.config_from_object("django.conf:settings", namespace="CELERY")
 app.autodiscover_tasks()
+
+
+@worker_ready.connect
+def catch_up_on_startup(**_kwargs):
+    """A worker that just started may have slept through webhooks: catch up now."""
+    from apps.repos import catchup
+
+    catchup.schedule(force=True)

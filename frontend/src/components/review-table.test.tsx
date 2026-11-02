@@ -44,6 +44,17 @@ describe("review table", () => {
     expect(within(rerun).getByText("Re-run")).toBeInTheDocument();
   });
 
+  it("tags a review the catch-up started after a missed webhook", () => {
+    render(<ReviewTable reviews={[row({ id: 3, trigger: "catchup" })]} />);
+
+    const [, caught] = screen.getAllByRole("row");
+    expect(within(caught).getByText("Catch-up")).toHaveAttribute(
+      "title",
+      "Its webhook was missed while CodeSage slept; picked up on waking",
+    );
+    expect(within(caught).queryByText("Re-run")).not.toBeInTheDocument();
+  });
+
   it("shows cost at two decimals with the exact estimate on hover", () => {
     render(<ReviewTable reviews={[row({})]} />);
 

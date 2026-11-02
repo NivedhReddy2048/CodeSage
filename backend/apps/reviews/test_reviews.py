@@ -519,10 +519,14 @@ def test_a_diff_fetch_network_error_raises():
 
 @pytest.mark.django_db
 def test_reopened_triggers_a_review():
-    """A PR reopened after closure has had no review of this branch state."""
+    """A PR reopened after closure has had no review of this branch state.
+
+    `catchup` is not a GitHub action: it is how the missed-webhook catch-up files the
+    deliveries it replays (apps/repos/catchup.py).
+    """
     from apps.repos.tasks import REVIEWABLE_ACTIONS
 
-    assert REVIEWABLE_ACTIONS == {"opened", "synchronize", "reopened"}
+    assert REVIEWABLE_ACTIONS == {"opened", "synchronize", "reopened", "catchup"}
 
 
 @pytest.mark.django_db

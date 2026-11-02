@@ -157,7 +157,7 @@ export function NotificationBell() {
                       {item.title}
                     </span>
                     <span className="block truncate text-xs text-fg-secondary">{item.body}</span>
-                    {item.meta?.head_sha || item.meta?.trigger === "rerun" ? (
+                    {item.meta?.head_sha || item.meta?.trigger === "rerun" || item.meta?.trigger === "catchup" ? (
                       <ReviewRef sha={item.meta.head_sha ?? ""} trigger={item.meta.trigger} className="mt-0.5" />
                     ) : null}
                     <time

@@ -442,6 +442,12 @@ LLM_PRICING = {
 USD_TO_INR = env.float("USD_TO_INR", default=95.06)
 USD_TO_INR_AS_OF = "2026-10-15"
 
+# The missed-webhook catch-up (apps/repos/catchup.py): at most one run per interval
+# while awake, plus one at worker startup; and it stops visiting an installation's
+# repositories when fewer than this many GitHub requests are left in its hour.
+CATCHUP_INTERVAL_SECONDS = env.int("CATCHUP_INTERVAL_SECONDS", default=30 * 60)
+CATCHUP_RATE_LIMIT_FLOOR = env.int("CATCHUP_RATE_LIMIT_FLOOR", default=100)
+
 # Run webhook follow-up work inline instead of on a thread. Tests set this so they do
 # not race a background thread; it mirrors Celery's task_always_eager, which spec
 # section 7 names as the fallback for lightweight jobs.

@@ -1,12 +1,22 @@
-import { RotateCcw } from "lucide-react";
+import { History, RotateCcw } from "lucide-react";
 
 import { formatInr, formatInrExact } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 /**
- * Which commit a review read, and whether a person asked for it: "abc1234 · Re-run".
- * Two reviews of one PR are otherwise indistinguishable in a list.
+ * Which commit a review read, and what started it when it was not a webhook:
+ * "abc1234 · Re-run" (a person asked) or "abc1234 · Catch-up" (the webhook was lost
+ * while the service slept). Two reviews of one PR are otherwise indistinguishable.
  */
+const TRIGGER_TAGS: Record<string, { label: string; title: string; icon: typeof RotateCcw }> = {
+  rerun: { label: "Re-run", title: "Started by a re-run, not by a push", icon: RotateCcw },
+  catchup: {
+    label: "Catch-up",
+    title: "Its webhook was missed while CodeSage slept; picked up on waking",
+    icon: History,
+  },
+};
+
 export function ReviewRef({
   sha,
   trigger,
@@ -16,7 +26,8 @@ export function ReviewRef({
   trigger?: string;
   className?: string;
 }) {
-  if (!sha && trigger !== "rerun") return null;
+  const tag = TRIGGER_TAGS[trigger ?? ""];
+  if (!sha && !tag) return null;
   return (
     <span className={cn("inline-flex items-center gap-1.5 text-xs text-fg-secondary", className)}>
       {sha ? (
@@ -24,13 +35,13 @@ export function ReviewRef({
           {sha.slice(0, 7)}
         </code>
       ) : null}
-      {trigger === "rerun" ? (
+      {tag ? (
         <span
           className="inline-flex items-center gap-1 rounded-md border bg-surface-2 px-1.5 py-0.5 font-medium"
-          title="Started by a re-run, not by a push"
+          title={tag.title}
         >
-          <RotateCcw aria-hidden="true" className="size-3" />
-          Re-run
+          <tag.icon aria-hidden="true" className="size-3" />
+          {tag.label}
         </span>
       ) : null}
     </span>

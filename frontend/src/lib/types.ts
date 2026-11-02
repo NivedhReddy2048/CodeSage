@@ -156,7 +156,7 @@ export type Review = {
   /** Pending or running past the backend's STALE_AFTER: no worker has it. */
   stalled: boolean;
   /** "rerun" when a person asked for it, else "webhook". */
-  trigger: "webhook" | "rerun";
+  trigger: "webhook" | "rerun" | "catchup";
   head_sha: string;
   model_used: string;
   used_fallback: boolean;
@@ -187,7 +187,7 @@ export type ReviewSummary = {
   /** Pending or running past the backend's STALE_AFTER: no worker has it. */
   stalled: boolean;
   /** "rerun" when a person asked for it, else "webhook". */
-  trigger: "webhook" | "rerun";
+  trigger: "webhook" | "rerun" | "catchup";
   head_sha: string;
   model_used: string;
   used_fallback: boolean;
@@ -214,7 +214,7 @@ export type ReviewListItem = {
   /** Pending or running past the backend's STALE_AFTER: no worker has it. */
   stalled: boolean;
   /** "rerun" when a person asked for it, else "webhook". */
-  trigger: "webhook" | "rerun";
+  trigger: "webhook" | "rerun" | "catchup";
   degraded: boolean;
   used_fallback: boolean;
   head_sha: string;
