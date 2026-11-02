@@ -11,11 +11,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from apps.audit.models import AuditLogEntry
+from apps.audit.services import action_label
 from apps.repos import services as repo_services
 
 
 class AuditLogEntrySerializer(serializers.ModelSerializer):
-    action_label = serializers.CharField(source="get_action_display", read_only=True)
+    action_label = serializers.SerializerMethodField()
 
     class Meta:
         model = AuditLogEntry
@@ -31,6 +32,9 @@ class AuditLogEntrySerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = fields
+
+    def get_action_label(self, entry) -> str:
+        return action_label(entry)
 
 
 class AuditPagination(PageNumberPagination):

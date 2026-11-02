@@ -48,7 +48,7 @@ export const AUDIT_ACTIONS = [
   { value: "review.rerun", label: "Review re-run" },
   { value: "member.role_changed", label: "Member role changed" },
   // A group: the API matches every auth.* event.
-  { value: "auth", label: "Auth (sign-in, sign-out, failed sign-in)" },
+  { value: "auth", label: "Auth (sign-in, sign-out, failed sign-in, rejected refresh)" },
 ];
 
 type Filters = { action: string; actor: string; q: string; since: string; until: string };
@@ -65,6 +65,8 @@ const ACTION_STYLE: Record<string, { icon: LucideIcon; tone: string }> = {
   "auth.signed_in": { icon: LogIn, tone: "border-status-ok-border bg-status-ok-bg text-status-ok" },
   "auth.signed_out": { icon: LogOut, tone: "border-status-neutral-border bg-status-neutral-bg text-status-neutral" },
   "auth.sign_in_failed": { icon: ShieldAlert, tone: "border-status-blocking-border bg-status-blocking-bg text-status-blocking" },
+  // A revoked session's token coming back: as serious as a failed sign-in.
+  "auth.refresh_rejected": { icon: ShieldAlert, tone: "border-status-blocking-border bg-status-blocking-bg text-status-blocking" },
 };
 const NEUTRAL_ACTION = {
   icon: ScrollText,

@@ -37,6 +37,9 @@ class AuditLogEntry(models.Model):
         AUTH_SIGNED_IN = "auth.signed_in", "Signed in"
         AUTH_SIGNED_OUT = "auth.signed_out", "Signed out"
         AUTH_SIGN_IN_FAILED = "auth.sign_in_failed", "Sign-in failed"
+        # A blacklisted refresh token presented again: not a sign-in attempt at all,
+        # but a copy of an old session (the same browser racing itself, or a theft).
+        AUTH_REFRESH_REJECTED = "auth.refresh_rejected", "Session refresh rejected"
 
     # Null only for an auth event nobody can be attributed to (a failed sign-in
     # before GitHub said who it was): there is no organisation to file it under, so

@@ -10,6 +10,25 @@ logger = logging.getLogger(__name__)
 
 Action = AuditLogEntry.Action
 
+# The reason recorded when a revoked refresh token comes back. Entries written
+# before AUTH_REFRESH_REJECTED existed carry it under AUTH_SIGN_IN_FAILED.
+REVOKED_REFRESH_REASON = "revoked refresh token presented again"
+
+
+def action_label(entry):
+    """The label to show for an entry.
+
+    The log is append-only, so entries filed as "Sign-in failed" for a replayed
+    refresh token before the dedicated action existed cannot be corrected in place;
+    they are labelled for what they were when shown.
+    """
+    if (
+        entry.action == Action.AUTH_SIGN_IN_FAILED
+        and (entry.metadata or {}).get("reason") == REVOKED_REFRESH_REASON
+    ):
+        return Action.AUTH_REFRESH_REJECTED.label
+    return entry.get_action_display()
+
 
 def record(organization, actor, action, target=None, target_label="", **metadata):
     """Append one entry. Never raises: a failed audit write must not fail the action.

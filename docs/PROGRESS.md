@@ -16,7 +16,7 @@ pull requests, each closing its own issue. Architecture lives in
 | 4 | Agent pipeline v1 | `phase-4a` agents pkg, `4b` reviews app, `4c` push+page | **Done** |
 | 5 | Full 6-agent pipeline | `phase-5a` retrieval, `5b` graph, `5c` wiring; hardening `5d` honest output, `5e` grounding + inline | **Done** |
 | 6 | Realtime + enterprise UI | `phase-6a` realtime + data, `6b` shell + design system, `6c` review experience, `6d` dashboard + notifications + audit | **Done** |
-| 7 | Deploy + CI | `phase-7a` config, `7b` CI+keep-warm, `7c` README | Next |
+| 7 | Deploy + CI | Part 2: `phase-7a` runtime, `7b` data services, `7c` webhook catch-up, `7d` free-demo guardrails, `7e` keep-warm + DEPLOY.md, `7f` audit label | **Deploy-ready**: accounts and services next, by hand, per [DEPLOY.md](DEPLOY.md); then README and the fork smoke test |
 | 8 | Evaluation | `phase-8a` harness, `8b` DEV set, `8c` TEST set, `8d` baseline; after DEV run 1: `8e` undefined names, `8f` grounding precedent, `8g` measurement amendments, `8h` correctness agent | In progress: DEV round 2 next |
 | R | Frontend redesign ("Abyssal Navy & Sage Mint") | `redesign-1` tokens and primitives, `2` shell, `3` landing, `4` dashboard, `5` reviews, `6` repos/audit/settings | **Done** |
 
@@ -60,7 +60,7 @@ every PR must still be real, tested work.
 
 | Achievement | Requirement | Status |
 |---|---|---|
-| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **51 merged — bronze (16) reached** |
+| **Pull Shark** | Base badge at 2 merged PRs (already earned before this project); next tier **bronze at 16** | **69 merged — bronze (16) reached; silver at 128** |
 | **YOLO** | Merge a PR without a review | Earned by this workflow — PRs are self-merged |
 | **Quickdraw** | Close an issue or PR within 5 minutes of opening | Targeted by the fast-merge rule |
 | **Pair Extraordinaire** | Co-authored commits with a real collaborator | **Needs a real human collaborator — optional** |
@@ -74,6 +74,70 @@ once, listed "claude" as a repository contributor.
 **Update the merged-PR count in this table in each phase's last PR.** The figure
 counts merged PRs *including* the one making the edit, so it is correct the moment that
 PR lands rather than one behind forever.
+
+---
+
+## Phase 7 — Deploy-ready (Part 2)
+
+Six PRs, each its own issue, none touching `apps/agents/` or anything in the eval
+cache key. Setup steps, the budget maths and the limits to watch are in
+[DEPLOY.md](DEPLOY.md); this section records what was decided and what was found.
+
+| PR | Part | What |
+|---|---|---|
+| #129 | 7a runtime | `bin/start.sh` (Daphne + lean solo worker, `wait -n`, SIGTERM to both), `bin/build.sh`, `DJANGO_PRODUCTION` defaults, OriginValidator, client IP from the right of X-Forwarded-For, PEM/escaped/base64 App key |
+| #131 | 7b data | shared Redis on `/1` with prefixes and a 15-connection budget; Neon-only fail-fast; pooler-safe settings; the bell pauses while the tab is hidden |
+| #133 | 7c catch-up | reviews PRs whose webhook was lost while asleep: on worker start and at most every 30 min, GitHub first, Redis second, Postgres only for news |
+| #135 | 7d guardrails | 5 reviews/day per workspace, 35 overall; public repos only; 3 repos per workspace; 2,000 chunks per repo; banner and notes |
+| #137 | 7e keep-warm | 08:00-23:55 IST every 5 min (~501 h/month); DEPLOY.md |
+| #139 | 7f label | a replayed refresh token is "Session refresh rejected", not "Sign-in failed" |
+
+### Deviations from the spec
+
+- **No render.yaml.** One web service, set up by hand from DEPLOY.md, matching how
+  the account's other services are run.
+- **Redis is the account's existing Render Key Value, shared with CareBridge**, not
+  Upstash (spec section 10). A second free Key Value is not allowed. CodeSage takes database 1,
+  prefixes every key, and recommends `volatile-lru` (DEPLOY.md has the reasoning).
+- **Keep-warm covers 16 hours, not 24** (spec section 15 planned ~744 h, every 10 min). The
+  free 750 hours are shared with three other services, so the service sleeps
+  overnight, and the new catch-up recovers the webhooks lost meanwhile.
+- **Neon only, enforced.** Render Postgres expires after 30 days (CareBridge's did);
+  production refuses any `DATABASE_URL` that is not `*.neon.tech`.
+- **A public free demo**, so caps the spec did not have: daily reviews, repositories
+  per workspace, public repositories only, and the chunk cap halved to 2,000.
+- **CI was already the full suite** (the original 7b), and the README (original 7c)
+  and the fork smoke test wait for the live deploy.
+
+### Found while building
+
+- **The cache's connection cap was per thread.** Django keeps a cache client per
+  thread and each built its own pool, so `max_connections=2` held per thread: a load
+  run of 20 concurrent webhooks plus 10 WebSockets opened **25** Redis connections. A
+  process-wide shared pool (`core/redis_pool.py`), plus one-at-a-time progress
+  broadcasts (each `async_to_sync` from an agent thread was a fresh event loop and a
+  fresh Channels pool), brought the same run to **7**. The first budget test passed
+  while the bug was live, because it inspected the main thread's pool; the
+  replacement counts connections on the Redis server by client name, and fails with
+  Django's stock pool.
+- **The audit log trusted the leftmost X-Forwarded-For entry**, which the client
+  writes. It now counts `TRUSTED_PROXY_HOPS` from the right. Render does not
+  document its hop count, so DEPLOY.md has a check for the first deploy.
+- **WebSockets would have been refused in production.** `AllowedHostsOriginValidator`
+  compared the page's origin (Vercel) with the API's own hosts (Render).
+- **A misplaced `@extend_schema_field`** sat on `to_representation` instead of
+  `get_is_active`; fixing it, and keeping the slash-less webhook route out of the
+  schema, lets `check --deploy` run at warning level in a test.
+- **Every webhook re-saves its repository and installation rows**, so invalidating
+  the catch-up's cached repository list on any save cost a database query per run.
+  It is now dropped only by changes that alter the list.
+
+### Verified on Linux
+
+`python:3.14.2-slim`, running the scripts as Render would: build 46-81 s with a
+cold pip cache; health 200 and static files served; SIGTERM exits 143 with the
+worker's warm shutdown in ~7 s; killing the worker stops Daphne (exit 137); the
+worker's startup runs the catch-up once and later health pings are throttled.
 
 ---
 
