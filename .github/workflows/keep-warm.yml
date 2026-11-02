@@ -37,7 +37,9 @@ concurrency:
 jobs:
   ping:
     name: Ping /api/health/
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest: the label is moving to Ubuntu 26 (GitHub's notice
+    # on the first run), and a curl job gains nothing from following it.
+    runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
       - name: Ping the health endpoint
