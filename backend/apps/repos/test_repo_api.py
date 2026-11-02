@@ -473,3 +473,36 @@ def test_a_non_member_is_refused():
 
     with pytest.raises(services.PermissionDenied, match="not a member"):
         services.require_management_role(user, other)
+
+
+# ------------------------------------------------------------ free-demo limits
+
+
+@pytest.mark.django_db
+def test_a_private_repository_cannot_be_connected(owner, installation):
+    with mock_remote(OTHER_REPO):
+        response = auth(owner).post(
+            reverse("repository-connect"), {"github_id": OTHER_REPO["id"]}, format="json"
+        )
+
+    assert response.status_code == 400
+    assert "public repositories only" in response.json()["detail"]
+    assert not Repository.objects.exists()
+
+
+@pytest.mark.django_db
+def test_a_workspace_holds_at_most_the_demo_limit_of_repositories(owner, installation, settings):
+    settings.DEMO_MAX_REPOS_PER_WORKSPACE = 1
+    second = {**TESTBED, "id": 555002, "full_name": "NivedhReddy2048/second", "name": "second"}
+    client = auth(owner)
+    with mock_remote(TESTBED, second), mock.patch("apps.ingestion.services.start_ingestion"):
+        url = reverse("repository-connect")
+        first = client.post(url, {"github_id": TESTBED["id"]}, format="json")
+        refused = client.post(url, {"github_id": 555002}, format="json")
+        again = client.post(url, {"github_id": TESTBED["id"]}, format="json")
+
+    assert first.status_code == 201
+    assert refused.status_code == 400
+    assert "1 repositories per workspace" in refused.json()["detail"]
+    assert again.status_code == 200  # reconnecting what is connected is never refused
+    assert Repository.objects.count() == 1

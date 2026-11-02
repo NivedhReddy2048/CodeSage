@@ -11,6 +11,7 @@ import { ColumnChart } from "@/components/charts/column-chart";
 import { BreakdownBar, Sparkline } from "@/components/charts/kpi-parts";
 import { StatTile } from "@/components/charts/stat-tile";
 import { useOrganization } from "@/components/organization-provider";
+import { DemoUsage } from "@/components/demo-limits";
 import { PageHeader } from "@/components/page-header";
 import { Cost } from "@/components/review-ref";
 import { ReviewTable } from "@/components/review-table";
@@ -267,6 +268,7 @@ function Dashboard() {
         description={current ? `Review activity in ${current.name}.` : undefined}
         actions={<Filters days={days} repository={repository} onChange={update} />}
       />
+      <DemoUsage className="-mt-3 mb-6" />
 
       {analytics.error ? (
         <ErrorState className="mb-6" message={analytics.error} onRetry={analytics.reload} />

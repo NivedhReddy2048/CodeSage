@@ -11,6 +11,7 @@ import { SignInButton } from "@/components/landing/sign-in-button";
 import { Logo } from "@/components/logo";
 import { ThemeSwitch } from "@/components/theme-switch";
 import { buttonVariants } from "@/components/ui/button";
+import { DEMO_REVIEWS_PER_WORKSPACE, demoNote } from "@/lib/demo";
 import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = {
@@ -193,6 +194,11 @@ export default function LoginPage() {
                 <div className="mt-6">
                   <SignInButton buttonClassName={cn(SIGN_IN_LARGE, "w-full")} />
                 </div>
+
+                <p className="mt-4 rounded-lg border border-border-brand bg-brand-tinted px-3 py-2 text-xs text-fg-secondary">
+                  <span className="font-medium text-brand">{demoNote(DEMO_REVIEWS_PER_WORKSPACE)}</span>
+                  {" "}· public repositories only. Reviews past the limit run after it resets.
+                </p>
 
                 <p className="mt-6 border-t pt-4 text-xs leading-[1.55] text-fg-secondary">
                   CodeSage reads your GitHub profile to create your account. Repository access is

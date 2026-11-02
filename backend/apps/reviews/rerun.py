@@ -18,6 +18,10 @@ class RerunRefused(Exception):
     """The re-run cannot be started; the message is safe to show the user."""
 
 
+class DailyLimitReached(RerunRefused):
+    """The free demo's daily review cap refused the re-run."""
+
+
 def refresh_pull_request(repository, number):
     """Read the PR's current head from GitHub and update (or create) its record."""
     installation_id = repository.installation.installation_id
@@ -64,12 +68,18 @@ def request_rerun(review, actor):
     except GitHubAppError as exc:
         raise RerunRefused("Could not read the pull request from GitHub.") from exc
 
-    fresh = Review.objects.create(
-        pull_request=pull_request,
-        status=Review.Status.PENDING,
-        head_sha=pull_request.head_sha,
-        trigger=Review.Trigger.RERUN,
-    )
+    from apps.reviews import quota
+
+    with quota.admission(repository.organization) as refused:
+        if refused is None:
+            fresh = Review.objects.create(
+                pull_request=pull_request,
+                status=Review.Status.PENDING,
+                head_sha=pull_request.head_sha,
+                trigger=Review.Trigger.RERUN,
+            )
+    if refused is not None:
+        raise DailyLimitReached(refused.message)
 
     from apps.reviews.tasks import review_pull_request_task
 

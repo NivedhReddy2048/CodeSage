@@ -3,11 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { ThemeProvider } from "next-themes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { nextNavigationMock, organizations, resetNavigation, user } from "@/test/mocks";
+import { demoLimits, nextNavigationMock, organizations, resetNavigation, user } from "@/test/mocks";
 
 vi.mock("next/navigation", () => nextNavigationMock());
 
 const apiMock = vi.hoisted(() => ({
+  demoLimits: vi.fn(),
   organizations: vi.fn(),
   members: vi.fn(),
   repositories: vi.fn(),
@@ -74,6 +75,7 @@ const doneJob = {
 };
 
 beforeEach(() => {
+  apiMock.demoLimits.mockResolvedValue(demoLimits);
   resetNavigation();
   apiMock.organizations.mockResolvedValue(organizations);
   apiMock.ingestionStatus.mockResolvedValue({ job: doneJob, chunk_count: 200, indexed_files: 40, can_manage: true });
@@ -121,6 +123,35 @@ describe("repositories page", () => {
 
     expect(apiMock.connectRepository).toHaveBeenCalledWith(71);
     expect(await screen.findByText("Connected acme/web; indexing has started")).toBeInTheDocument();
+  });
+});
+
+describe("repositories page: free-demo limits", () => {
+  it("offers no connect button for a private repository, and says why", async () => {
+    apiMock.repositories.mockResolvedValue([]);
+    apiMock.installableRepositories.mockResolvedValue({
+      installed: true,
+      install_url: "",
+      repositories: [{ ...repo, github_id: 72, full_name: "acme/secret", private: true, connected: false }],
+    });
+    render(<ReposPage />, { wrapper: Providers });
+
+    expect(await screen.findByText("Public repositories only")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Connect" })).not.toBeInTheDocument();
+  });
+
+  it("disables connecting at the workspace's repository limit", async () => {
+    apiMock.demoLimits.mockResolvedValue({ ...demoLimits, repositories: { used: 1, limit: 1 } });
+    apiMock.repositories.mockResolvedValue([repo]);
+    apiMock.installableRepositories.mockResolvedValue({
+      installed: true,
+      install_url: "",
+      repositories: [{ ...repo, github_id: 71, full_name: "acme/web", private: false, connected: false }],
+    });
+    render(<ReposPage />, { wrapper: Providers });
+
+    expect(await screen.findByText(/allows 1 repositories per workspace/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connect" })).toBeDisabled();
   });
 });
 

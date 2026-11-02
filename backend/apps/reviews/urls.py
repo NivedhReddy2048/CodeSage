@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.reviews.views import (
+    DemoLimitsView,
     RepositoryReviewListView,
     ReviewDetailView,
     ReviewDiffView,
@@ -10,6 +11,7 @@ from apps.reviews.views import (
 )
 
 urlpatterns = [
+    path("demo/", DemoLimitsView.as_view(), name="demo-limits"),
     path("reviews/", ReviewListView.as_view(), name="review-list"),
     path("reviews/<int:pk>/", ReviewDetailView.as_view(), name="review-detail"),
     path("reviews/<int:pk>/status/", ReviewStatusView.as_view(), name="review-status"),

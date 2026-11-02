@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { useAuth } from "@/components/auth-provider";
 import { CommandPalette } from "@/components/command-palette";
+import { DemoLimitBanner } from "@/components/demo-limits";
 import { Logo } from "@/components/logo";
 import { OrganizationProvider, useOrganization } from "@/components/organization-provider";
 import { NotificationBell } from "@/components/notification-bell";
@@ -119,7 +120,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               tabIndex={-1}
               className="mx-auto w-full min-w-0 max-w-[1380px] flex-1 px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8"
             >
-              <Content>{children}</Content>
+              <Content>
+                <DemoLimitBanner />
+                {children}
+              </Content>
             </main>
           </SidebarInset>
           <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />

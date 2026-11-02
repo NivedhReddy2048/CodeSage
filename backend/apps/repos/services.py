@@ -73,3 +73,38 @@ def installations_for(user, organization):
     if user.github_login:
         query |= Q(account_login__iexact=user.github_login)
     return AppInstallation.objects.filter(query).distinct()
+
+
+# ------------------------------------------------------------- free-demo limits
+
+PRIVATE_REPOSITORY_MESSAGE = (
+    "CodeSage's free demo reviews public repositories only. Make this repository "
+    "public, or connect a public one."
+)
+
+
+def connect_refusal(organization, github_id, private):
+    """Why `organization` may not connect this repository now, or "".
+
+    The production App is installable by anyone, so the demo is limited to public
+    code (nothing private reaches the model providers) and to a few repositories
+    per workspace (each one is indexed, which spends the embedding quota). A
+    repository that is already connected is never refused: reconnecting changes
+    nothing.
+    """
+    from django.conf import settings
+
+    from apps.repos.models import Repository
+
+    connected = Repository.objects.filter(organization=organization)
+    if connected.filter(github_id=github_id).exists():
+        return ""
+    if private:
+        return PRIVATE_REPOSITORY_MESSAGE
+    limit = settings.DEMO_MAX_REPOS_PER_WORKSPACE
+    if connected.count() >= limit:
+        return (
+            f"The free demo allows {limit} repositories per workspace. Disconnect one "
+            "to connect another."
+        )
+    return ""

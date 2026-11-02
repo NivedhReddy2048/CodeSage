@@ -45,6 +45,10 @@ def _reviewed_key(repository_id, sha):
     return f"catchup:reviewed:{repository_id}:{sha}"
 
 
+def _deferred_key(repository_id, sha):
+    return f"catchup:deferred:{repository_id}:{sha}"
+
+
 def _indexed_key(repository_id):
     return f"catchup:indexed:{repository_id}"
 
@@ -97,6 +101,7 @@ def connected_repositories():
                 "github_id",
                 "full_name",
                 "default_branch",
+                "organization_id",
                 "installation__installation_id",
             )
         )
@@ -141,6 +146,19 @@ def mark_reviewed(repository_id, sha):
         cache.set(_reviewed_key(repository_id, sha), 1, timeout=REVIEWED_TTL)
     except Exception:  # noqa: BLE001 - the database still knows; this only saves a query
         logger.warning("Could not cache reviewed SHA %s", sha, exc_info=True)
+
+
+def mark_deferred(repository_id, sha):
+    """Remember until the daily cap resets that `sha` was refused, so runs before
+    then skip it without asking Postgres again."""
+    if not sha:
+        return
+    from apps.reviews.quota import seconds_until_reset
+
+    try:
+        cache.set(_deferred_key(repository_id, sha), 1, timeout=seconds_until_reset())
+    except Exception:  # noqa: BLE001 - only saves a query
+        logger.warning("Could not cache deferred SHA %s", sha, exc_info=True)
 
 
 # ----------------------------------------------------------------------- run
@@ -198,12 +216,14 @@ def _catch_up_reviews(repo, installation_id, pulls, summary):
     if not heads:
         return
 
-    known = cache.get_many([_reviewed_key(repo["id"], sha) for sha in heads])
-    unknown = [sha for sha in heads if _reviewed_key(repo["id"], sha) not in known]
+    keys = {sha: (_reviewed_key(repo["id"], sha), _deferred_key(repo["id"], sha)) for sha in heads}
+    known = cache.get_many([key for pair in keys.values() for key in pair])
+    unknown = [sha for sha, pair in keys.items() if not any(key in known for key in pair)]
     summary["cached"] += len(heads) - len(unknown)
     if not unknown:
         return
 
+    from apps.reviews import quota
     from apps.reviews.models import Review
 
     reviewed = set(
@@ -211,11 +231,27 @@ def _catch_up_reviews(repo, installation_id, pulls, summary):
             pull_request__repository_id=repo["id"], head_sha__in=unknown
         ).values_list("head_sha", flat=True)
     )
+    pending = [sha for sha in unknown if sha not in reviewed]
     for sha in unknown:
         if sha in reviewed:
             mark_reviewed(repo["id"], sha)
             summary["already_reviewed"] += 1
-        elif _deliver(repo, installation_id, heads[sha]):
+    if not pending:
+        return
+
+    # Over today's free-demo cap: leave them for after the reset rather than file a
+    # delivery the handler would only refuse.
+    from apps.accounts.models import Organization
+
+    organization = Organization.objects.filter(pk=repo["organization_id"]).first()
+    if organization is not None and quota.denial(organization) is not None:
+        for sha in pending:
+            mark_deferred(repo["id"], sha)
+        summary["deferred"] += len(pending)
+        return
+
+    for sha in pending:
+        if _deliver(repo, installation_id, heads[sha]):
             summary["queued"] += 1
 
 
