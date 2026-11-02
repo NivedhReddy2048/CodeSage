@@ -32,8 +32,8 @@ const KIND_ICON = {
 /**
  * The bell: unread count on the button (in its accessible name, not only the dot),
  * the latest notifications in a menu, and mark-as-read on open or all at once. It
- * polls once a minute and again whenever it is opened, so the count is fresh without
- * holding a second socket open.
+ * polls once a minute while the tab is visible, and again whenever it is opened or
+ * the tab comes back, so the count is fresh without holding a second socket open.
  */
 /**
  * The title with the repository's full name, for the tooltip: titles shorten it
@@ -61,10 +61,36 @@ export function NotificationBell() {
       .catch(() => undefined); // The bell going quiet is not worth an error state.
   }, []);
 
+  // Polls only while the tab is visible. A tab left open in the background would
+  // otherwise query the database every minute, all day, and keep Neon's
+  // scale-to-zero compute from ever sleeping. Coming back refreshes at once.
   useEffect(() => {
-    load();
-    const timer = setInterval(load, NOTIFICATION_POLL_MS);
-    return () => clearInterval(timer);
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (timer === null) timer = setInterval(load, NOTIFICATION_POLL_MS);
+    };
+    const stop = () => {
+      if (timer !== null) clearInterval(timer);
+      timer = null;
+    };
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        stop();
+      } else {
+        load();
+        start();
+      }
+    };
+
+    if (!document.hidden) {
+      load();
+      start();
+    }
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      stop();
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [load]);
 
   function open(item: AppNotification) {

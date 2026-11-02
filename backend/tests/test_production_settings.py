@@ -27,11 +27,20 @@ PRODUCTION_ENV = {
     "DJANGO_ALLOWED_HOSTS": "",
     "RENDER_EXTERNAL_HOSTNAME": "codesage-api.onrender.com",
     "CORS_ALLOWED_ORIGINS": "https://codesage.vercel.app",
+    "DATABASE_URL": (
+        "postgres://codesage:pw@ep-quiet-sky-123456-pooler.us-west-2.aws.neon.tech/codesage"
+    ),
+    "REDIS_URL": "redis://red-abc123:6379/1",
 }
 
 
-def run_in_production(code):
-    env = {**os.environ, **PRODUCTION_ENV, "DJANGO_SETTINGS_MODULE": "core.settings"}
+def run_in_production(code, **overrides):
+    env = {
+        **os.environ,
+        **PRODUCTION_ENV,
+        **overrides,
+        "DJANGO_SETTINGS_MODULE": "core.settings",
+    }
     return subprocess.run(
         [sys.executable, *code], cwd=BACKEND, env=env, capture_output=True, text=True
     )
@@ -68,6 +77,46 @@ def test_production_passes_djangos_deployment_checklist():
     result = run_in_production(["manage.py", "check", "--deploy", "--fail-level", "WARNING"])
 
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_production_uses_neon_through_its_pooler_with_short_connections():
+    script = (
+        "import django, json; django.setup(); from django.conf import settings as s; "
+        "d = s.DATABASES['default']; "
+        "print(json.dumps({'host': d['HOST'], 'age': d['CONN_MAX_AGE'], "
+        "'cursors': d.get('DISABLE_SERVER_SIDE_CURSORS'), 'options': d['OPTIONS']}))"
+    )
+    result = run_in_production(["-c", script])
+    assert result.returncode == 0, result.stderr
+    values = json.loads(result.stdout.strip().splitlines()[-1])
+
+    assert values["host"].endswith("-pooler.us-west-2.aws.neon.tech")
+    assert values["age"] == 0
+    assert values["cursors"] is True
+    assert values["options"]["sslmode"] == "require"
+    assert values["options"]["prepare_threshold"] is None
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"DATABASE_URL": ""}, "DATABASE_URL is not set"),
+        (
+            {"DATABASE_URL": "postgres://u:p@dpg-abc123-a.oregon-postgres.render.com/db"},
+            "not Neon",
+        ),
+        ({"DATABASE_URL": "sqlite:///db.sqlite3"}, "production needs Neon"),
+        ({"REDIS_URL": "redis://red-abc123:6379"}, "REDIS_URL: REDIS_URL selects database 0"),
+        ({"CELERY_BROKER_URL": "redis://red-abc123:6379/0"}, "CELERY_BROKER_URL"),
+    ],
+)
+def test_production_refuses_to_start_on_the_wrong_data_services(overrides, message):
+    """Fails while settings load, so `migrate` in the build stops the deploy."""
+    result = run_in_production(["manage.py", "check"], **overrides)
+
+    assert result.returncode != 0
+    assert "ImproperlyConfigured" in result.stderr
+    assert message in result.stderr
 
 
 def test_local_development_keeps_plain_http(settings):

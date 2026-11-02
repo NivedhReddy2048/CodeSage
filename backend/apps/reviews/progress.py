@@ -45,15 +45,23 @@ def snapshot(review):
     }
 
 
+# The analysis agents report from parallel threads, and async_to_sync on a thread
+# with no event loop starts a fresh loop, which channels_redis gives its own
+# connection pool. Unserialised, five agents finishing together meant five pools on
+# the shared Key Value; one send at a time means one. A send takes milliseconds.
+_send_lock = threading.Lock()
+
+
 def broadcast(review_id, event):
     """Send one event to everyone watching this review. Never raises."""
     try:
         layer = get_channel_layer()
         if layer is None:
             return
-        async_to_sync(layer.group_send)(
-            group_name(review_id), {"type": "review.event", "event": event}
-        )
+        with _send_lock:
+            async_to_sync(layer.group_send)(
+                group_name(review_id), {"type": "review.event", "event": event}
+            )
     except Exception:  # noqa: BLE001 - a dropped live update must not fail the review
         logger.exception("Could not broadcast %s for review %s", event.get("type"), review_id)
 

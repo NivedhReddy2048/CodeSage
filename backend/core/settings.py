@@ -9,6 +9,9 @@ from datetime import timedelta
 from pathlib import Path
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
+
+from core import infra
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -18,6 +21,8 @@ env = environ.Env(
     CORS_ALLOWED_ORIGINS=(list, ["http://localhost:3000"]),
 )
 environ.Env.read_env(BASE_DIR / ".env")
+
+LOCAL_DATABASE_URL = "postgres://codesage:codesage@localhost:5432/codesage"
 
 SECRET_KEY = env("DJANGO_SECRET_KEY", default="insecure-dev-key-change-me-at-least-32-chars")
 DEBUG = env("DJANGO_DEBUG")
@@ -114,31 +119,97 @@ ASGI_APPLICATION = "core.asgi.application"
 
 # Database — Postgres with pgvector (docker compose locally, Neon in production)
 
-DATABASES = {
-    "default": env.db(
-        "DATABASE_URL",
-        default="postgres://codesage:codesage@localhost:5432/codesage",
-    )
-}
+DATABASE_URL = env("DATABASE_URL", default="" if PRODUCTION else LOCAL_DATABASE_URL)
+if PRODUCTION and (problem := infra.neon_problem(DATABASE_URL)):
+    raise ImproperlyConfigured(problem)
 
-# Channel layer — Redis (docker compose locally, Upstash in production)
+DATABASES = {"default": env.db_url_config(DATABASE_URL)}
 
-REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")
+# Neon scales its compute to zero after 5 idle minutes and bills compute-hours, so a
+# connection is opened per request or task and closed after it (CONN_MAX_AGE 0):
+# nothing held open can keep the compute awake or pin a pooler slot. The health
+# check reconnects cleanly after Neon has slept; the timeout covers its cold start.
+DATABASES["default"]["CONN_MAX_AGE"] = env.int("DATABASE_CONN_MAX_AGE", default=0)
+DATABASES["default"]["CONN_HEALTH_CHECKS"] = True
+_db_options = DATABASES["default"].setdefault("OPTIONS", {})
+_db_options.setdefault("connect_timeout", env.int("DATABASE_CONNECT_TIMEOUT", default=15))
+if PRODUCTION:
+    # Neon refuses plaintext anyway; saying so means a URL without the parameter
+    # fails loudly instead of negotiating.
+    _db_options.setdefault("sslmode", "require")
+if infra.is_neon_pooler(DATABASE_URL):
+    # The pooled endpoint is PgBouncer in transaction mode: a session outlives no
+    # transaction. Named server-side cursors (QuerySet.iterator) and psycopg's
+    # automatic prepared statements are both session state, so both are off.
+    DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
+    _db_options["prepare_threshold"] = None
+
+# Redis — docker compose locally; in production the free Key Value instance SHARED
+# with CareBridge (25 MB, 50 connections, one allowed per account). CodeSage keeps
+# to its own logical database (the /1 in REDIS_URL) and prefixes every key, so the
+# two apps' queues, results and groups cannot collide even if the index were lost.
+
+REDIS_URL = env("REDIS_URL", default="" if PRODUCTION else "redis://localhost:6379/0")
+REDIS_KEY_PREFIX = env("REDIS_KEY_PREFIX", default="codesage")
+
+# CONNECTION BUDGET: at most 15 of the shared 50, enforced by the caps below. Two
+# processes run (bin/start.sh), each with its own pools:
+#
+#   Daphne (web)    Django cache, one shared pool           2
+#                   Channels layer, Daphne's event loop      3
+#                   Celery producer (broker_pool_limit 1)    1
+#   Celery worker   broker consumer: blocking pop + acks     2
+#                   Celery producer (tasks queueing tasks)   1
+#                   Django cache, one shared pool            2
+#                   Channels group_send, one loop at a time  3  (apps/reviews/progress.py)
+#                   remote control pub/sub                   0  (off in production)
+#                   result backend                           0  (results ignored)
+#                                                          ----
+#                                                           14 worst case
+#
+# Per PROCESS, not per thread: see core/redis_pool.py for why that needed work.
+# tests/test_redis_budget.py counts real connections; docs/DEPLOY.md has a load run.
+REDIS_CACHE_MAX_CONNECTIONS = env.int("REDIS_CACHE_MAX_CONNECTIONS", default=2)
+REDIS_CHANNELS_MAX_CONNECTIONS = env.int("REDIS_CHANNELS_MAX_CONNECTIONS", default=3)
+REDIS_BROKER_MAX_CONNECTIONS = env.int("REDIS_BROKER_MAX_CONNECTIONS", default=2)
 
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {"hosts": [REDIS_URL]},
+        "CONFIG": {
+            "hosts": [
+                {
+                    "address": REDIS_URL,
+                    "max_connections": REDIS_CHANNELS_MAX_CONNECTIONS,
+                    "client_name": f"{REDIS_KEY_PREFIX}-channels",
+                }
+            ],
+            # Channels' own keys already expire (60 s messages, 1 day groups).
+            "prefix": f"{REDIS_KEY_PREFIX}:asgi",
+        },
     }
 }
 
 # Cache — the same Redis. Needed for real: GitHub App installation tokens are cached
-# here until shortly before they expire (see apps/repos/github_app.py). Django ships
-# this backend natively from 4.0, so it costs no extra dependency.
+# here until shortly before they expire (see apps/repos/github_app.py). One blocking
+# pool per process, so a burst of threads waits for one of its connections instead
+# of opening more. Every entry has a TTL (TIMEOUT), which is what the shared instance's
+# volatile-lru policy evicts by (docs/DEPLOY.md).
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": REDIS_URL,
+        "KEY_PREFIX": REDIS_KEY_PREFIX,
+        "TIMEOUT": 300,
+        "OPTIONS": {
+            # Shared across threads: Django's per-thread clients would otherwise
+            # each get REDIS_CACHE_MAX_CONNECTIONS of their own.
+            "pool_class": "core.redis_pool.SharedBlockingConnectionPool",
+            "max_connections": REDIS_CACHE_MAX_CONNECTIONS,
+            "timeout": 10,
+            # Named, so CLIENT LIST on the shared instance shows whose it is.
+            "client_name": f"{REDIS_KEY_PREFIX}-cache",
+        },
     }
 }
 
@@ -268,6 +339,27 @@ INGESTION_MAX_ARCHIVE_BYTES = env.int("INGESTION_MAX_ARCHIVE_BYTES", default=100
 # Celery, co-located with the web process on Render's free tier (spec section 7).
 CELERY_BROKER_URL = env("CELERY_BROKER_URL", default=REDIS_URL)
 CELERY_RESULT_BACKEND = env("CELERY_RESULT_BACKEND", default=REDIS_URL)
+if PRODUCTION:
+    for _name, _url in [
+        ("REDIS_URL", REDIS_URL),
+        ("CELERY_BROKER_URL", CELERY_BROKER_URL),
+        ("CELERY_RESULT_BACKEND", CELERY_RESULT_BACKEND),
+    ]:
+        if problem := infra.redis_problem(_url):
+            raise ImproperlyConfigured(f"{_name}: {problem}")
+# Nothing reads a task's return value (reviews and jobs record their outcome on
+# their own rows), so results are not written: no result-backend connection and no
+# result keys in the shared 25 MB. A task that needs one can opt back in.
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_RESULT_EXPIRES = 3600
+CELERY_RESULT_BACKEND_TRANSPORT_OPTIONS = {"global_keyprefix": f"{REDIS_KEY_PREFIX}:"}
+# One pooled producer connection per process; a second publisher waits for it.
+CELERY_BROKER_POOL_LIMIT = 1
+# `celery inspect` (scripts/dev.py uses it to find stray local workers) needs a
+# pub/sub connection per worker. Production has one worker and nobody inspecting.
+CELERY_WORKER_ENABLE_REMOTE_CONTROL = env.bool(
+    "CELERY_WORKER_ENABLE_REMOTE_CONTROL", default=not PRODUCTION
+)
 CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
@@ -277,6 +369,11 @@ CELERY_TASK_TIME_LIMIT = env.int("CELERY_TASK_TIME_LIMIT", default=30 * 60)
 # the moment it is pushed; a longer wait only means fewer idle round trips.
 CELERY_BROKER_TRANSPORT_OPTIONS = {
     "polling_interval": env.int("CELERY_BROKER_POLLING_INTERVAL", default=30),
+    # Queues, the unacked hash and bindings all live under the prefix. These keys
+    # have no TTL by nature, which is why the shared instance must evict only keys
+    # that do (volatile-lru) rather than any key (allkeys-lru).
+    "global_keyprefix": f"{REDIS_KEY_PREFIX}:",
+    "max_connections": REDIS_BROKER_MAX_CONNECTIONS,
 }
 
 # ---------------------------------------------------------------------------
