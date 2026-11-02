@@ -305,6 +305,48 @@ def list_installation_repositories(installation_id):
 # ------------------------------------------------------------------ pull requests
 
 
+def rate_limit_remaining(response):
+    """Requests left in this token's hour, from GitHub's header; None if absent."""
+    try:
+        return int(response.headers.get("X-RateLimit-Remaining"))
+    except (TypeError, ValueError):
+        return None
+
+
+def list_open_pull_requests(installation_id, repo_full_name, max_pages=3):
+    """`(open PRs, requests left)`, newest first, at most `max_pages` x 100 PRs.
+
+    Used by the missed-webhook catch-up, which only needs each PR's head. The page
+    cap bounds what one repository can spend of the installation's hourly budget.
+    """
+    token = get_installation_token(installation_id)
+    pulls, remaining = [], None
+    for page in range(1, max_pages + 1):
+        response = _request(
+            "GET",
+            f"/repos/{repo_full_name}/pulls",
+            token,
+            params={"state": "open", "per_page": 100, "page": page},
+        )
+        remaining = rate_limit_remaining(response)
+        batch = response.json()
+        pulls.extend(batch)
+        if len(batch) < 100:
+            break
+    return pulls, remaining
+
+
+def get_branch_head(installation_id, repo_full_name, branch):
+    """`(head commit SHA of branch, requests left)`."""
+    token = get_installation_token(installation_id)
+    response = _request(
+        "GET", f"/repos/{repo_full_name}/branches/{quote(branch, safe='')}", token
+    )
+    return ((response.json().get("commit") or {}).get("sha") or ""), rate_limit_remaining(
+        response
+    )
+
+
 def get_pull_request(installation_id, repo_full_name, number):
     """`GET /repos/{repo}/pulls/{number}`: the PR's current head, base and title."""
     token = get_installation_token(installation_id)

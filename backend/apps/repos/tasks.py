@@ -1,15 +1,17 @@
 """Work triggered by a webhook, running after the 202 has already gone back.
 
 Phase 3 converts these into Celery tasks; the function signatures are chosen so that
-is a change of decorator, not of logic.
+is a change of decorator, not of logic. The missed-webhook catch-up's task lives
+here too, since it replays deliveries through these same handlers.
 """
 
 import logging
 
+from celery import shared_task
 from django.utils import timezone
 
 from apps.accounts.models import Membership, User
-from apps.repos import github_app
+from apps.repos import catchup, github_app
 from apps.repos.github_app import GitHubAppError
 from apps.repos.models import AppInstallation, Repository, WebhookEvent
 from apps.reviews.models import PullRequest, Review
@@ -26,7 +28,7 @@ ACK_COMMENT_BODY = (
 # PR reopened after being closed has had no review on this branch state, and the
 # user's expectation is that reopening re-runs it. `edited` and `labeled` change no
 # code and must not spend a review.
-REVIEWABLE_ACTIONS = {"opened", "synchronize", "reopened"}
+REVIEWABLE_ACTIONS = {"opened", "synchronize", "reopened", catchup.CATCHUP_ACTION}
 
 
 def handle_webhook_event(event_id):
@@ -269,8 +271,17 @@ def handle_pull_request_event(event):
     # picked up - no worker, a stale worker, a crash before its first write - still
     # shows on /reviews as pending (and later stalled) instead of leaving no trace.
     review = Review.objects.create(
-        pull_request=pull_request, status=Review.Status.PENDING, head_sha=pull_request.head_sha
+        pull_request=pull_request,
+        status=Review.Status.PENDING,
+        head_sha=pull_request.head_sha,
+        trigger=(
+            Review.Trigger.CATCHUP
+            if event.action == catchup.CATCHUP_ACTION
+            else Review.Trigger.WEBHOOK
+        ),
     )
+    # The catch-up asks Redis before Postgres whether a head has a review.
+    catchup.mark_reviewed(repository.pk, pull_request.head_sha)
 
     try:
         review_pull_request_task.delay(pull_request.pk, installation.installation_id, review.pk)
@@ -320,3 +331,12 @@ def post_acknowledgement(pull_request, installation_id):
         pull_request.ack_comment_id = comment_id
         pull_request.save(update_fields=["ack_comment_id", "updated_at"])
     return comment_id
+
+
+# -------------------------------------------------------------------- catch-up
+
+
+@shared_task(name="repos.catch_up")
+def catch_up_task():
+    """Review what webhooks missed while the service slept (see apps/repos/catchup.py)."""
+    return dict(catchup.catch_up())

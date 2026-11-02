@@ -61,6 +61,8 @@ class Review(models.Model):
     class Trigger(models.TextChoices):
         WEBHOOK = "webhook", "Webhook"  # a push or an opened/reopened PR
         RERUN = "rerun", "Re-run"  # requested from the UI or `manage.py rerun_review`
+        # A PR whose webhook was lost while the service slept (apps/repos/catchup.py)
+        CATCHUP = "catchup", "Catch-up"
 
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.PENDING)
     trigger = models.CharField(max_length=16, choices=Trigger.choices, default=Trigger.WEBHOOK)
