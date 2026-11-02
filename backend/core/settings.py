@@ -23,6 +23,16 @@ SECRET_KEY = env("DJANGO_SECRET_KEY", default="insecure-dev-key-change-me-at-lea
 DEBUG = env("DJANGO_DEBUG")
 ALLOWED_HOSTS = env("DJANGO_ALLOWED_HOSTS")
 
+# One switch for the deployed service (Render). It only changes DEFAULTS: every
+# setting it touches still reads its own env var, so one can be overridden alone.
+PRODUCTION = env.bool("DJANGO_PRODUCTION", default=False)
+
+# Render sets this to the service's own *.onrender.com host, so the health ping and
+# the webhook URL work without repeating the hostname in DJANGO_ALLOWED_HOSTS.
+RENDER_EXTERNAL_HOSTNAME = env("RENDER_EXTERNAL_HOSTNAME", default="")
+if RENDER_EXTERNAL_HOSTNAME and RENDER_EXTERNAL_HOSTNAME not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
+
 # Application definition
 
 DJANGO_APPS = [
@@ -70,6 +80,10 @@ INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # Serves the admin's and Swagger's static files from the web process itself:
+    # a free web service has no separate static host. Directly after
+    # SecurityMiddleware, as WhiteNoise's docs require.
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -142,6 +156,20 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# Hashed, compressed files in production (collectstatic runs in bin/build.sh). Plain
+# storage elsewhere, because the manifest only exists after collectstatic and the
+# test suite never runs it.
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {
+        "BACKEND": (
+            "whitenoise.storage.CompressedManifestStaticFilesStorage"
+            if PRODUCTION
+            else "django.contrib.staticfiles.storage.StaticFilesStorage"
+        )
+    },
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -244,6 +272,12 @@ CELERY_TASK_ALWAYS_EAGER = env.bool("CELERY_TASK_ALWAYS_EAGER", default=False)
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_TASK_TIME_LIMIT = env.int("CELERY_TASK_TIME_LIMIT", default=30 * 60)
+# The worker waits on the queue with a blocking pop for this many seconds before it
+# asks again (kombu uses it as the BRPOP timeout on Redis). A message still arrives
+# the moment it is pushed; a longer wait only means fewer idle round trips.
+CELERY_BROKER_TRANSPORT_OPTIONS = {
+    "polling_interval": env.int("CELERY_BROKER_POLLING_INTERVAL", default=30),
+}
 
 # ---------------------------------------------------------------------------
 # Review pipeline (phase 4, spec sections 5 and 14)
@@ -331,3 +365,61 @@ CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 from corsheaders.defaults import default_headers  # noqa: E402
 
 CORS_ALLOW_HEADERS = (*default_headers, "x-organization-id")
+
+# Only the Django admin uses a CSRF-protected session; the SPA sends a JWT. Defaults
+# to the CORS origins, so the frontend's domain is trusted in one place.
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS", default=CORS_ALLOWED_ORIGINS)
+
+# Browsers send the page's origin on a WebSocket handshake and the socket is not
+# covered by CORS, so it is checked against the frontend's origins, not the backend's
+# own host: in production the page (Vercel) and the API (Render) are different sites.
+WEBSOCKET_ALLOWED_ORIGINS = env.list("WEBSOCKET_ALLOWED_ORIGINS", default=CORS_ALLOWED_ORIGINS)
+
+# ---------------------------------------------------------------------------
+# Behind Render's proxy (phase 7)
+# ---------------------------------------------------------------------------
+
+# How many proxies sit in front of the app and append to X-Forwarded-For. Render
+# terminates TLS and appends the address it saw, so the client is the entry that
+# many places from the RIGHT; anything further left was written by the client and
+# can be forged. 0 (local) ignores the header and uses the socket peer. Verify on
+# the first deploy (docs/DEPLOY.md): Render does not document its hop count.
+TRUSTED_PROXY_HOPS = env.int("TRUSTED_PROXY_HOPS", default=1 if PRODUCTION else 0)
+
+if TRUSTED_PROXY_HOPS:
+    # Trusted only behind a proxy that sets it; otherwise a client could claim HTTPS.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+SECURE_SSL_REDIRECT = env.bool("DJANGO_SECURE_SSL_REDIRECT", default=PRODUCTION)
+# The keep-warm ping and Render's own checks may arrive over plain HTTP; a 301 there
+# proves nothing about the app, so the health route answers directly.
+SECURE_REDIRECT_EXEMPT = [r"^api/health/$"]
+SESSION_COOKIE_SECURE = env.bool("DJANGO_SECURE_COOKIES", default=PRODUCTION)
+CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
+SECURE_HSTS_SECONDS = env.int("DJANGO_SECURE_HSTS_SECONDS", default=31_536_000 if PRODUCTION else 0)
+SECURE_HSTS_INCLUDE_SUBDOMAINS = SECURE_HSTS_SECONDS > 0
+# Not preloaded: the preload list takes registrable domains, and *.onrender.com is
+# Render's, not ours. Silenced rather than left as a warning everyone learns to skip.
+SILENCED_SYSTEM_CHECKS = ["security.W021"]
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+
+# Everything to stdout, which Render captures as the service log. The Celery worker
+# installs its own root handler on the same stream when it starts.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "plain": {"format": "%(asctime)s %(levelname)s %(name)s: %(message)s"},
+    },
+    "handlers": {
+        "stdout": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+            "formatter": "plain",
+        },
+    },
+    "root": {"handlers": ["stdout"], "level": env("DJANGO_LOG_LEVEL", default="INFO")},
+}

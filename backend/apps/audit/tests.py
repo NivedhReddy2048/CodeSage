@@ -174,3 +174,46 @@ def test_date_only_bounds_cover_the_whole_day(world):
     assert api.get("/api/audit-log/?since=2999-01-01").data["count"] == 0
     # Garbage is ignored rather than erroring.
     assert api.get("/api/audit-log/?since=yesterday").data["count"] == 2
+
+
+# -------------------------------------------------------------- client address
+
+
+def _request(forwarded=None, remote="10.0.0.1"):
+    from django.test import RequestFactory
+
+    extra = {"REMOTE_ADDR": remote}
+    if forwarded is not None:
+        extra["HTTP_X_FORWARDED_FOR"] = forwarded
+    return RequestFactory().get("/", **extra)
+
+
+@pytest.mark.parametrize(
+    ("hops", "forwarded", "expected"),
+    [
+        # Local: no proxy, so the header is the client's own claim and is ignored.
+        (0, "203.0.113.7", "10.0.0.1"),
+        # Render: the proxy appended the address it saw - the rightmost entry.
+        (1, "203.0.113.7", "203.0.113.7"),
+        # A client that sends its own header cannot choose what gets recorded.
+        (1, "198.51.100.66, 203.0.113.7", "203.0.113.7"),
+        (1, " 198.51.100.66 ,203.0.113.7 ", "203.0.113.7"),
+        # Two proxies (e.g. a CDN in front of Render): one further left.
+        (2, "198.51.100.66, 203.0.113.7, 172.16.0.9", "203.0.113.7"),
+        # A chain shorter than the proxies we expect: fall back to the socket peer.
+        (1, "", "10.0.0.1"),
+        (2, "203.0.113.7", "10.0.0.1"),
+    ],
+)
+def test_the_client_ip_is_counted_from_the_right(settings, hops, forwarded, expected):
+    from apps.audit.services import client_ip
+
+    settings.TRUSTED_PROXY_HOPS = hops
+
+    assert client_ip(_request(forwarded)) == expected
+
+
+def test_no_request_means_no_ip():
+    from apps.audit.services import client_ip
+
+    assert client_ip(None) == ""

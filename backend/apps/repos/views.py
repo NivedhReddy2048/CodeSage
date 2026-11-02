@@ -113,6 +113,16 @@ class GitHubWebhookView(APIView):
         )
 
 
+class GitHubWebhookNoSlashView(GitHubWebhookView):
+    """The same receiver on the slash-less path (see apps/repos/urls.py).
+
+    Left out of the OpenAPI schema: one endpoint documented twice reads as two, and
+    drf-spectacular warns about the clashing operation ids.
+    """
+
+    schema = None
+
+
 class OrganizationScopedMixin:
     """Resolves the caller's organisation once, for every repository endpoint."""
 

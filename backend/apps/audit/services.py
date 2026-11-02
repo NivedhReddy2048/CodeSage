@@ -2,6 +2,8 @@
 
 import logging
 
+from django.conf import settings
+
 from apps.audit.models import AuditLogEntry
 
 logger = logging.getLogger(__name__)
@@ -34,13 +36,25 @@ def record(organization, actor, action, target=None, target_label="", **metadata
 
 
 def client_ip(request):
-    """The caller's address: the first X-Forwarded-For hop behind a proxy (Render),
-    else the socket peer. Best effort - it is a record, not an access control."""
+    """The caller's address, read the way a proxy chain can be trusted.
+
+    Each proxy APPENDS the address it saw to X-Forwarded-For, so with
+    TRUSTED_PROXY_HOPS proxies in front of us the client is that many entries from
+    the right. The leftmost entry is whatever the client chose to send: reading it
+    would let anyone write any address into the audit log. With no trusted proxy,
+    or a header too short to hold one, the socket peer is the answer.
+    """
     if request is None:
         return ""
-    forwarded = request.META.get("HTTP_X_FORWARDED_FOR", "")
-    if forwarded:
-        return forwarded.split(",")[0].strip()[:64]
+    hops = getattr(settings, "TRUSTED_PROXY_HOPS", 0)
+    if hops > 0:
+        chain = [
+            part.strip()
+            for part in request.META.get("HTTP_X_FORWARDED_FOR", "").split(",")
+            if part.strip()
+        ]
+        if len(chain) >= hops:
+            return chain[-hops][:64]
     return (request.META.get("REMOTE_ADDR") or "")[:64]
 
 

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from apps.repos.views import (
+    GitHubWebhookNoSlashView,
     GitHubWebhookView,
     InstallableRepositoryListView,
     RepositoryConnectView,
@@ -17,7 +18,7 @@ urlpatterns = [
     # Accepting both is more robust than depending on every client agreeing with us.
     path(
         "webhooks/github",
-        GitHubWebhookView.as_view(),
+        GitHubWebhookNoSlashView.as_view(),
         name="github-webhook-no-slash",
     ),
     path("repos/", RepositoryListView.as_view(), name="repository-list"),

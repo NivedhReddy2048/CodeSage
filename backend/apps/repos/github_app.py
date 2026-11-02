@@ -16,6 +16,8 @@ Installation tokens are cached until shortly before they expire. Minting one per
 would waste a round trip on every request and burn rate limit for no benefit.
 """
 
+import base64
+import binascii
 import time
 from urllib.parse import quote
 
@@ -47,17 +49,19 @@ class GitHubAppError(Exception):
     """The App could not authenticate, or GitHub returned something unusable."""
 
 
+PEM_MARKER = "-----BEGIN"
+
+
 def _private_key():
     """Return the App's private key as PEM bytes.
 
     Two sources, because the deployment shapes differ: locally the key is a file that
     must never be committed, while on Render there is no filesystem to put it on, so
-    the PEM travels as an environment variable. Env vars cannot hold real newlines
-    reliably, hence the unescaping.
+    the PEM travels as an environment variable (see `_inline_key`).
     """
     inline = (settings.GITHUB_APP_PRIVATE_KEY or "").strip()
     if inline:
-        return inline.replace("\\n", "\n").encode("utf-8")
+        return _inline_key(inline)
 
     path = settings.GITHUB_APP_PRIVATE_KEY_PATH
     if not path:
@@ -71,6 +75,26 @@ def _private_key():
         return key_path.read_bytes()
     except OSError as exc:
         raise GitHubAppError(f"Could not read the private key at {key_path}.") from exc
+
+
+def _inline_key(value):
+    """The PEM from GITHUB_APP_PRIVATE_KEY, in whichever shape it was pasted.
+
+    - the PEM itself, with real newlines (Render's env editor keeps them);
+    - the PEM on one line with escaped `\\n`s (how most env editors flatten it);
+    - base64 of the PEM, which survives any editor and any shell quoting.
+    """
+    if PEM_MARKER in value:
+        return value.replace("\\n", "\n").encode("utf-8")
+    try:
+        decoded = base64.b64decode("".join(value.split()), validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise GitHubAppError(
+            "GITHUB_APP_PRIVATE_KEY is neither a PEM nor base64 of one."
+        ) from exc
+    if PEM_MARKER.encode() not in decoded:
+        raise GitHubAppError("GITHUB_APP_PRIVATE_KEY is base64, but not of a PEM key.")
+    return decoded
 
 
 def _issuer():
